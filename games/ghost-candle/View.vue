@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
+import Rules from './Rules.vue'
 import './theme.css'
 type Public = {
   stage:string;night:number;candles:string[];submitted:string[];winner?:string;roles?:Record<string,string>;
@@ -62,7 +63,7 @@ async function chat() {
       <p v-if="state.stage!=='FINISHED'">
       {{ state.stage==='NIGHT' ? '第 '+state.night+' 夜' : '第 '+(state.night+1)+' 天' }} · 剩余 {{ seconds }} 秒
       </p></div>
-      <div class="ghost-tools"><p class="role-label">你的身份是 <strong>{{ role(secret.role) }}</strong></p><button @click="toggleAudio">{{ muted?'开启音效':'静音' }}</button></div>
+      <div class="ghost-tools"><p class="role-label">你的身份是 <strong>{{ role(secret.role) }}</strong></p><Rules/><button @click="toggleAudio">{{ muted?'开启音效':'静音' }}</button></div>
     </header>
     <div class="ghost-layout">
     <section class="ghost-board">

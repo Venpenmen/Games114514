@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { io } from 'socket.io-client'
 import { avatars, protocolVersion, type Profile, type Snapshot, type Reply } from '../../packages/protocol/index.ts'
-import { gameArtwork, gameViews } from './games.ts'
+import { gameArtwork, gameRules, gameViews } from './games.ts'
 type Game = {id:string;name:string;min:number;max:number;settings:{key:string;label:string;options:number[]}[]}
 const catalog = ref<Game[]>([])
 const profile = ref<Profile>()
@@ -18,6 +18,7 @@ const copied = ref(false)
 const socket = io({autoConnect:false})
 const game = computed(() => catalog.value.find(item => item.id === room.value?.gameId))
 const view = computed(() => gameViews.get(room.value?.gameId ?? ''))
+const rules = computed(() => gameRules.get(room.value?.gameId ?? ''))
 const me = computed(() => room.value?.members.find(item => item.id === profile.value?.id))
 const host = computed(() => room.value?.host === profile.value?.id)
 const playing = computed(() => room.value?.match && !room.value.match.finished)
@@ -130,7 +131,13 @@ async function share() {
     </template>
     <template v-else-if="room">
       <section class="panel room-panel">
-        <div class="actions room-heading"><h1>{{ game?.name }} · {{ room.code }}</h1><button @click="share">{{ copied ? '已复制链接' : '复制邀请链接' }}</button></div>
+        <div class="actions room-heading">
+          <h1>{{ game?.name }} · {{ room.code }}</h1>
+          <div class="actions">
+            <component v-if="rules && !room.match" :is="rules"/>
+            <button @click="share">{{ copied ? '已复制链接' : '复制邀请链接' }}</button>
+          </div>
+        </div>
         <ul class="members"><li v-for="member in room.members" :key="member.id">
           <span class="member-avatar" aria-hidden="true">{{ avatars[member.avatar] }}</span>
           <span class="member-name">{{ member.name }}</span>

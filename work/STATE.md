@@ -6,3 +6,5 @@ BLOCKERS: 本地 Web 无。公网、实体手机和 APK/EXE 未执行。
 NEXT_ACTION: npm.cmd ci；npm.cmd run build；npm.cmd start。公网后续按 docs/DEPLOYMENT.md 执行。
 
 ART_UPDATE: feature/web-art-direction 完成。规则及集成 13/13、类型检查、构建及三浏览器会话均退出 0。视觉截图在 work/logs。NEXT_ACTION: 双击 start.cmd 查看本地界面。
+
+RULES_UI: 完成。测试 13/13、类型检查、构建和三会话回归退出 0。本地服务已读取新版入口。NEXT_ACTION: 打开 http://127.0.0.1:3100，在等候房间或对局内点「游戏规则」。
