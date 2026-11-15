@@ -33,3 +33,9 @@
 ## 美术升级复验
 
 2026-11-15，使用同一 Windows、Node.js 与 Edge 环境。 `npm.cmd test`（13/13）、`npm.cmd run check`、`npm.cmd run build`、`npx.cmd playwright test` 均退出 0。浏览器验证封面解码并再次完成真实三人联机。检查了大厅和对局的桌面截图、390 px 对局截图。设置 `GAMES_SCREENSHOTS=1` 后重跑浏览器验收可在 `work/logs` 重建截图。
+
+## GC-RULES-1.3
+
+2026-11-15，Windows、Node.js 24、Edge。定向 `node --test games/ghost-candle/engine.test.ts` 19/19，`npm.cmd test` 21/21，`npm.cmd run check`、`npm.cmd run build` 与 `playwright.cmd test` 均退出 0。三会话通过独立回环实例完成一局及重赛。服务集成验证并发提交和同请求重试只结算一次；规则单测覆盖十种行动、完整随机候选、超时补选及双方五根胜利。
+
+平衡模拟直接运行旧版与新版规则引擎。每种策略每版 10,000 局，使用相同 xorshift32 种子序列，诡异均匀随机选完整蜡烛摧毁，白天不发起指认。人类协同同选的胜率从 92.31% 到 100%，独立随机选烛从 0.36% 到 7.98%。这是限定策略下的纯蜡烛模拟。

@@ -45,11 +45,14 @@ function settle(s: State, {now, random}: Context) {
       const hits = ghost.candle === a.candle || ghost.candle === b.candle
       let candle: number
       let status: Candle
-      if (hits && ghost.action === 'DESTROY') {
+      if (a.candle === b.candle) {
+        candle = a.candle
+        status = 'LIT'
+      } else if (hits && ghost.action === 'DESTROY') {
         candle = ghost.candle
         status = 'DESTROYED'
-      } else if (a.candle === b.candle || hits && ghost.action === 'LIGHT') {
-        candle = a.candle === b.candle ? a.candle : ghost.candle
+      } else if (hits && ghost.action === 'LIGHT') {
+        candle = ghost.candle
         status = 'LIT'
       } else {
         candle = choose()

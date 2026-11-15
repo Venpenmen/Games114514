@@ -8,3 +8,5 @@ NEXT_ACTION: npm.cmd ci；npm.cmd run build；npm.cmd start。公网后续按 do
 ART_UPDATE: feature/web-art-direction 完成。规则及集成 13/13、类型检查、构建及三浏览器会话均退出 0。视觉截图在 work/logs。NEXT_ACTION: 双击 start.cmd 查看本地界面。
 
 RULES_UI: 完成。测试 13/13、类型检查、构建和三会话回归退出 0。本地服务已读取新版入口。NEXT_ACTION: 打开 http://127.0.0.1:3100，在等候房间或对局内点「游戏规则」。
+
+GC-RULES-1.3 DONE。人类同选优先，定向摧毁仅在人类分选且诡异命中时发生。定向 19/19、完整 21/21、类型检查、构建与三会话回归通过。NEXT_ACTION: 审阅开发分支 feature/gc-rules-1.3。

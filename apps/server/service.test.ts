@@ -103,4 +103,18 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   assert(settled.every(reply=>reply.ok))
   await send(a,'sync',code)
   assert.equal(a.rooms.get(code)?.match?.phase,current.phase+1)
+  await Promise.all([a,b,c].map(client=>send(client,'sync',code)))
+  const night=a.rooms.get(code)!.match!
+  const target=(night.public as {candles:string[]}).candles.indexOf('INTACT')+1
+  const nightReplies=await Promise.all([a,b,c].map((client,index)=>send(client,'game',code,{
+    kind:'night',candle:target,action:index===0?'DESTROY':'LIGHT',
+  }, {id:'night-concurrent-'+index,phase:night.phase})))
+  assert(nightReplies.every(reply=>reply.ok))
+  assert.equal((await send(a,'game',code,{}, {id:'night-concurrent-0',phase:night.phase})).ok,true)
+  await send(a,'sync',code)
+  const next=a.rooms.get(code)!.match!
+  assert.equal(next.phase,night.phase+1)
+  const candles=(next.public as {candles:string[]}).candles
+  assert.equal(candles[target-1],'LIT')
+  assert.equal(candles.filter(candle=>candle!=='INTACT').length,2)
 })
