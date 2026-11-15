@@ -11,6 +11,7 @@ type Room = {
   code: string; gameId: string; version: number; config: unknown; host: string;
   members: (Profile & {ready: boolean})[]; updated: number; chat: Snapshot['chat'];
   match?: { id: string; state: Turn };
+  lobby?: Record<string, unknown>;
 }
 const day = 86_400_000
 const hash = (token: string) => createHash('sha256').update(token).digest('hex')
@@ -57,7 +58,7 @@ export function createPlatform(options: {
   function snapshot(room: Room, id: string): Snapshot {
     const state = room.match?.state
     const game = plugin(room)
-    return { code: room.code, host: room.host, gameId: room.gameId, config: room.config,
+    return { code: room.code, host: room.host, gameId: room.gameId, config: room.config, lobby: room.lobby,
       members: room.members.map(member => ({...member, online: online.has(member.id)})), chat: room.chat,
       match: room.match && state ? {id: room.match.id, phase: state.phase, deadline: state.deadline,
         finished: game.finished(state), public: game.public(state), private: game.private(state,id)} : undefined }
@@ -187,8 +188,15 @@ export function createPlatform(options: {
         if (cmd.type === 'sync') return {ok:true,room:room.code} as const
         if (['kick','config','start','dissolve'].includes(cmd.type) && room.host !== id) throw new Error('仅房主可操作')
         switch (cmd.type) {
+          case 'lobby':
+            if (active || !game.lobby) throw new Error('当前无法选择')
+            room.lobby ??= {}
+            room.lobby[id] = game.lobby.select(cmd.data)
+            member.ready = false
+            break
           case 'ready':
             if (active || typeof cmd.data !== 'boolean') throw new Error('无法更新准备状态')
+            if (cmd.data && game.lobby && !game.lobby.ready(room.lobby?.[id])) throw new Error('请先完成游戏准备选项')
             member.ready = cmd.data
             break
           case 'config':
@@ -200,7 +208,11 @@ export function createPlatform(options: {
               room.members.some(value => !value.ready || !online.has(value.id))) throw new Error('请等待所有玩家在线并准备')
             const players = room.members.map(value => value.id)
             if (game.canStart && !game.canStart(players,room.config)) throw new Error('未满足游戏开局条件')
-            room.match = {id:randomUUID(),state:game.start(players,room.config,{now:time,random})}
+            const lobby = game.lobby
+            const selections = room.lobby
+            if (lobby && players.some(player=>!lobby.ready(selections?.[player]))) throw new Error('未完成游戏准备选项')
+            room.match = {id:randomUUID(),state:game.start(players,room.config,{now:time,random},room.lobby)}
+            delete room.lobby
             room.chat = []
             break
           case 'dissolve':
@@ -215,6 +227,7 @@ export function createPlatform(options: {
             if ((cmd.type === 'kick' && target === id) || typeof target !== 'string' ||
                 !room.members.some(value => value.id === target)) throw new Error('成员无效')
             removed = [target]
+            if (room.lobby) delete room.lobby[target]
             room.members = room.members.filter(value => value.id !== target)
             delete room.match
             room.chat = []

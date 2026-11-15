@@ -1,12 +1,7 @@
-# 开发断点
-CURRENT_STAGE: P8 Web 0.1 交付
-WORKTREE: main 自原远端历史快进，源码验收基线为 18bea83e43bb3ab6253100e1e776fa02fa447d98。
-VERIFIED: 2026-11-15 Windows 上业务测试 13/13，类型检查、生产构建、三个独立 Edge 会话、默认端口 Windows 启停均退出 0。开发分支源码基线已推送并用 git ls-remote 核对。
-BLOCKERS: 本地 Web 无。公网、实体手机和 APK/EXE 未执行。
-NEXT_ACTION: npm.cmd ci；npm.cmd run build；npm.cmd start。公网后续按 docs/DEPLOYMENT.md 执行。
-
-ART_UPDATE: feature/web-art-direction 完成。规则及集成 13/13、类型检查、构建及三浏览器会话均退出 0。视觉截图在 work/logs。NEXT_ACTION: 双击 start.cmd 查看本地界面。
-
-RULES_UI: 完成。测试 13/13、类型检查、构建和三会话回归退出 0。本地服务已读取新版入口。NEXT_ACTION: 打开 http://127.0.0.1:3100，在等候房间或对局内点「游戏规则」。
-
-GC-RULES-1.3 DONE。人类同选优先，定向摧毁仅在人类分选且诡异命中时发生。定向 19/19、完整 21/21、类型检查、构建与三会话回归通过。NEXT_ACTION: 审阅开发分支 feature/gc-rules-1.3。
+# GAME 02 断点
+CURRENT_STAGE: P8 开发交付
+CURRENT_TASK: 《骰子狼人杀》独立分支交付
+WORKTREE: feature/dice-werewolf，基于 9958bfda21ee3ec5e64e3de7b635d4621f5d05a0。原工作树及公网实例独立。
+VERIFIED: 规则定向 11/11、全量 32/32、类型检查、生产构建、两款游戏三个独立 Edge 会话通过。骰子完整五局积分赛含两局加赛，检查了桌面、390px 移动视口和待处决截图。
+BLOCKERS: 3199 独立常驻试玩启动被工具执行策略阻止。浏览器验收使用实际临时回环服务，结束后停止。未执行实体手机或公网测试。
+NEXT_ACTION: 按 README 在独立工作树启动 3199 试玩；需要复验时运行 playwright.cmd test，最终两款游戏复验 2/2。

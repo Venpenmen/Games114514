@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { io, type Socket } from 'socket.io-client'
 import { createPlatform } from './service.ts'
 import { ghostCandle } from '../../games/ghost-candle/engine.ts'
+import { diceWerewolf, type DicePublic } from '../../games/dice-werewolf/engine.ts'
 import type { GamePlugin, Turn } from '../../packages/game-sdk/index.ts'
 import type { Reply, Snapshot } from '../../packages/protocol/index.ts'
 
@@ -19,8 +20,9 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   let clock=100_000
   const origin='http://test.local'
   const sockets: Socket[]=[]
+  let draw=0
   const open = () => createPlatform({database:resolve(folder,'test.db'),origin,secure:false,
-    plugins:[ghostCandle,fixture],now:()=>clock,random:()=>0})
+    plugins:[ghostCandle,fixture,diceWerewolf],now:()=>clock,random:limit=>limit===6?draw++%3:0})
   let service=open()
   t.after(async () => {
     sockets.forEach(socket=>socket.disconnect())
@@ -117,4 +119,61 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   const candles=(next.public as {candles:string[]}).candles
   assert.equal(candles[target-1],'LIT')
   assert.equal(candles.filter(candle=>candle!=='INTACT').length,2)
+  clock+=1000
+  const third=await send(a,'create',undefined,{gameId:'dice-werewolf'})
+  assert(third.ok && third.room)
+  const dice=third.room
+  assert((await send(b,'join',dice)).ok)
+  assert((await send(c,'join',dice)).ok)
+  assert.equal((await send(d,'lobby',dice,{portrait:0})).ok,false)
+  assert.equal((await send(b,'config',dice,{target:3})).ok,false)
+  assert.equal((await send(a,'ready',dice,true)).ok,false)
+  assert((await send(a,'config',dice,{target:3})).ok)
+  for(const [index,client] of [a,b,c].entries()) {
+    assert((await send(client,'lobby',dice,{portrait:index})).ok)
+    assert((await send(client,'ready',dice,true)).ok)
+  }
+  assert.equal((await send(b,'start',dice)).ok,false)
+  assert((await send(a,'start',dice)).ok)
+  for(const [index,client] of [a,b,c].entries()) {
+    assert((await send(client,'sync',dice)).ok)
+    const match=client.rooms.get(dice)!.match!
+    assert.deepEqual(match.private,{identity:index+1})
+    assert(!Object.hasOwn(match.public as object,'identities'))
+  }
+  assert.equal(d.rooms.get(dice),undefined)
+  assert.equal((await send(b,'lobby',dice,{portrait:5})).ok,false)
+  for(let face=1;face<=6;face++) {
+    clock+=1000
+    for(const client of [a,b,c]) await send(client,'sync',dice)
+    const actions=await Promise.all([a,b,c].map(client=>send(client,'game',dice,{kind:'act',value:1})))
+    assert(actions.every(reply=>reply.ok))
+  }
+  for(const client of [a,b,c]) await send(client,'sync',dice)
+  const ballot=a.rooms.get(dice)!.match!
+  const cast=await Promise.all([a,b,c].map((client,i)=>send(client,'game',dice,{kind:'vote',value:3},{id:'dice-ballot-'+i})))
+  assert(cast.every(reply=>reply.ok))
+  await send(a,'sync',dice)
+  const result=a.rooms.get(dice)!.match!
+  assert.equal((result.public as DicePublic).stage,'SUMMARY')
+  const score=(result.public as DicePublic).scores
+  assert.deepEqual(Object.values(score),[1,1,0])
+  sockets.forEach(socket=>socket.disconnect())
+  await service.close()
+  clock=result.deadline!+1000
+  service=open()
+  url=await listen()
+  ;[a,b,c,d]=await Promise.all(cookies.map(connect))
+  assert((await send(a,'sync',dice)).ok)
+  const resumed=a.rooms.get(dice)!.match!
+  assert.equal(resumed.id,result.id)
+  assert.equal(resumed.phase,result.phase+1)
+  assert.equal(resumed.deadline,result.deadline!+30_000)
+  assert.equal((resumed.public as DicePublic).game,2)
+  assert.deepEqual((resumed.public as DicePublic).summary?.scores,score)
+  assert((await send(a,'game',dice,{kind:'vote',value:3},{id:'dice-ballot-0',phase:ballot.phase})).ok)
+  assert.equal((await send(b,'game',dice,{kind:'vote',value:3},{phase:ballot.phase})).ok,false)
+  await send(a,'sync',dice)
+  assert.deepEqual((a.rooms.get(dice)!.match!.public as DicePublic).scores,score)
+
 })

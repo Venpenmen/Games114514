@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { io } from 'socket.io-client'
 import { avatars, protocolVersion, type Profile, type Snapshot, type Reply } from '../../packages/protocol/index.ts'
-import { gameArtwork, gameRules, gameViews } from './games.ts'
+import { gameArtwork, gameLobbies, gameRules, gameViews } from './games.ts'
 type Game = {id:string;name:string;min:number;max:number;settings:{key:string;label:string;options:number[]}[]}
 const catalog = ref<Game[]>([])
 const profile = ref<Profile>()
@@ -18,6 +18,7 @@ const copied = ref(false)
 const socket = io({autoConnect:false})
 const game = computed(() => catalog.value.find(item => item.id === room.value?.gameId))
 const view = computed(() => gameViews.get(room.value?.gameId ?? ''))
+const lobby = computed(() => gameLobbies.get(room.value?.gameId ?? ''))
 const rules = computed(() => gameRules.get(room.value?.gameId ?? ''))
 const me = computed(() => room.value?.members.find(item => item.id === profile.value?.id))
 const host = computed(() => room.value?.host === profile.value?.id)
@@ -138,13 +139,14 @@ async function share() {
             <button @click="share">{{ copied ? '已复制链接' : '复制邀请链接' }}</button>
           </div>
         </div>
-        <ul class="members"><li v-for="member in room.members" :key="member.id">
+        <ul v-if="!lobby || !playing" class="members"><li v-for="member in room.members" :key="member.id">
           <span class="member-avatar" aria-hidden="true">{{ avatars[member.avatar] }}</span>
           <span class="member-name">{{ member.name }}</span>
           <small>{{ member.id===room.host?'房主 · ':'' }}{{ member.online?'在线':'离线' }} · {{ member.ready?'已准备':'未准备' }}</small>
           <button v-if="host && !playing && member.id!==room.host" @click="send('kick',{id:member.id})">移出</button>
         </li></ul>
         <template v-if="!playing">
+          <component v-if="lobby && me" :is="lobby" :room="room" :player="me.id" :send="send"/>
           <div v-if="host" class="actions"><label v-for="field in game?.settings" :key="field.key">{{ field.label }}
             <select :value="(room.config as Record<string,number>)[field.key]" @change="setting(field.key,$event)">
               <option v-for="value in field.options" :key="value" :value="value">{{ value }}</option>

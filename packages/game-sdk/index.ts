@@ -11,7 +11,8 @@ export interface GamePlugin<C, S extends Turn> {
   settings: { key: string; label: string; options: number[] }[]
   config(input: unknown): C
   canStart?(players: string[], config: C): boolean
-  start(players: string[], config: C, ctx: Context): S
+  lobby?: { select(input: unknown): unknown; ready(selection: unknown): boolean }
+  start(players: string[], config: C, ctx: Context, selections?: Record<string, unknown>): S
   command(state: S, player: string, input: unknown, ctx: Context): void
   advance(state: S, ctx: Context): void
   public(state: S): unknown

@@ -2,7 +2,7 @@
 
 做一些小东西
 
-多人联机小游戏合集 · Web 0.1。首个可玩插件是固定三人的《诡吹灯》。
+多人联机小游戏合集 · Web 0.1。两个可玩插件均为三人游戏：《诡吹灯》和《骰子狼人杀》。
 
 大厅支持为各个游戏配置封面。《诡吹灯》采用中式烛夜主视觉、三态烛台棋盘和独立对局主题。
 
@@ -30,3 +30,12 @@ npm.cmd start
 - [冻结规则](docs/games/ghost-candle/RULES.md)
 - [架构](docs/ARCHITECTURE.md) · [协议](docs/API.md) · [实现决定](docs/DECISIONS.md)
 - [独立部署](docs/DEPLOYMENT.md) · [验收记录](docs/TEST_REPORT.md)
+
+
+## GAME 02《骰子狼人杀》
+
+三人创建或加入「骰子狼人杀」房间，分别选择赌徒形象，房主选择目标积分，三人准备后开局。桌面和手机使用同一 Web 页面。单局结算 8 秒后自动续局，可在下一局回看上一局完整结算。冠军结果持续展示。
+
+使用独立工作树试玩时，复制 .env.example 到该工作树的 .env，设置 PORT=3199、PUBLIC_ORIGIN=http://127.0.0.1:3199、DATABASE_PATH=work/logs/dice-preview.db 和 NODE_ENV=development，建好 work/logs，再运行 npm.cmd ci、npm.cmd run build、npm.cmd start。对外继续使用原有部署单独管理。
+
+[完整冻结规则](docs/games/dice-werewolf/RULES.md)

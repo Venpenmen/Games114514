@@ -18,10 +18,10 @@ test('three isolated guests complete and restart a real online match', async ({b
       await expect(page.getByRole('button',{name:new RegExp(name)})).toBeVisible()
     }
     await login(a,names[0])
-    await expect(a.locator('.game-cover')).toBeVisible()
-    expect(await a.locator('.game-cover').evaluate((image: HTMLImageElement) => image.decode().then(() => image.naturalWidth))).toBeGreaterThan(0)
+    await expect(a.locator('.game-card').filter({has:a.getByRole('heading',{name:'诡吹灯',exact:true})}).locator('.game-cover')).toBeVisible()
+    expect(await a.locator('.game-card').filter({has:a.getByRole('heading',{name:'诡吹灯',exact:true})}).locator('.game-cover').evaluate((image: HTMLImageElement) => image.decode().then(() => image.naturalWidth))).toBeGreaterThan(0)
     if (process.env.GAMES_SCREENSHOTS) await a.screenshot({path:'work/logs/lobby-desktop.png',fullPage:true})
-    await button(a,'创建房间').click()
+    await a.locator('.game-card').filter({has:a.getByRole('heading',{name:'诡吹灯',exact:true})}).getByRole('button',{name:'创建房间'}).click()
     await expect(a.getByRole('heading',{name:/诡吹灯 · \d{6}/})).toBeVisible()
     const invite=new URL(a.url())
     const code=invite.searchParams.get('room')!
