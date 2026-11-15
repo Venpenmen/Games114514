@@ -1,0 +1,33 @@
+export type Random = (limit: number) => number
+export type Context = { now: number; random: Random }
+export type Turn = { phase: number; deadline: number | null }
+export interface GamePlugin<C, S extends Turn> {
+  id: string
+  version: number
+  name: string
+  minPlayers: number
+  maxPlayers: number
+  defaults: C
+  settings: { key: string; label: string; options: number[] }[]
+  config(input: unknown): C
+  canStart?(players: string[], config: C): boolean
+  start(players: string[], config: C, ctx: Context): S
+  command(state: S, player: string, input: unknown, ctx: Context): void
+  advance(state: S, ctx: Context): void
+  public(state: S): unknown
+  private(state: S, player: string): unknown
+  finished(state: S): boolean
+  canChat(state: S): boolean
+}
+export function registry<T extends {id:string; version:number}>(plugins: T[]) {
+  const entries = new Map<string, T>()
+  for (const plugin of plugins) {
+    if (entries.has(plugin.id)) throw new Error('重复游戏注册')
+    entries.set(plugin.id, plugin)
+  }
+  return entries
+}
+export function record(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('参数无效')
+  return value as Record<string, unknown>
+}

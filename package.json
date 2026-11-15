@@ -1,0 +1,26 @@
+{
+  "name": "games114514",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test games/ghost-candle/*.test.ts packages/game-sdk/*.test.ts apps/server/*.test.ts",
+    "start": "node --env-file-if-exists=.env apps/server/index.ts",
+    "build": "vite build",
+    "check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "vue": "^3.5.0",
+    "socket.io": "^4.8.0",
+    "socket.io-client": "^4.8.0",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0",
+    "@vitejs/plugin-vue": "^6.0.0",
+    "typescript": "~5.9.0",
+    "vue-tsc": "^3.0.0",
+    "@types/node": "^24.0.0",
+    "@types/express": "^5.0.0",
+    "@playwright/test": "^1.56.0"
+  }
+}
