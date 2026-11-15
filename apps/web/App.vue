@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { io } from 'socket.io-client'
 import { avatars, protocolVersion, type Profile, type Snapshot, type Reply } from '../../packages/protocol/index.ts'
-import { gameViews } from './games.ts'
+import { gameArtwork, gameViews } from './games.ts'
 type Game = {id:string;name:string;min:number;max:number;settings:{key:string;label:string;options:number[]}[]}
 const catalog = ref<Game[]>([])
 const profile = ref<Profile>()
@@ -95,7 +95,10 @@ async function share() {
 </script>
 
 <template>
-  <header class="bar"><a href="/">多人联机小游戏合集</a><button v-if="profile?.name" @click="edit">{{ avatars[profile.avatar] }} {{ profile.name }}</button></header>
+  <header class="bar"><div class="bar-inner">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>多人联机小游戏合集</a>
+    <button v-if="profile?.name" class="profile" @click="edit">{{ avatars[profile.avatar] }} {{ profile.name }}</button>
+  </div></header>
   <main>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="profile && !connected" role="status">正在连接服务器…</p>
@@ -106,20 +109,31 @@ async function share() {
       <div class="actions"><button class="primary">保存资料</button><button v-if="profile?.name" type="button" @click="editing=false">取消</button></div>
     </form>
     <template v-else-if="profile && !room">
-      <h1>游戏大厅</h1>
-      <div class="catalog"><article v-for="item in catalog" :key="item.id" class="panel">
-        <h2>{{ item.name }}</h2><p>{{ item.min === item.max ? item.min : item.min + '–' + item.max }} 人联机</p>
-        <button class="primary" @click="send('create',{gameId:item.id})">创建房间</button>
-      </article><article class="panel"><h2>下一款游戏</h2><p>未开放</p></article></div>
-      <form class="panel actions" @submit.prevent="send('join',undefined,code)">
-        <label>房间码 <input v-model.trim="code" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" required></label><button>加入房间</button>
-      </form>
+      <div class="lobby-heading">
+        <h1>游戏大厅</h1>
+        <form class="join-form" @submit.prevent="send('join',undefined,code)">
+          <label>房间码 <input v-model.trim="code" placeholder="六位房间码" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" required></label><button>加入房间</button>
+        </form>
+      </div>
+      <div class="catalog">
+        <article v-for="item in catalog" :key="item.id" class="game-card" :class="{'has-art':gameArtwork.has(item.id)}">
+          <img v-if="gameArtwork.has(item.id)" :src="gameArtwork.get(item.id)?.cover" alt="" class="game-cover">
+          <div class="game-copy">
+            <p class="game-size">{{ item.min === item.max ? item.min : item.min + '–' + item.max }} 人联机</p>
+            <h2>{{ item.name }}</h2>
+            <p v-if="gameArtwork.get(item.id)?.description" class="game-description">{{ gameArtwork.get(item.id)?.description }}</p>
+            <button class="primary" @click="send('create',{gameId:item.id})">创建房间</button>
+          </div>
+        </article>
+        <article class="upcoming"><h2>下一款游戏</h2><p>未开放</p></article>
+      </div>
     </template>
     <template v-else-if="room">
-      <section class="panel">
-        <div class="actions"><h1>{{ game?.name }} · {{ room.code }}</h1><button @click="share">{{ copied ? '已复制链接' : '复制邀请链接' }}</button></div>
+      <section class="panel room-panel">
+        <div class="actions room-heading"><h1>{{ game?.name }} · {{ room.code }}</h1><button @click="share">{{ copied ? '已复制链接' : '复制邀请链接' }}</button></div>
         <ul class="members"><li v-for="member in room.members" :key="member.id">
-          <span>{{ avatars[member.avatar] }} {{ member.name }}</span>
+          <span class="member-avatar" aria-hidden="true">{{ avatars[member.avatar] }}</span>
+          <span class="member-name">{{ member.name }}</span>
           <small>{{ member.id===room.host?'房主 · ':'' }}{{ member.online?'在线':'离线' }} · {{ member.ready?'已准备':'未准备' }}</small>
           <button v-if="host && !playing && member.id!==room.host" @click="send('kick',{id:member.id})">移出</button>
         </li></ul>

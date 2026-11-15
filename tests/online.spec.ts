@@ -18,6 +18,9 @@ test('three isolated guests complete and restart a real online match', async ({b
       await expect(page.getByRole('button',{name:new RegExp(name)})).toBeVisible()
     }
     await login(a,names[0])
+    await expect(a.locator('.game-cover')).toBeVisible()
+    expect(await a.locator('.game-cover').evaluate((image: HTMLImageElement) => image.decode().then(() => image.naturalWidth))).toBeGreaterThan(0)
+    if (process.env.GAMES_SCREENSHOTS) await a.screenshot({path:'work/logs/lobby-desktop.png',fullPage:true})
     await button(a,'创建房间').click()
     await expect(a.getByRole('heading',{name:/诡吹灯 · \d{6}/})).toBeVisible()
     const invite=new URL(a.url())
@@ -32,6 +35,10 @@ test('three isolated guests complete and restart a real online match', async ({b
     await expect(a.getByText('在线 · 已准备',{exact:false})).toHaveCount(3)
     await button(a,'开始游戏').click()
     await Promise.all(pages.map(page=>expect(page.getByRole('heading',{name:'夜晚',exact:true})).toBeVisible()))
+    if (process.env.GAMES_SCREENSHOTS) {
+      await a.screenshot({path:'work/logs/game-desktop.png',fullPage:true})
+      await b.screenshot({path:'work/logs/game-mobile.png',fullPage:true})
+    }
     const initialUrl=a.url()
     const role=await a.locator('.ghost strong').first().textContent()
     await a.reload()

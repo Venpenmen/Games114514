@@ -25,3 +25,7 @@
 | Capacitor APK、Tauri EXE 及跨端同房 | NOT RUN，属于后续交付 |
 
 原始输出保存在 Git 忽略的 `work/logs`。
+
+## 美术升级复验
+
+2026-11-15，使用同一 Windows、Node.js 与 Edge 环境。 `npm.cmd test`（13/13）、`npm.cmd run check`、`npm.cmd run build`、`npx.cmd playwright test` 均退出 0。浏览器验证封面解码并再次完成真实三人联机。检查了大厅和对局的桌面截图、390 px 对局截图。设置 `GAMES_SCREENSHOTS=1` 后重跑浏览器验收可在 `work/logs` 重建截图。

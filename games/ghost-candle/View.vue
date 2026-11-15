@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
+import './theme.css'
 type Public = {
   stage:string;night:number;candles:string[];submitted:string[];winner?:string;roles?:Record<string,string>;
   last?:{candle:number;status:string};ballots:{day:number;round:number;votes:[string,string|null][]}[];
@@ -55,16 +56,20 @@ async function chat() {
 </script>
 
 <template>
-  <article class="panel ghost stack">
-    <div class="actions"><h2>{{ labels[state.stage] }}</h2><button @click="toggleAudio">{{ muted?'开启音效':'静音' }}</button></div>
-    <p>你的身份是 <strong>{{ role(secret.role) }}</strong></p>
-    <p v-if="state.stage!=='FINISHED'">
+  <article class="ghost" :data-stage="state.stage">
+    <header class="ghost-header">
+      <div><h2>{{ labels[state.stage] }}</h2>
+      <p v-if="state.stage!=='FINISHED'">
       {{ state.stage==='NIGHT' ? '第 '+state.night+' 夜' : '第 '+(state.night+1)+' 天' }} · 剩余 {{ seconds }} 秒
-    </p>
+      </p></div>
+      <div class="ghost-tools"><p class="role-label">你的身份是 <strong>{{ role(secret.role) }}</strong></p><button @click="toggleAudio">{{ muted?'开启音效':'静音' }}</button></div>
+    </header>
+    <div class="ghost-layout">
+    <section class="ghost-board">
     <div class="candles">
       <button v-for="(candle,i) in state.candles" :key="i" :class="[candle.toLowerCase(),{selected:selected===i+1}]"
         :disabled="state.stage!=='NIGHT' || candle!=='INTACT' || submitted" @click="selected=i+1">
-        <span class="flame" aria-hidden="true">{{ candle==='LIT'?'🔥':candle==='DESTROYED'?'×':'🕯' }}</span>
+        <span class="candle-model" aria-hidden="true"><i class="flame"></i><i class="wax"></i><i class="dish"></i></span>
         <span>{{ i+1 }} · {{ candleLabel[candle] }}</span>
       </button>
     </div>
@@ -82,20 +87,24 @@ async function chat() {
       </template>
     </div>
     <p v-if="state.stage!=='FINISHED' && state.stage!=='RESULT'">已确认 {{ state.submitted.length }} / {{ room.members.length }}</p>
-    <section v-for="ballot in state.ballots" :key="ballot.day+'-'+ballot.round">
+    </section>
+    <aside class="ghost-journal">
+    <section v-for="ballot in state.ballots" :key="ballot.day+'-'+ballot.round" class="journal-entry">
       <h3>第 {{ ballot.day }} 天 · 第 {{ ballot.round }} 轮票型</h3>
       <ul><li v-for="[voter,target] in ballot.votes" :key="voter">{{ names(voter) }} → {{ target ? names(target) : '弃票' }}</li></ul>
     </section>
-    <section v-if="state.winner">
+    <section v-if="state.winner" class="journal-entry winner">
       <h3>{{ role(state.winner) }}胜利</h3>
       <ul><li v-for="(value,id) in state.roles" :key="id">{{ names(id) }} · {{ role(value) }}</li></ul>
       <p>三人重新准备后，房主可开启新一局。</p>
     </section>
-    <section>
+    <section class="journal-entry">
       <h3>房间公聊</h3>
       <ol class="chat" aria-label="公聊记录"><li v-for="item in room.chat" :key="item.author+'-'+item.at"><strong>{{ names(item.author) }}</strong> {{ item.text }}</li></ol>
       <form v-if="canChat" class="actions" @submit.prevent="chat"><input v-model="message" maxlength="280" aria-label="聊天消息" required><button>发送</button></form>
       <p v-else>当前阶段禁止发言。</p>
     </section>
+    </aside>
+    </div>
   </article>
 </template>
