@@ -57,7 +57,11 @@ for(const phase of ['spy','mystic']) test(phase+' only projects authorization sn
   expire(s)
   click(s,'a','b')
   assert.equal(s.seats[0].intel[0].card,phase==='mystic'?'mirror':undefined)
-  assert.deepEqual(privateView(s,'b')?.intel,[])
+  const notice=privateView(s,'b')?.intel[0]
+  assert.equal(notice?.card,phase==='mystic'?'mirror':undefined)
+  assert.equal(notice?.viewedBy,phase==='mystic'?'a':undefined)
+  assert.equal(notice?.identity,undefined)
+  assert.deepEqual(privateView(s,'c')?.intel,[])
   assert.equal(JSON.stringify(publicView(s)).includes('mirror'),false)
 })
 test('mystic draws either card privately and records the phase',()=>{
@@ -74,7 +78,15 @@ test('mystic draws either card privately and records the phase',()=>{
     assert.equal(info?.card,expected)
     assert.equal(info?.phase,'mystic')
     assert.equal(publicView(s).events.some(item=>item.card===expected),false)
-    assert.deepEqual(privateView(s,'b')?.intel,[])
+    const restored=JSON.parse(JSON.stringify(s)) as NinjaState
+    assert.equal(privateView(restored,'b')?.intel[0]?.card,expected)
+    assert.equal(privateView(restored,'b')?.intel[0]?.viewedBy,'a')
+    assert.throws(()=>click(restored,'a','b'))
+    assert.equal(privateView(restored,'b')?.intel.length,1)
+    restored.mode='ready'
+    expire(restored)
+    assert.equal(privateView(restored,'b')?.intel[0]?.card,expected)
+    assert.deepEqual(privateView(start(),'b')?.intel,[])
   }
 })
 test('shapeshifter truth, memory and public swap only on confirmation',()=>{

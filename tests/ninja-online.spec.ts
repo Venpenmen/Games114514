@@ -3,9 +3,9 @@ const evidence=process.env.NINJA_TEST_ASSETS?'ninja-p20':'ninja'
 
 test('four isolated browsers complete a real ninja tournament and inspect private and public UI',async({browser})=>{
   test.setTimeout(120000)
-  const baseURL='http://127.0.0.1:3214'
+  const baseURL=process.env.NINJA_PLAY_URL??'http://127.0.0.1:3214'
   const contexts=await Promise.all(Array.from({length:5},(_,i)=>browser.newContext({
-    baseURL, viewport:i===1?{width:320,height:720}:{width:1366,height:850},
+    baseURL, viewport:i===1?{width:320,height:720}:process.env.NINJA_PLAY_URL?{width:1280,height:720}:{width:1366,height:850},
   })))
   try {
     const pages=await Promise.all(contexts.map(context=>context.newPage()))
@@ -32,6 +32,8 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await expect(a.getByText(/在线 · 已准备/)).toHaveCount(4)
     await button(a,'开始游戏').click()
     await expect(banner(a)).toHaveText('第一步轮抽')
+    await expect.poll(()=>a.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBe(0)
+    await expect(button(a,'确认提交')).toBeInViewport({ratio:1})
     await observer.getByRole('textbox',{name:'房间码'}).fill(new URL(roomUrl).searchParams.get('room')!)
     await button(observer,'旁观房间').click()
     await expect(observer.getByText('旁观中 · 仅公开信息')).toBeVisible()
@@ -60,8 +62,7 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
         }))
         for (const page of players) await expect(page.locator('.nn-game')).not.toHaveAttribute('data-phase-token',before!)
       }
-      await expect(a.locator('.nn-event[data-event="reveal"]')).toBeVisible()
-      await expect(a.locator('.nn-event[data-event="reveal"]')).toHaveCSS('animation-name','none')
+      await expect(a.locator('.nn-round-result')).toContainText('鹤派')
       await expect(banner(a)).toHaveText(/下一轮准备|冠军/,{timeout:10_000})
       if(await banner(a).textContent()==='冠军') break
       await Promise.all(players.map(async page=>{
@@ -72,8 +73,11 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await expect(a.getByRole('heading',{name:/冠军 ·/})).toBeVisible()
     await expect(observer.getByRole('heading',{name:/冠军 ·/})).toBeVisible()
     await a.screenshot({path:'work/logs/'+evidence+'-champion.png',fullPage:true})
+    await expect.poll(()=>a.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBe(0)
     await button(b,'公开时间线').click()
+    await expect(b.locator('.nn-timeline [data-kind=champion]')).toContainText('比赛结算')
     await expect(b.getByRole('dialog',{name:'公开时间线'})).toBeVisible()
+    if(process.env.NINJA_PLAY_URL) await button(a,'解散房间').click()
   } finally { await Promise.all(contexts.map(context=>context.close())) }
 })
 
@@ -115,6 +119,15 @@ test('eleven real seats fit the desktop ring and mobile target area',async({brow
         expect(a.x+a.width<=b.x || b.x+b.width<=a.x || a.y+a.height<=b.y || b.y+b.height<=a.y,
           JSON.stringify({viewport:page.viewportSize(),a,b})).toBe(true)
       expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width)
+    }
+    for (const [width,height] of [[1920,1080],[1366,768],[1280,720]]) {
+      await a.setViewportSize({width,height})
+      await expect.poll(()=>a.evaluate(()=>({
+        scroll:document.documentElement.scrollHeight,
+        height:innerHeight,
+      }))).toEqual({scroll:height,height})
+      await expect(a.getByRole('button',{name:'确认提交'})).toBeInViewport({ratio:1})
+      await expect(a.locator('.nn-seat[data-self=true]')).toBeInViewport({ratio:1})
     }
     for (const page of [a,b]) {
       const images=page.locator('.nn-game img')

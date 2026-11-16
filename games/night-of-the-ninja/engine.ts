@@ -12,7 +12,7 @@ export type PublicEvent = {
   seq:number; at:number; round:number; kind:string; actors:string[]; text:string;
   card?:string; identities?:Record<string,Identity>; group?:string; presentationAt?:number; duration?:number;
 }
-type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; text:string; identity?:Identity; card?:string; honor?:number}
+type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; viewedBy?:string; text:string; identity?:Identity; card?:string; honor?:number}
 export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
 export type NinjaState = Turn & {
   config:Config; round:number; mode:Mode; night:number; seats:Seat[]; discard:string[];
@@ -144,9 +144,9 @@ function showIdentity(s:NinjaState,ctx:Context,id:string) {
 }
 function inspect(s:NinjaState,ctx:Context,id:string,target:string,withCard=false) {
   const p=seat(s,target)
-  intel(s,ctx,id,{text:'查阅了目标的当时身份。',target,identity:{...p.identity},
-    ...(withCard && p.hand.length ? {card:p.hand[ctx.random(p.hand.length)]}:{}),
-  })
+  const card=withCard && p.hand.length ? p.hand[ctx.random(p.hand.length)] : undefined
+  intel(s,ctx,id,{text:'查阅了目标的当时身份。',target,identity:{...p.identity},card})
+  if(card) intel(s,ctx,target,{text:'你的手牌被查看。',viewedBy:id,card})
 }
 function nextCard(s:NinjaState,ctx:Context) {
   s.target=undefined

@@ -224,3 +224,72 @@
   .nn-p20 .nn-hand .nn-choice-card {transform:none!important}
 }
 .nn-p20[data-effects=reduced] .nn-hand .nn-choice-card {transform:none!important}
+
+.nn-timeline {list-style:none;display:grid;gap:.55rem;margin:0;padding:0}
+.nn-timeline li {display:grid;gap:.33rem;padding:.6rem;border:1px solid #756247;border-left:3px solid #ab9875;border-radius:.45rem;background:#202438}
+.nn-timeline li:is([data-kind=attack],[data-kind=death]) {border-left-color:#df8e81}
+.nn-timeline li:is([data-kind=honor],[data-kind=reveal],[data-kind=champion]) {border-left-color:#e7c37f}
+.nn-timeline li > header {display:flex;justify-content:space-between;position:static;padding:0;background:none}
+.nn-timeline-actors {display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}
+.nn-timeline-actors img,.nn-timeline li > p img {width:1.45rem;height:1.45rem;object-fit:cover;vertical-align:middle;border-radius:.23rem}
+
+@media (min-width:801px) {
+  main.game-page:has(> .nn-p20) {
+    display:grid;grid-template-rows:auto minmax(0,1fr);grid-template-columns:minmax(0,1fr);
+    gap:.35rem;height:100dvh;max-width:none;padding:.4rem clamp(.5rem,1.5vw,1.3rem);
+  }
+  main.game-page:has(> .nn-p20) > .nn-p20 {grid-row:2}
+  main.game-page:has(> .nn-p20[data-mode=champion]):has(> .room-panel-finished) {
+    grid-template-columns:minmax(0,1fr) minmax(12rem,19vw);
+  }
+  main.game-page:has(> .nn-p20) > .room-panel-finished {
+    grid-area:2 / 2;margin:0;padding:.6rem;overflow:auto;min-height:0;
+  }
+  .nn-game.nn-p20 {
+    display:grid;grid-template-columns:minmax(0,1fr) clamp(9rem,14vw,15rem);
+    grid-template-rows:auto minmax(0,1fr) auto;gap:.45rem;padding:.45rem;min-height:0;
+  }
+  .nn-p20 .nn-header {grid-column:1/-1;padding:.3rem .65rem}
+  .nn-p20 .nn-header h2 {font-size:clamp(1.4rem,2.2vh,2rem)}
+  .nn-p20 .nn-ring,.nn-p20 .nn-ring[data-dense=true] {grid-column:1;height:auto;min-height:0;margin:0}
+  .nn-p20 .nn-seat {
+    width:clamp(3.5rem,6.3vw,5.65rem);height:clamp(3.5rem,7.9dvh,5.2rem);
+    align-content:center;line-height:1.05;padding:1px;gap:1px;font-size:.75rem;
+  }
+  .nn-p20 .nn-seat > img {width:clamp(1.25rem,3.3dvh,2.15rem)}
+  .nn-p20 .nn-seat small {font-size:.57rem;white-space:nowrap}
+  .nn-p20 .nn-seat small img {width:.64rem}
+  .nn-p20 .nn-active-card {text-align:left;padding:.25rem .4rem;gap:.4rem}
+  .nn-p20 .nn-active-effect {font-size:.86rem;line-height:1.25}
+  .nn-p20 .nn-journal {
+    grid-area:2 / 2 / 4;display:flex;flex-direction:column;gap:.4rem;padding:.35rem;
+    min-height:0;overflow:auto;border:1px solid #796448;border-radius:.55rem;background:#171c2bea;
+  }
+  .nn-p20 .nn-journal > button {width:100%}
+  .nn-p20 .nn-journal .room-chat {width:100%;overflow-wrap:anywhere}
+  .nn-p20 .nn-journal .room-chat input {min-width:0}
+  .nn-p20 .nn-journal .room-chat form {display:flex;flex-wrap:wrap}
+  .nn-p20 .nn-operation {
+    grid-area:3 / 1;grid-template-columns:minmax(9rem,28%) minmax(0,1fr);
+    align-content:start;align-items:start;gap:.25rem .5rem;padding:.38rem;
+  }
+  .nn-p20 .nn-operation h3 {font-size:clamp(1rem,2.25dvh,1.4rem)}
+  .nn-p20 .nn-operation > :not(.nn-options):not(.nn-hand) {grid-column:1}
+  .nn-p20 .nn-options,.nn-p20 .nn-operation > .nn-hand {
+    grid-column:2;grid-row:1 / span 6;align-self:center;
+  }
+  .nn-p20 .nn-operation > .nn-options ~ .nn-hand {
+    grid-column:1;grid-row:auto;max-width:100%;padding:.2rem;
+  }
+  .nn-p20 .nn-options {grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.25rem}
+  .nn-p20 .nn-confirm {grid-column:2;justify-self:end;flex-direction:column;padding:.25rem}
+  .nn-p20 .nn-action-deck {padding:.75rem .4rem .25rem}
+  .nn-p20 .nn-choice-card {width:clamp(6.2rem,10vw,8.75rem);min-width:0}
+  .nn-p20 .nn-options .nn-choice-card .nn-card-face:not(.nn-card-compact) .nn-card-art img {
+    height:clamp(2.9rem,9dvh,6.4rem);aspect-ratio:auto;
+  }
+  .nn-p20 .nn-choice-card .nn-card-copy {padding:.2rem .3rem}
+  .nn-p20 .nn-choice-card .nn-card-copy > span {font-size:.67rem;line-height:1.14}
+  .nn-p20 .nn-choice-card .nn-card-copy strong {font-size:.9rem}
+  .nn-p20 .nn-options .nn-choice-card > strong {font-size:.78rem}
+}

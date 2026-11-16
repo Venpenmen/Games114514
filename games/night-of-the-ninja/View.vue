@@ -146,13 +146,20 @@ onMounted(()=>{
 })
 onUnmounted(()=>{clearTimeout(effectTimer);clearTimeout(letterTimer);clearTimeout(passTimer)})
 const cardName=(id:string)=>skills[cards[id].skill][0]
+const eventLabels:Record<string,[string,string]> = {
+  round:['◈','新一轮'], 'reveal-card':['◇','亮牌'], play:['▷','执行'],
+  identity:['◉','公开身份'], swap:['⇄','交换身份'], attack:['→','指定攻击目标'],
+  mirror:['↶','镜僧反应'], martyr:['✦','殉道者反应'], death:['×','死亡'],
+  honor:['◈','荣誉变动'], pool:['＋','荣誉池'], master:['✦','首脑'],
+  reveal:['⚑','轮末揭示'], champion:['★','比赛结算'],
+}
 const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lotus')=>
   Object.values(identities).filter(identity=>identity.house===house)
     .map(identity=>identity.rank).sort((a,b)=>a-b).join('、')||'无存活者'
 </script>
 
 <template>
-  <article class="nn-game nn-p20" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
+  <article class="nn-game nn-p20" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
     <header class="nn-header">
       <div><p>第 {{ state.round }} 轮<span v-if="state.night" :data-phase="state.night"> · {{ ({spy:'◈',mystic:'✦',trickster:'◇',blind:'◒',shinobi:'❖'})[state.night] }} {{ phaseNames[state.night] }}</span></p>
       <h2>{{ modes[step] ?? '技能结算' }}</h2><p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p><p v-else-if="match.deadline" class="nn-clock" :class="{'nn-clock-urgent':seconds<=5}">剩余 {{ seconds }} 秒 · {{ state.submitted }} 人已提交</p></div>
@@ -190,7 +197,8 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         <p v-else-if="targetOptions.size">{{ step==='second'?'选择目标二':'从圆桌选择目标' }}</p>
         <div v-if="state.current" class="nn-active-card">
           <CardFace :id="state.current.card" compact/>
-          <div><p>当前公开执行 · {{ name(state.current.player) }}</p><strong>{{ cardName(state.current.card) }}</strong>
+          <div><p>当前公开执行 · {{ name(state.current.player) }}</p>
+            <p class="nn-active-effect">{{ skills[cards[state.current.card].skill][1] }}</p>
             <p v-if="attack">{{ attack.actors.map(name).join(' → ') }} · 攻击尚未裁决</p></div>
         </div>
         <div v-if="shown" :key="shown.seq" class="nn-event" :data-event="shown.kind" aria-live="polite">
@@ -207,7 +215,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           <img v-if="shown.kind==='honor' || shown.kind==='martyr'" :src="asset('honor-back')" alt="荣誉徽章">
         </div>
         <section v-if="freshIntel" class="nn-letter" aria-label="新收到的私人情报">
-          <p role="status"><span aria-hidden="true">封</span> {{ freshIntel.source ? skills[freshIntel.source][0]+' · ' : '' }}{{ freshIntel.text }}</p>
+          <p role="status"><span aria-hidden="true">封</span> {{ freshIntel.viewedBy ? name(freshIntel.viewedBy)+' 查看了你的 '+cardName(freshIntel.card!)+' '+cards[freshIntel.card!].number+'。' : (freshIntel.source ? skills[freshIntel.source][0]+' · ' : '')+freshIntel.text }}</p>
           <div class="nn-letter-cards">
             <IdentityCard v-if="freshIntel.identity" :identity="freshIntel.identity" :caption="freshIntel.target ? name(freshIntel.target)+' · 取得时' : '取得时的身份'"/>
             <CardFace v-if="freshIntel.card" :id="freshIntel.card" compact/>
@@ -238,14 +246,23 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           :locked="locked" :name="name" @select="select" @confirm="confirm"/>
     <aside class="nn-journal">
       <GameHistory title="公开时间线">
-        <section v-for="event in state.events" :key="event.seq">
-          <p>第 {{ event.round }} 轮 · {{ event.text }} {{ event.actors.map(name).join('、') }}</p>
-          <img v-if="event.card" class="nn-thumb" :src="asset(cards[event.card].skill)" alt="">
-          <p v-for="(identity,id) in event.identities" :key="id">{{ name(id) }} · {{ labels[identity.house] }}{{ identity.rank?' '+identity.rank:'' }}（公开时）</p>
-        </section>
+        <ol class="nn-timeline">
+          <li v-for="event in state.events" :key="event.seq" :data-kind="event.kind">
+            <header><strong><span aria-hidden="true">{{ eventLabels[event.kind]?.[0] ?? '•' }}</span> {{ eventLabels[event.kind]?.[1] ?? '公开事件' }}</strong><small>第 {{ event.round }} 轮</small></header>
+            <div v-if="event.actors.length" class="nn-timeline-actors">
+              <template v-for="(id,i) in event.actors" :key="id">
+                <span v-if="i" aria-hidden="true">{{ event.kind==='attack'?'→':event.kind==='swap'?'⇄':'·' }}</span>
+                <span><img v-if="state.seats.some(seat=>seat.id===id)" :src="asset('portrait-'+state.seats.find(seat=>seat.id===id)!.portrait)" alt=""> {{ name(id) }}</span>
+              </template>
+            </div>
+            <p><img v-if="['honor','pool','martyr'].includes(event.kind)" :src="asset('honor-back')" alt=""> {{ event.text }}</p>
+            <CardFace v-if="event.card" :id="event.card" compact/>
+            <p v-for="(identity,id) in event.identities" :key="id"><img :src="asset(identity.house)" alt=""> {{ name(id) }} · {{ labels[identity.house] }}{{ identity.rank?' '+identity.rank:'' }}（公开时）</p>
+          </li>
+        </ol>
       </GameHistory>
       <template v-if="privateState">
-        <IntelPanel :own="privateState" :seats="state.seats" :name="name"/>
+        <IntelPanel :key="match.id" :own="privateState" :seats="state.seats" :name="name"/>
         <RoomChat :messages="room.chat" :members="room.members" :scope="room.code+':'+match.id" :player="player" :can-chat="!match.finished" :send="text=>send('chat',text)"/>
       </template>
     </aside>

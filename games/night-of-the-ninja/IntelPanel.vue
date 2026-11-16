@@ -24,15 +24,15 @@ defineProps<{own:NonNullable<ReturnType<typeof privateView>>; seats:Seat[]; name
         </div>
       </section>
       <section>
-        <h3>历史情报</h3>
+        <h3>本场比赛的历史情报</h3>
         <p v-if="!own.intel.length">本场尚未收到技能情报。</p>
         <ol v-else class="nn-intel-list">
           <li v-for="entry in [...own.intel].reverse()" :key="entry.seq">
             <header>
-              <strong>{{ entry.source ? skills[entry.source][0] : entry.phase ? phaseNames[entry.phase] : '私人提示' }}</strong>
+              <strong>{{ entry.viewedBy ? '手牌被查看' : entry.source ? skills[entry.source][0] : entry.phase ? phaseNames[entry.phase] : '私人提示' }}</strong>
               <span>第 {{ entry.round }} 轮 · <time :datetime="new Date(entry.at).toISOString()">{{ new Date(entry.at).toLocaleTimeString() }}</time></span>
             </header>
-            <p>{{ entry.target ? name(entry.target)+' · ' : '' }}{{ entry.text }}</p>
+            <p>{{ entry.viewedBy ? name(entry.viewedBy)+' 查看了你的这张手牌。' : (entry.target ? name(entry.target)+' · ' : '')+entry.text }}</p>
             <div class="nn-intel-evidence">
               <IdentityCard v-if="entry.identity" :identity="entry.identity" caption="取得时的身份"/>
               <CardFace v-if="entry.card" :id="entry.card" compact/>
