@@ -57,3 +57,10 @@
 Windows、Node.js 24、Edge。定向 node --test apps/web/components/chat-history.test.ts 通过 1/1。npm.cmd test 通过 36/36，npm.cmd run check 与 npm.cmd run build -- --outDir work/logs/chat-dist 均退出 0。全量计入工作树中已有的网络测试，其源码未混入聊天提交。
 
 npx.cmd playwright test -c work/logs/chat-playwright.config.ts 以独立 3197/3198 端口、独立数据库和独立构建目录运行，两款游戏各三会话，2/2 通过。浏览器验证桌面与 390 px、无编号、昵称字重、长文本与 HTML 文本安全、历史位置、未读计数、手动或按钮跳转、只读快照、自己发送成功、回执先于快照、限流失败保留草稿、刷新恢复、阶段禁言、重赛清空和冠军禁言。配置与日志保存在 work/logs。正式进程未重启，未执行公网和实体手机复验。
+
+
+## P12 游戏内导航与结果提醒
+
+Windows、Node.js 24、Edge。npm.cmd test 通过 36/36（包含工作树中已有的网络测试）；npm.cmd run check、npm.cmd run build -- --outDir work/logs/result-dist、npx.cmd playwright test -c work/logs/result-playwright.config.ts 均退出 0。行为定向断言随真实三会话浏览器用例运行。
+
+独立端口 3197/3198 与临时 SQLite 验收 4/4。覆盖大厅与房间入口可见性、刷新、离房、人类和诡异各胜一局、同标签页去重、狼人杀多人获胜和无人获胜、旧详情打开时延迟提示、续局自动关闭与焦点脱离、加赛、冠军和历史聊天位置。截图见 work/logs/ghost-result-true-0.png、ghost-result-false-1.png、dice-mobile-result.png 和 dice-champion-result.png。测试实例已停止；正式 3199 目录 HTTP 200，原进程未重启。公网、实体手机及 SUMMARY 最后数秒专门刷新未独立复验。

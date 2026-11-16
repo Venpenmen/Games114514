@@ -9,6 +9,7 @@ const profile = ref<Profile>()
 const room = ref<Snapshot>()
 const code = ref(new URLSearchParams(location.search).get('room') ?? '')
 const activeCode = ref(code.value)
+const restoring = ref(Boolean(code.value))
 const connected = ref(false)
 const editing = ref(false)
 const name = ref('')
@@ -35,9 +36,12 @@ socket.on('connect', () => {
   if (activeCode.value && profile.value?.name) void send('join', undefined, activeCode.value)
 })
 socket.on('disconnect', () => { connected.value = false })
-socket.on('connect_error', () => { error.value = '连接失败，请刷新页面恢复会话' })
+socket.on('connect_error', () => { restoring.value = false; error.value = '连接失败，请刷新页面恢复会话' })
 socket.on('room', (value: Snapshot) => {
-  if (value.code === activeCode.value) room.value = value
+  if (value.code === activeCode.value) {
+    room.value = value
+    if (value.match) editing.value = false
+  }
 })
 socket.on('left', (value: string) => {
   if (value === activeCode.value) { room.value = undefined; setCode('') }
@@ -55,7 +59,7 @@ onMounted(async () => {
     edit()
     editing.value = !profile.value.name
     socket.connect()
-  } catch (err) { error.value = (err as Error).message }
+  } catch (err) { restoring.value = false; error.value = (err as Error).message }
 })
 function edit() {
   name.value = profile.value?.name ?? ''
@@ -85,6 +89,7 @@ async function send(type: string, data?: unknown, target = room.value?.code) {
     }
     return true
   } catch { error.value = '服务器响应超时'; return false }
+  finally { if (type === 'join') restoring.value = false }
 }
 function setting(key:string, event:Event) {
   const input = event.target as HTMLSelectElement
@@ -97,14 +102,14 @@ async function share() {
 </script>
 
 <template>
-  <header class="bar"><div class="bar-inner">
+  <header v-if="!room?.match && (!restoring || !!room || (editing && !profile?.name))" class="bar"><div class="bar-inner">
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>多人联机小游戏合集</a>
     <button v-if="profile?.name" class="profile" @click="edit">{{ avatars[profile.avatar] }} {{ profile.name }}</button>
   </div></header>
   <main>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="profile && !connected" role="status">正在连接服务器…</p>
-    <form v-if="editing" class="panel stack" @submit.prevent="save">
+    <form v-if="editing && !room?.match" class="panel stack" @submit.prevent="save">
       <h1>个人资料</h1>
       <label>昵称 <input v-model="name" required maxlength="40" placeholder="输入昵称"></label>
       <label>头像 <select v-model="avatar"><option v-for="(icon,i) in avatars" :key="icon" :value="i">{{ icon }}</option></select></label>
@@ -136,7 +141,7 @@ async function share() {
           <h1>{{ game?.name }} · {{ room.code }}</h1>
           <div class="actions">
             <component v-if="rules && !room.match" :is="rules"/>
-            <button @click="share">{{ copied ? '已复制链接' : '复制邀请链接' }}</button>
+            <button v-if="!room.match" @click="share">{{ copied ? '已复制链接' : '复制邀请链接' }}</button>
           </div>
         </div>
         <ul v-if="!lobby || !playing" class="members"><li v-for="member in room.members" :key="member.id">

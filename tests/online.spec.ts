@@ -1,7 +1,7 @@
 import {checkRoomChat} from './room-chat.ts'
 import { expect,test,type Page } from '@playwright/test'
 
-test('three isolated guests complete and restart a real online match', async ({browser,baseURL}) => {
+for (const correct of [true,false]) test('three guests, '+(correct?'human':'ghost')+' victory and restart', async ({browser,baseURL}) => {
   const contexts=await Promise.all([
     browser.newContext({baseURL}),
     browser.newContext({baseURL,viewport:{width:390,height:844},isMobile:true,hasTouch:true}),
@@ -19,6 +19,7 @@ test('three isolated guests complete and restart a real online match', async ({b
       await expect(page.getByRole('button',{name:new RegExp(name)})).toBeVisible()
     }
     await login(a,names[0])
+    await expect(a.locator('header.bar')).toBeVisible()
     await expect(a.locator('.game-card').filter({has:a.getByRole('heading',{name:'诡吹灯',exact:true})}).locator('.game-cover')).toBeVisible()
     expect(await a.locator('.game-card').filter({has:a.getByRole('heading',{name:'诡吹灯',exact:true})}).locator('.game-cover').evaluate((image: HTMLImageElement) => image.decode().then(() => image.naturalWidth))).toBeGreaterThan(0)
     if (process.env.GAMES_SCREENSHOTS) await a.screenshot({path:'work/logs/lobby-desktop.png',fullPage:true})
@@ -38,6 +39,8 @@ test('three isolated guests complete and restart a real online match', async ({b
     await a.keyboard.press('Escape')
     await expect(lobbyRules).toBeHidden()
     await expect(button(a,'游戏规则')).toBeFocused()
+    await expect(a.locator('header.bar')).toBeVisible()
+    await expect(button(a,'复制邀请链接')).toBeVisible()
     await a.getByLabel('夜晚时长（秒）').selectOption('30')
     await Promise.all(pages.map(page=>button(page,'准备').click()))
     await expect(a.getByText('在线 · 已准备',{exact:false})).toHaveCount(3)
@@ -53,10 +56,13 @@ test('three isolated guests complete and restart a real online match', async ({b
       await a.screenshot({path:'work/logs/game-desktop.png',fullPage:true})
       await b.screenshot({path:'work/logs/game-mobile.png',fullPage:true})
     }
+    await expect(a.locator('header.bar')).toHaveCount(0)
+    await expect(button(a,'复制邀请链接')).toHaveCount(0)
     const initialUrl=a.url()
     const role=await a.locator('.ghost strong').first().textContent()
     await a.reload()
     await expect(a).toHaveURL(initialUrl)
+    await expect(a.locator('header.bar')).toHaveCount(0)
     await expect(a.locator('.ghost strong').first()).toHaveText(role!)
     await expect(b.getByRole('heading',{name:'白天讨论'})).toBeVisible({timeout:36_000})
     await expect(c.getByText(/最近一夜/)).toBeVisible()
@@ -88,8 +94,31 @@ test('three isolated guests complete and restart a real online match', async ({b
     const ghost=roles.indexOf('诡异')
     expect(ghost).toBeGreaterThanOrEqual(0)
     expect(roles.filter(value=>value==='诡异')).toHaveLength(1)
-    await Promise.all(pages.map((page,i)=>button(page,'指认 '+names[i===ghost?(i+1)%3:ghost]).click()))
-    await expect(c.getByRole('heading',{name:'人类胜利'})).toBeVisible({timeout:8_000})
+    const target=correct?ghost:(ghost+1)%3
+    const history=a.getByRole('list',{name:'公聊记录'})
+    await history.evaluate(el=>{el.scrollTop=0})
+    await Promise.all(pages.map((page,i)=>button(page,'指认 '+names[i===target?(i+1)%3:target]).click()))
+    for (const [i,page] of pages.entries()) {
+      const won=correct?i!==ghost:i===ghost
+      const result=page.getByRole('dialog',{name:(won?'胜利':'失败')+' · '+(correct?'人类':'诡异')+(won?'阵营':'阵营获胜')})
+      await expect(result).toBeVisible({timeout:8_000})
+      await expect(result.getByRole('button',{name:'关闭结果'})).toBeFocused()
+      if(i<2) await page.screenshot({path:'work/logs/ghost-result-'+correct+'-'+i+'.png',fullPage:true})
+      await page.keyboard.press('Escape')
+      await expect(result).toBeHidden()
+      await expect(page.locator('header.bar')).toHaveCount(0)
+      await expect(button(page,'复制邀请链接')).toHaveCount(0)
+    }
+    expect(await history.evaluate(el=>el.scrollTop)).toBe(0)
+    await expect(history.locator('li')).toHaveCount(8)
+    await c.reload()
+    await expect(c.getByRole('heading',{name:correct?'人类胜利':'诡异胜利'})).toBeVisible()
+    await expect(c.locator('.game-result[open]')).toHaveCount(0)
+    if(!correct) {
+      await button(c,'退出房间').click()
+      await expect(c.locator('header.bar')).toBeVisible()
+      return
+    }
     await expect(a.getByText(/在线 · 未准备/)).toHaveCount(3)
     await button(a,'开始新一局').click()
     await expect(a.getByRole('alert')).toHaveText('请等待所有玩家在线并准备')

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import GameResultDialog from '../../apps/web/components/GameResultDialog.vue'
 import RoomChat from '../../apps/web/components/RoomChat.vue'
 import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
@@ -39,6 +40,13 @@ function review() {
   results.value?.showModal()
 }
 const showSummary=computed(()=>state.value.stage==='SUMMARY'||state.value.stage==='CHAMPION')
+const resultKey=computed(()=>showSummary.value && summary.value
+  ? [props.room.code,match.value.id,summary.value.game,state.value.stage].join(':') : undefined)
+const victory=computed(()=>state.value.stage==='CHAMPION'
+  ? summary.value?.champion===props.player : (summary.value?.winners.includes(props.player) ?? false))
+const resultTitleText=computed(()=>state.value.stage==='CHAMPION'
+  ? (victory.value?'夺冠':'未夺冠')+' · '+name(summary.value?.champion ?? '')+' 获得冠军'
+  : (victory.value?'胜利':'失败')+' · 第 '+(summary.value?.game ?? '')+' 局')
 const muted=ref((localStorage.getItem('games-muted') ?? localStorage.getItem('ghost-muted'))!=='false')
 let audio:AudioContext|undefined
 function sound(frequency:number) {
@@ -66,6 +74,16 @@ const recentBallot=computed(()=>state.value.ballots.at(-1))
 
 <template>
   <article class="dw-saloon">
+    <GameResultDialog :result-key="resultKey" :title="resultTitleText" :victory="victory" theme="dice">
+      <template v-if="summary">
+        <p v-if="state.stage==='CHAMPION'">整场比赛结束。</p>
+        <template v-else>
+          <p>{{ summary.winners.length ? '本局获胜：'+summary.winners.map(name).join('、') : '本局无人获胜。' }}</p>
+          <p>{{ clock }} 秒后自动续局。</p>
+        </template>
+        <ul aria-label="积分"><li v-for="member in room.members" :key="member.id">{{ member.name }} · {{ summary.scores[member.id] }} 分</li></ul>
+      </template>
+    </GameResultDialog>
     <header class="dw-banner">
       <div>
         <p>第 {{ state.game }} 局 · 第 {{ state.round }} 轮 · {{ state.overtime?'加赛':'普通赛' }} · 目标 {{ state.target }} 分</p>

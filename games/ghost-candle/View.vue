@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import GameResultDialog from '../../apps/web/components/GameResultDialog.vue'
 import RoomChat from '../../apps/web/components/RoomChat.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
@@ -48,12 +49,19 @@ watch(seconds, value => { if (value > 0 && value <= 3) cue(360) })
 const labels:Record<string,string> = {NIGHT:'夜晚',DAY_DISCUSSION:'白天讨论',DAY_DECISION:'是否寻找诡异',ACCUSATION:'指认诡异',REVOTE:'重新指认',RESULT:'公开投票结果',FINISHED:'对局结束'}
 const names = (id:string) => props.room.members.find(member=>member.id===id)?.name ?? '已离开'
 const role = (id:string) => id==='GHOST' ? '诡异' : '人类'
+const resultKey = computed(() => state.value.stage==='FINISHED' && state.value.winner
+  ? [props.room.code,props.room.match!.id,'FINISHED'].join(':') : undefined)
+const victory = computed(() => state.value.winner===secret.value.role)
 const candleLabel:Record<string,string> = {INTACT:'完好',LIT:'点亮',DESTROYED:'摧毁'}
 const command = (data:unknown) => props.send('game',data)
 </script>
 
 <template>
   <article class="ghost" :data-stage="state.stage">
+    <GameResultDialog :result-key="resultKey" :title="(victory?'胜利':'失败') + ' · ' + role(state.winner ?? '') + (victory?'阵营':'阵营获胜')"
+      :victory="victory" theme="ghost">
+      <p>{{ role(state.winner ?? '') }}阵营赢得本局。关闭后仍可查看身份、投票及聊天记录。</p>
+    </GameResultDialog>
     <header class="ghost-header">
       <div><h2>{{ labels[state.stage] }}</h2>
       <p v-if="state.stage!=='FINISHED'">

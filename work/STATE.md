@@ -7,3 +7,5 @@ BLOCKERS: 3199 独立常驻试玩启动被工具执行策略阻止。浏览器�
 NEXT_ACTION: 按 README 在独立工作树启动 3199 试玩；需要复验时运行 playwright.cmd test，最终两款游戏复验 2/2。
 
 CHAT_UI DONE · 两款游戏共享聊天组件。定向 1/1、全量 36/36、类型检查、隔离构建及三会话浏览器 2/2 通过。NEXT_ACTION: 在独立回环环境按 docs/TEST_REPORT.md 复验。
+
+RESULT_UI DONE · 两款游戏导航与胜负提醒，自动化 36/36、类型检查、构建、独立三会话 4/4。NEXT_ACTION: 保留本地提交，等待人工确认正式部署。
