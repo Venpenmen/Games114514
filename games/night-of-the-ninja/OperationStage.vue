@@ -55,7 +55,8 @@ const stageHelp=computed(()=>{
   if(step.value==='reaction') return '本次攻击最多使用一张反应牌。超时视为不反应。'
   return ''
 })
-const optionForSeat=(id:string)=>options.value.find(option=>option.target===id)
+const handMode=computed(()=>['draft1','draft2','commit','reaction'].includes(step.value))
+const inactiveCards=computed(()=>props.own?.hand.filter(id=>!options.value.some(option=>option.card===id))??[])
 const cardIds=(option:Option)=>option.card?[option.card]:
   step.value==='commit' && option.value.includes(',')?option.value.split(','):[]
 const optionLabel=(option:Option)=>option.card?
@@ -88,17 +89,8 @@ const passLabel=computed(()=>step.value==='reaction'?'不使用反应':
       </template>
     </div>
     <div v-if="options.length" class="nn-options">
-      <div v-if="aiming" class="nn-target-grid">
-        <button v-for="seat in state.seats" :key="seat.id" type="button" class="nn-target-choice"
-          :aria-label="name(seat.id)" :aria-pressed="selected===seat.id"
-          :disabled="locked || !optionForSeat(seat.id)"
-          @click="$emit('select',optionForSeat(seat.id)!.value)">
-          <img :src="asset('portrait-'+seat.portrait)" alt="">
-          <strong>{{ name(seat.id) }}</strong>
-          <small>{{ targets.includes(seat.id) ? '已确认目标' : !seat.alive ? '已死亡' : optionForSeat(seat.id) ? '可选目标' : '不可选' }}</small>
-        </button>
-      </div>
-      <div v-else class="nn-action-deck" :class="{'nn-card-deck':options.some(option=>cardIds(option).length)}">
+      <div v-if="!aiming" class="nn-action-deck" :class="{'nn-card-deck':options.some(option=>cardIds(option).length),'nn-hand':handMode}"
+        :aria-label="handMode?'本人手牌':undefined">
         <button v-for="option in options" :key="option.value" type="button" class="nn-choice"
           :class="{'nn-choice-card':cardIds(option).length,'nn-choice-pass':option.value==='pass'}"
           :aria-label="optionLabel(option)" :aria-pressed="selected===option.value" :disabled="locked"
@@ -118,11 +110,18 @@ const passLabel=computed(()=>step.value==='reaction'?'不使用反应':
           </template>
           <small v-if="selected===option.value" class="nn-choice-selected">已选</small>
         </button>
+        <div v-for="id in handMode?inactiveCards:[]" :key="id" class="nn-hand-card">
+          <CardFace :id="id" compact/>
+          <small>{{ step==='draft2'?'第一步已保留 · 已锁定':'当前不可操作' }}</small>
+        </div>
       </div>
       <div class="nn-confirm">
         <span>{{ selected ? '已选 · 等待确认' : '先选一项，再确认' }}</span>
         <button type="button" class="primary" :disabled="!selected || locked" @click="$emit('confirm')">确认提交</button>
       </div>
+    </div>
+    <div v-if="own?.hand.length && (!handMode || !options.length)" class="nn-hand" aria-label="本人手牌">
+      <CardFace v-for="id in own.hand" :key="id" :id="id" compact/>
     </div>
   </section>
 </template>

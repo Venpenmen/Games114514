@@ -44,7 +44,7 @@ for(const [count,mode] of setups) {
       await button('开始游戏').click()
       await expect(page.locator('.nn-seat')).toHaveCount(count)
       await expect(page.locator('.nn-seat').filter({hasText:'练习机器人'})).toHaveCount(count-1)
-      const actions=page.locator('.nn-options button[aria-pressed]')
+      const actions=page.locator('.nn-options button[aria-pressed]:enabled, .nn-seat[aria-pressed]:enabled')
       let submitted=''
       let humanActions=0
       while(true) {
@@ -52,7 +52,7 @@ for(const [count,mode] of setups) {
           const game=document.querySelector('.nn-game')
           const phase=game?.getAttribute('data-phase-token')
           if(game?.querySelector('.nn-champion')) return 'finished'
-          if(phase && phase!==last && game?.querySelector('.nn-options button[aria-pressed]')) return phase
+          if(phase && phase!==last && game?.querySelector('.nn-options button[aria-pressed]:not(:disabled), .nn-seat[aria-pressed]:not(:disabled)')) return phase
           return false
         },submitted,{timeout:55_000})
         const phase=await ready.jsonValue()

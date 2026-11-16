@@ -105,6 +105,15 @@ test('eleven real seats fit the desktop ring and mobile target area',async({brow
     await a.getByRole('button',{name:'开始游戏',exact:true}).click()
     for(const page of [a,b]) {
       await expect(page.locator('.nn-seat')).toHaveCount(11)
+      const seats=await page.locator('.nn-seat').evaluateAll(nodes=>nodes.map(node=>{
+        const {x,y,width,height}=node.getBoundingClientRect()
+        return {x,y,width,height,self:(node as HTMLElement).dataset.self==='true'}
+      }))
+      const self=seats.find(seat=>seat.self)!
+      expect(self.y).toBeGreaterThan(Math.max(...seats.filter(seat=>!seat.self).map(seat=>seat.y)))
+      for(const [i,a] of seats.entries()) for(const b of seats.slice(i+1))
+        expect(a.x+a.width<=b.x || b.x+b.width<=a.x || a.y+a.height<=b.y || b.y+b.height<=a.y,
+          JSON.stringify({viewport:page.viewportSize(),a,b})).toBe(true)
       expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width)
     }
     for (const page of [a,b]) {
@@ -115,6 +124,6 @@ test('eleven real seats fit the desktop ring and mobile target area',async({brow
     await b.screenshot({path:'work/logs/'+evidence+'-11-mobile.png',fullPage:true})
     const action=a.locator('.nn-operation')
     await expect(action).toHaveAttribute('data-action','draft2',{timeout:36_000})
-    await expect(action.locator('.nn-card-deck .nn-card-face')).toHaveCount(2)
+    await expect(action.locator('.nn-card-deck button .nn-card-face')).toHaveCount(2)
   } finally {await Promise.all(contexts.map(context=>context.close()))}
 })
