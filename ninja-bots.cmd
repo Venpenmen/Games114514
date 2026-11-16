@@ -2,5 +2,9 @@
 setlocal
 cd /d "%~dp0"
 chcp 65001 >NUL
-node scripts/ninja-bots-cli.ts %*
-exit /b %errorlevel%
+echo.
+echo This old bot launcher has been retired.
+echo Use ninja-bot-manager.cmd to choose a room, bot count and difficulties.
+echo.
+pause
+exit /b 0

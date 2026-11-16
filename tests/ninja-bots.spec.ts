@@ -23,6 +23,11 @@ for(const [count,mode] of setups) {
     const rng=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/2**32)
     const setup={origin,room,cookieName:'games_ninja_browser',mode,random:rng}
     if(count===4) {
+      const partial=await fillNinjaRoom({...setup,count:2,modes:['random','strategic']})
+      expect(partial.count).toBe(2)
+      await expect(page.getByText(/在线 · 已准备/)).toHaveCount(2)
+      await partial.stop()
+      await expect(page.locator('.members li')).toHaveCount(1)
       const waiting=await fillNinjaRoom(setup)
       await expect(page.getByText(/在线 · 已准备/)).toHaveCount(3)
       await expect(fillNinjaRoom(setup)).rejects.toThrow('等待房间的游戏、对局或人数已变化')

@@ -14,3 +14,5 @@ NEXT_ACTION: 打开 http://127.0.0.1:3213 验收，依据 docs/games/night-of-th
 SOLO_BOTS: 3213 混合试玩已启用。基于 785b89c，复用现有游客注册、Socket.IO 命令和真实浏览器验收；4／11 人混合比赛 2/2 到冠军，启停脚本实测通过。NEXT_ACTION: 在 3213 创建新《忍者之夜》房间，运行 ninja-bots.cmd 填充。
 
 P20: DONE · 可验收候选，基线 a08b996。规则 55/55、全量 93/93、浏览器 9/9、类型检查与候选构建通过。3216 独立预览已启动，3213 原预览仍运行。商人、掘墓人两项未做逐步骤浏览器专项，覆盖详见测试报告。NEXT_ACTION: 打开 http://127.0.0.1:3216 并按 README 验收或回退。
+
+BOT_MANAGER_2026-11-16: 原 3213、3216 机器人组均已通过原 CLI 停止，机器上未发现 ninja-bots-cli.ts 活动进程，两个试玩服务继续运行。新 `ninja-bot-manager.cmd` 提供常驻交互菜单、端口选择、房间码、1～10 人自定义数量与统一/逐人三级行为策略；原 `ninja-bots.cmd` 改为弃用提示。新管理器逻辑 `scripts/ninja-bots-manager.ts`；机器人基础实现最小改动 `scripts/ninja-bots.ts`。3216 在新建测试房间 135732 实测 2 名难度 1/3 机器人加入、准备、退出后席位 3→1，退出码 0；npm check、93/93 测试已通过。后续完整浏览器机器人回归见日志。NEXT_ACTION: 双击 ninja-bot-manager.cmd，创建目标端口新房间并在常驻菜单中配置。

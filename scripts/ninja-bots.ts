@@ -4,12 +4,12 @@ import {protocolVersion,type Command,type Reply,type Snapshot} from '../packages
 import {cards} from '../games/night-of-the-ninja/cards.ts'
 import type {privateView,publicView} from '../games/night-of-the-ninja/engine.ts'
 
-export type BotMode = 'random'|'simple'
+export type BotMode = 'random'|'simple'|'strategic'
 type PublicView = ReturnType<typeof publicView>
 type OwnView = NonNullable<ReturnType<typeof privateView>>
 type Choice = OwnView['options'][number]
 type Setup = {
-  origin:string; cookieName:string; room:string; mode:BotMode;
+  origin:string; cookieName:string; room:string; mode:BotMode; count?:number; modes?:BotMode[];
   random?:()=>number; report?:(message:string)=>void; signal?:AbortSignal;
 }
 
@@ -26,8 +26,9 @@ export function choose(options:Choice[],state:PublicView,mode:BotMode,random:()=
     if(choice.value==='yes' || (state.mode==='commit' && choice.value.includes(','))) return 10
     return 0
   }
-  const best=Math.max(...options.map(score))
-  return pick(options.filter(choice=>score(choice)===best))
+  const weighted=(choice:Choice)=>score(choice)+(mode==='strategic' && choice.card ? (['judge','blind','shinobi','mirror','martyr'].includes(cards[choice.card].skill)?4:0):0)
+  const best=Math.max(...options.map(weighted))
+  return pick(options.filter(choice=>weighted(choice)===best))
 }
 
 async function spawnBot(setup:Setup,number:number) {
@@ -145,13 +146,18 @@ export async function fillNinjaRoom(setup:Setup) {
   if(!/^\d{6}$/.test(setup.room)) throw new Error('请输入六位房间码')
   const bots:Awaited<ReturnType<typeof spawnBot>>[]=[]
   let capacity=0
+  if(setup.count!==undefined && (!Number.isInteger(setup.count)||setup.count<1||setup.count>10)) throw new Error('机器人数量必须在 1～10 人之间')
+  if(setup.modes && (setup.modes.length!==setup.count || setup.modes.some(mode=>!['random','simple','strategic'].includes(mode)))) throw new Error('机器人难度配置无效')
   const stop=async()=>{await Promise.all(bots.map(bot=>bot.stop()))}
   try {
-    for(let number=1;number===1 || number<capacity;number++) {
+    for(let number=1;setup.count===undefined?(number===1||number<capacity):(number<=setup.count);number++) {
       setup.signal?.throwIfAborted()
-      const bot=await spawnBot(setup,number)
+      const bot=await spawnBot({...setup,mode:setup.modes?.[number-1]??setup.mode},number)
       bots.push(bot)
-      if(number===1) capacity=bot.capacity
+      if(number===1) {
+        capacity=bot.capacity
+        if(setup.count!==undefined && setup.count>=capacity) throw new Error('机器人数量必须小于房间正式玩家数')
+      }
       else if(bot.capacity!==capacity) throw new Error('填充期间正式人数已变化，请停止后重试')
     }
     return {count:bots.length,stop}
