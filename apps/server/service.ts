@@ -12,15 +12,18 @@ type Room = {
   members: (Profile & {ready: boolean})[]; updated: number; chat: Snapshot['chat'];
   match?: { id: string; state: Turn };
   lobby?: Record<string, unknown>;
+  departed?: string[]; hostOfflineAt?: number; pausedMs?: number; clockAt?: number;
 }
 const day = 86_400_000
 const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 export function createPlatform(options: {
   database: string; origin: string; secure: boolean; plugins: Plugin[];
-  assets?: string; now?: () => number; random?: (limit: number) => number;
+  assets?: string; cookieName?: string; now?: () => number; random?: (limit: number) => number;
 }) {
   const now = options.now ?? Date.now
   const random = options.random ?? randomInt
+  const cookieName = options.cookieName ?? 'games_session'
+  if (!/^[a-zA-Z0-9_-]+$/.test(cookieName)) throw new Error('Invalid session cookie name')
   const games = registry(options.plugins)
   const db = new DatabaseSync(options.database)
   db.exec(`PRAGMA journal_mode=WAL;
@@ -49,25 +52,73 @@ export function createPlatform(options: {
     return game
   }
   function session(cookie?: string) {
-    const token = cookie?.match(/(?:^|;\s*)games_session=([a-f0-9]{64})(?:;|$)/)?.[1]
+    const token = cookie?.match(new RegExp('(?:^|;\\s*)'+cookieName+'=([a-f0-9]{64})(?:;|$)'))?.[1]
     if (!token) return
     const secret = hash(token)
     const row = db.prepare('SELECT profile FROM sessions WHERE secret=? AND expires>?').get(secret, now())
     if (row) return { secret, profile: JSON.parse(String(row.profile)) as Profile }
   }
-  function snapshot(room: Room, id: string): Snapshot {
+  function present(room:Room,id:string) {
+    return online.has(id) && !room.departed?.includes(id)
+  }
+  function syncPresence(room:Room,time:number) {
+    const state=room.match?.state
+    const game=plugin(room)
+    const policy=game.roomPolicy
+    if(!policy || !state || game.finished(state)) return false
+    const connected=room.members.filter(member=>present(room,member.id))
+    let changed=false
+    if(policy.pauseWhenEmpty) {
+      if(!connected.length && state.deadline!==null) {
+        room.pausedMs=Math.max(0,state.deadline-(room.clockAt??time))
+        state.deadline=null
+        changed=true
+      } else if(connected.length && room.pausedMs!==undefined) {
+        state.deadline=time+room.pausedMs
+        delete room.pausedMs
+        changed=true
+      }
+      if(connected.length && (room.clockAt===undefined || time-room.clockAt>=1000)) {
+        room.clockAt=time
+        changed=true
+      }
+    }
+    if(policy.hostTransferMs) {
+      if(!present(room,room.host)) {
+        if(room.hostOfflineAt===undefined) {room.hostOfflineAt=time;changed=true}
+        if(connected.length && (room.departed?.includes(room.host)||time-room.hostOfflineAt>=policy.hostTransferMs)) {
+          room.host=connected[0].id
+          delete room.hostOfflineAt
+          changed=true
+        }
+      } else if(room.hostOfflineAt!==undefined) {
+        delete room.hostOfflineAt
+        changed=true
+      }
+    }
+    return changed
+  }
+  function snapshot(room: Room, id: string, spectator=false): Snapshot {
     const state = room.match?.state
     const game = plugin(room)
     return { code: room.code, host: room.host, gameId: room.gameId, config: room.config, lobby: room.lobby,
-      members: room.members.map(member => ({...member, online: online.has(member.id)})), chat: room.chat,
+      members: room.members.map(member => ({...member, online: present(room,member.id)})),
+      chat: spectator ? [] : room.chat, pausedMs:room.pausedMs,
+      ...(spectator?{spectator:true}:game.roomPolicy?.pauseWhenEmpty?{canLeaveActive:true}:{}),
       match: room.match && state ? {id: room.match.id, phase: state.phase, deadline: state.deadline,
-        finished: game.finished(state), public: game.public(state), private: game.private(state,id)} : undefined }
+        finished: game.finished(state), public: game.public(state), ...(spectator?{}:{private:game.private(state,id)})} : undefined }
   }
   function broadcast(room: Room) {
-    for (const member of room.members) io.to(member.id).emit('room',snapshot(room, member.id))
+    for (const member of room.members) {
+      if(!room.departed?.includes(member.id)) io.to(member.id).emit('room',snapshot(room, member.id))
+    }
+    if(plugin(room).roomPolicy?.spectators && room.match) io.to('watch:'+room.code).emit('room',snapshot(room,'',true))
   }
   function changedPresence(id: string) {
-    for (const room of rooms()) if (room.members.some(member => member.id === id)) broadcast(room)
+    for(const room of rooms()) if(room.members.some(member=>member.id===id)) {
+      if(syncPresence(room,now())) save(room)
+      broadcast(room)
+    }
   }
   function advance(room: Room, time: number) {
     const state = room.match?.state
@@ -86,13 +137,19 @@ export function createPlatform(options: {
   function tick() {
     const time = now()
     for (const room of rooms()) {
+      const presenceChanged=syncPresence(room,time)
       if (advance(room,time)) {
         room.updated = time
         save(room)
         broadcast(room)
-      } else if (room.updated < time - day) {
+      } else if (presenceChanged) {
+        save(room)
+        broadcast(room)
+      } else if (!(room.match && plugin(room).roomPolicy?.pauseWhenEmpty && !plugin(room).finished(room.match.state)) && room.updated < time - day) {
         db.prepare('DELETE FROM rooms WHERE code=?').run(room.code)
         for (const member of room.members) io.to(member.id).emit('left', room.code)
+        io.to('watch:'+room.code).emit('left',room.code)
+        io.in('watch:'+room.code).socketsLeave('watch:'+room.code)
       }
     }
     db.prepare('DELETE FROM receipts WHERE created<?').run(time - day)
@@ -111,7 +168,7 @@ export function createPlatform(options: {
     next()
   })
   app.get('/api/catalog', (_req,res) => res.json([...games.values()].map(game => ({
-    id:game.id, name:game.name, min:game.minPlayers, max:game.maxPlayers, settings:game.settings, defaults:game.defaults,
+    id:game.id, name:game.name, spectators:game.roomPolicy?.spectators, min:game.minPlayers, max:game.maxPlayers, settings:game.settings, defaults:game.defaults,
   }))))
   app.get('/api/me', (req,res) => res.json(session(req.headers.cookie)?.profile ?? null))
   app.post('/api/session', (req,res) => {
@@ -120,7 +177,7 @@ export function createPlatform(options: {
     const token = randomBytes(32).toString('hex')
     const profile = {id:randomUUID(), name:'', avatar:0}
     db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), JSON.stringify(profile), now()+30*day)
-    res.cookie('games_session',token,{httpOnly:true,secure:options.secure,sameSite:'strict',maxAge:30*day})
+    res.cookie(cookieName,token,{httpOnly:true,secure:options.secure,sameSite:'strict',maxAge:30*day})
     res.json(profile)
   })
   app.put('/api/profile', (req,res) => {
@@ -179,12 +236,16 @@ export function createPlatform(options: {
       if (cmd.type === 'join') {
         if (!member) {
           if (active) throw new Error('对局已开始')
-          if (room.members.length >= game.maxPlayers) throw new Error('房间已满')
+          if (room.members.length >= (game.roomPolicy?.capacity(room.config) ?? game.maxPlayers)) throw new Error('房间已满')
           if (room.match) { delete room.match; room.chat = [] }
           room.members.push({...profile,ready:false})
         }
+        if(room.departed?.includes(id)) {
+          room.departed=room.departed.filter(value=>value!==id)
+          syncPresence(room,time)
+        }
       } else {
-        if (!member) throw new Error('你不是房间成员')
+        if (!member || room.departed?.includes(id)) throw new Error('你不是房间成员')
         if (cmd.type === 'sync') return {ok:true,room:room.code} as const
         if (['kick','config','start','dissolve'].includes(cmd.type) && room.host !== id) throw new Error('仅房主可操作')
         switch (cmd.type) {
@@ -201,7 +262,9 @@ export function createPlatform(options: {
             break
           case 'config':
             if (active) throw new Error('对局已开始')
-            room.config = game.config(cmd.data)
+            const config=game.config(cmd.data)
+            if(game.roomPolicy && room.members.length>game.roomPolicy.capacity(config)) throw new Error('房间人数超过设置')
+            room.config = config
             break
           case 'start':
             if (active || room.members.length < game.minPlayers || room.members.length > game.maxPlayers ||
@@ -213,6 +276,10 @@ export function createPlatform(options: {
             if (lobby && players.some(player=>!lobby.ready(selections?.[player]))) throw new Error('未完成游戏准备选项')
             room.match = {id:randomUUID(),state:game.start(players,room.config,{now:time,random},room.lobby)}
             delete room.lobby
+            delete room.pausedMs
+            delete room.departed
+            delete room.hostOfflineAt
+            room.clockAt=time
             room.chat = []
             break
           case 'dissolve':
@@ -222,6 +289,12 @@ export function createPlatform(options: {
             break
           case 'kick':
           case 'leave': {
+            if(active && cmd.type==='leave' && game.roomPolicy?.pauseWhenEmpty) {
+              ;(room.departed??=[]).push(id)
+              removed=[id]
+              syncPresence(room,time)
+              break
+            }
             if (active) throw new Error('对局进行中，席位保留')
             const target = cmd.type === 'kick' ? record(cmd.data).id : id
             if ((cmd.type === 'kick' && target === id) || typeof target !== 'string' ||
@@ -240,6 +313,7 @@ export function createPlatform(options: {
           case 'chat':
             if (!active || !state || cmd.match !== room.match?.id || cmd.phase !== state.phase) throw new Error('对局或阶段已变化')
             if (cmd.type === 'game') {
+              if (room.pausedMs!==undefined) throw new Error('比赛已暂停')
               game.command(state,id,cmd.data,{now:time,random})
               if (game.finished(state)) room.members.forEach(value => { value.ready = false })
             } else {
@@ -265,6 +339,10 @@ export function createPlatform(options: {
     } catch (error) { db.exec('ROLLBACK'); throw error }
     for (const target of removed) io.to(target).emit('left',room.code)
     if (!dissolved) broadcast(room)
+    else {
+      io.to('watch:'+room.code).emit('left',room.code)
+      io.in('watch:'+room.code).socketsLeave('watch:'+room.code)
+    }
     return reply
   }
   io.use((socket,next) => {
@@ -293,8 +371,23 @@ export function createPlatform(options: {
         const time = now()
         if (!rate || time-rate.at >= 1000) rates.set(id,{at:time,count:1})
         else if (++rate.count > 20) throw new Error('操作太快')
+        if(data.type==='watch') {
+          const room=typeof data.room==='string'?load(data.room):undefined
+          if(!room?.match || !plugin(room).roomPolicy?.spectators || room.members.some(member=>member.id===id)) throw new Error('此房间不能旁观')
+          for(const channel of socket.rooms) if(channel.startsWith('watch:')) socket.leave(channel)
+          socket.join('watch:'+room.code)
+          socket.emit('room',snapshot(room,id,true))
+          ack({ok:true,room:room.code})
+          return
+        }
+        if(data.type==='unwatch') {
+          for(const channel of socket.rooms) if(channel.startsWith('watch:')) socket.leave(channel)
+          ack({ok:true})
+          return
+        }
         reply = execute(current.profile,data as Command)
         if (reply.ok && reply.room) {
+          if(data.type==='join'||data.type==='create') for(const channel of socket.rooms) if(channel.startsWith('watch:')) socket.leave(channel)
           const room = load(reply.room)
           if (room?.members.some(value => value.id === id)) socket.emit('room',snapshot(room,id))
         }
@@ -311,6 +404,12 @@ export function createPlatform(options: {
   if (options.assets) app.use(express.static(options.assets))
   return { server, tick, async close() {
     clearInterval(timer)
+    for(const room of rooms()) {
+      if(plugin(room).roomPolicy?.pauseWhenEmpty && room.match && !plugin(room).finished(room.match.state)) {
+        room.clockAt=now()
+        save(room)
+      }
+    }
     await io.close()
     db.close()
   } }

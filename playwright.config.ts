@@ -12,5 +12,15 @@ export default defineConfig({
     command:'node tests/dice-server.ts',
     url:'http://127.0.0.1:3198',
     reuseExistingServer:false,
+  },{
+    command:'node apps/server/index.ts',
+    url:'http://127.0.0.1:3214',
+    env:{PORT:'3214',PUBLIC_ORIGIN:'http://127.0.0.1:3214',DATABASE_PATH:'work/logs/ninja-browser.db',
+      SESSION_COOKIE_NAME:'games_ninja_browser',NODE_ENV:'development'},
+    reuseExistingServer:false,
+  },{
+    command:'node tests/ninja-rehearsal-server.ts',
+    url:'http://127.0.0.1:3215',
+    reuseExistingServer:false,
   }],
 })

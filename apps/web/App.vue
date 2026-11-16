@@ -3,12 +3,15 @@ import { computed, onMounted, ref } from 'vue'
 import { io } from 'socket.io-client'
 import { avatars, protocolVersion, type Profile, type Snapshot, type Reply } from '../../packages/protocol/index.ts'
 import { gameArtwork, gameLobbies, gameRules, gameViews } from './games.ts'
-type Game = {id:string;name:string;min:number;max:number;settings:{key:string;label:string;options:number[]}[]}
+type Game = {spectators?:boolean;id:string;name:string;min:number;max:number;settings:{key:string;label:string;options:number[]}[]}
 const catalog = ref<Game[]>([])
 const profile = ref<Profile>()
 const room = ref<Snapshot>()
 const code = ref(new URLSearchParams(location.search).get('room') ?? '')
 const activeCode = ref(code.value)
+const watching = ref(new URLSearchParams(location.search).get('watch')==='1')
+const connectionEpoch = ref(0)
+let nextSnapshotIsSync = true
 const restoring = ref(Boolean(code.value))
 const connected = ref(false)
 const editing = ref(false)
@@ -29,16 +32,20 @@ function setCode(value: string) {
   const url = new URL(location.href)
   if (value) url.searchParams.set('room', value)
   else url.searchParams.delete('room')
+  if (value && watching.value) url.searchParams.set('watch','1')
+  else url.searchParams.delete('watch')
   history.replaceState(null,'',url)
 }
 socket.on('connect', () => {
   connected.value = true
-  if (activeCode.value && profile.value?.name) void send('join', undefined, activeCode.value)
+  nextSnapshotIsSync = true
+  if (activeCode.value && profile.value?.name) void send(watching.value?'watch':'join', undefined, activeCode.value)
 })
 socket.on('disconnect', () => { connected.value = false })
 socket.on('connect_error', () => { restoring.value = false; error.value = '连接失败，请刷新页面恢复会话' })
 socket.on('room', (value: Snapshot) => {
   if (value.code === activeCode.value) {
+    if(nextSnapshotIsSync) { connectionEpoch.value++; nextSnapshotIsSync=false }
     room.value = value
     if (value.match) editing.value = false
   }
@@ -84,12 +91,25 @@ async function send(type: string, data?: unknown, target = room.value?.code) {
     })
     if (!reply.ok) { error.value = reply.error; return false }
     if ((type === 'join' || type === 'create') && reply.room) {
+      watching.value=false
       setCode(reply.room)
       await socket.timeout(5000).emitWithAck('command',{v:protocolVersion,id:crypto.randomUUID(),type:'sync',room:reply.room})
     }
     return true
   } catch { error.value = '服务器响应超时'; return false }
   finally { if (type === 'join') restoring.value = false }
+}
+async function watchRoom() {
+  if (!/^\d{6}$/.test(code.value)) {error.value='请输入六位房间码'; return}
+  watching.value=true
+  setCode(code.value)
+  if (!await send('watch',undefined,code.value)) { watching.value=false; setCode('') }
+}
+async function leaveWatch() {
+  await send('unwatch')
+  watching.value=false
+  room.value=undefined
+  setCode('')
 }
 function setting(key:string, event:Event) {
   const input = event.target as HTMLSelectElement
@@ -119,7 +139,7 @@ async function share() {
       <div class="lobby-heading">
         <h1>游戏大厅</h1>
         <form class="join-form" @submit.prevent="send('join',undefined,code)">
-          <label>房间码 <input v-model.trim="code" placeholder="六位房间码" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" required></label><button>加入房间</button>
+          <label>房间码 <input v-model.trim="code" placeholder="六位房间码" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" required></label><button>加入房间</button><button v-if="catalog.some(game=>game.spectators)" type="button" @click="watchRoom">旁观房间</button>
         </form>
       </div>
       <div class="catalog">
@@ -136,7 +156,7 @@ async function share() {
       </div>
     </template>
     <template v-else-if="room">
-      <section v-if="!playing" class="panel room-panel" :class="{'room-panel-finished':room.match}">
+      <section v-if="!playing && !room.spectator" class="panel room-panel" :class="{'room-panel-finished':room.match}">
         <div v-if="!room.match" class="actions room-heading">
           <h1>{{ game?.name }} · {{ room.code }}</h1>
           <div class="actions">
@@ -164,7 +184,11 @@ async function share() {
           </div>
         </template>
       </section>
-      <component v-if="view && room.match && me" :is="view" :key="room.match.id" :room="room" :player="me.id" :send="send"/>
+      <div v-if="room.spectator || (playing && room.canLeaveActive)" class="actions">
+        <button v-if="room.spectator" @click="leaveWatch">退出旁观</button>
+        <button v-else @click="send('leave',undefined)">离开对局（保留席位）</button>
+      </div>
+      <component v-if="view && room.match && (me || room.spectator)" :is="view" :key="room.match.id" :room="room" :player="profile?.id ?? ''" :connection-epoch="connectionEpoch" :send="send"/>
     </template>
   </main>
 </template>

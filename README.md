@@ -39,3 +39,20 @@ npm.cmd start
 使用独立工作树试玩时，复制 .env.example 到该工作树的 .env，设置 PORT=3199、PUBLIC_ORIGIN=http://127.0.0.1:3199、DATABASE_PATH=work/logs/dice-preview.db 和 NODE_ENV=development，建好 work/logs，再运行 npm.cmd ci、npm.cmd run build、npm.cmd start。对外继续使用原有部署单独管理。
 
 [完整冻结规则](docs/games/dice-werewolf/RULES.md)
+
+## GAME 03《忍者之夜》
+
+4–11 人选择中立肖像并准备。房主开始比赛后，玩家进行两步秘密轮抽，依次结算五个夜晚阶段，累积个人荣誉。满员房间可用房间码公开旁观。死人仍可查看战况和公聊。全体正式玩家离线时暂停，有正式玩家回到原席位后恢复。比赛实时结算和公开历史见游戏界面。
+
+在 Game 03 的独立工作树中执行以下命令。已有依赖时跳过安装。
+
+```powershell
+npm.cmd ci
+npm.cmd run build
+.\ninja-preview.cmd
+.\ninja-preview.cmd status
+```
+
+打开 [本地隔离试玩](http://127.0.0.1:3213)。用四个以上独立浏览器配置或容器登录同一个地址，创建房间后用房间码加入。`ninja-preview.cmd stop` 关闭此工作树的隔离实例，试玩数据库保留在 `work/logs/ninja-preview.db`。
+
+[冻结规则](docs/games/night-of-the-ninja/RULES.md) · [需求追踪](docs/games/night-of-the-ninja/TRACEABILITY.md) · [美术清单](docs/games/night-of-the-ninja/ASSET_STATUS.md) · [验证记录](docs/games/night-of-the-ninja/TEST_REPORT.md)

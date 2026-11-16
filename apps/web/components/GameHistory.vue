@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref, useId } from 'vue'
+defineProps<{title?:string}>()
 const dialog=ref<HTMLDialogElement>()
-const title=useId()
+const titleId=useId()
 </script>
 
 <template>
-  <button type="button" @click="dialog?.showModal()">历史记录</button>
-  <dialog ref="dialog" class="history-dialog" :aria-labelledby="title">
-    <header><h2 :id="title">历史记录</h2><form method="dialog"><button autofocus>关闭</button></form></header>
+  <button type="button" @click="dialog?.showModal()">{{ title ?? '历史记录' }}</button>
+  <dialog ref="dialog" class="history-dialog" :aria-labelledby="titleId">
+    <header><h2 :id="titleId">{{ title ?? '历史记录' }}</h2><form method="dialog"><button autofocus>关闭</button></form></header>
     <div class="history-content"><slot/></div>
   </dialog>
 </template>
