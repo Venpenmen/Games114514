@@ -137,6 +137,7 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
   }
   let steps=0
   let lastRound=0
+  let pausedPresentation=false
   for(;steps<650;steps++) {
     await syncPlayers()
     const match=guests[0].snapshot!.match!
@@ -145,6 +146,37 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
     assert(visible.seats.every(seat=>!Object.hasOwn(seat,'identity')&&!Object.hasOwn(seat,'hand')&&!Object.hasOwn(seat,'honor')))
     assert(visible.events.every((event,i)=>i===0||event.seq>visible.events[i-1].seq))
     const views=guests.slice(0,count).map(guest=>guest.snapshot!.match!.private as NonNullable<ReturnType<typeof privateView>>)
+    if(!match.finished) {
+      assert(!Object.hasOwn(visible,'replay'))
+      assert(!Object.hasOwn(guests[count].snapshot!.match!.public as object,'replay'))
+      assert(views.every(view=>!Object.hasOwn(view,'replay')))
+    }
+    if(count===4 && visible.presentation && !pausedPresentation) {
+      pausedPresentation=true
+      const remaining=match.deadline!-time
+      assert(remaining>0)
+      assert(views.every(view=>!view.options.length))
+      assert.equal((await send(guests[0],'game',{value:'pass'})).ok,false)
+      guests.forEach(guest=>guest.socket.disconnect())
+      await new Promise<void>(done=>setImmediate(done))
+      await platform.close()
+      time+=86_400_000
+      allSockets=[]
+      platform=open()
+      await listen()
+      const observer=await connect(cookies[count])
+      assert((await send(observer,'watch')).ok)
+      const paused=observer.snapshot!.match!
+      assert.equal(paused.deadline,null)
+      assert.equal((paused.public as ReturnType<typeof publicView>).presentation?.id,visible.presentation.id)
+      guests=[...await Promise.all(cookies.slice(0,count).map(connect)),observer]
+      await syncPlayers()
+      const resumed=guests[0].snapshot!.match!
+      assert.equal(resumed.phase,match.phase)
+      assert.equal(resumed.deadline,time+remaining)
+      assert.equal((resumed.public as ReturnType<typeof publicView>).presentation?.id,visible.presentation.id)
+      continue
+    }
     const tokens=views.flatMap(view=>view.honor)
     assert.equal(new Set(tokens.map(token=>token.id)).size,tokens.length)
     assert(views.every(view=>view.score===view.honor.reduce((total,token)=>total+token.value,0)))
@@ -156,6 +188,8 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
     if(match.finished) {
       assert(visible.round>=3)
       assert(visible.champions.length>=1)
+      assert(visible.replayComplete)
+      assert(visible.replay?.some(entry=>entry.step==='deal' && entry.round===1))
       assert(Math.max(...Object.values(visible.finalScores!))>=10)
       break
     }
@@ -175,5 +209,6 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
     }
     time+=1100
   }
+  if(count===4) assert(pausedPresentation)
   assert(steps<650,'must reach a champion through real socket commands')
 })

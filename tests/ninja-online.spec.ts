@@ -39,6 +39,7 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await expect(observer.getByText('旁观中 · 仅公开信息')).toBeVisible()
     await expect(observer.getByRole('button',{name:'私人情报'})).toHaveCount(0)
     await expect(observer.getByRole('textbox',{name:'聊天消息'})).toHaveCount(0)
+    await expect(observer.getByRole('button',{name:'完整复盘'})).toHaveCount(0)
     await expect(observer.locator('.nn-hand')).toHaveCount(0)
     await expect(b.locator('.nn-seat')).toHaveCount(4)
     expect(await b.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
@@ -63,7 +64,7 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
         for (const page of players) await expect(page.locator('.nn-game')).not.toHaveAttribute('data-phase-token',before!)
       }
       await expect(a.locator('.nn-round-result')).toContainText('鹤派')
-      await expect(banner(a)).toHaveText(/下一轮准备|冠军/,{timeout:10_000})
+      await expect(banner(a)).toHaveText(/下一轮准备|冠军/,{timeout:18_000})
       if(await banner(a).textContent()==='冠军') break
       await Promise.all(players.map(async page=>{
         await page.locator('.nn-options button[aria-pressed]').first().click()
@@ -77,38 +78,44 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await button(b,'公开时间线').click()
     await expect(b.locator('.nn-timeline [data-kind=champion]')).toContainText('比赛结算')
     await expect(b.getByRole('dialog',{name:'公开时间线'})).toBeVisible()
+    await button(observer,'完整复盘').click()
+    expect(await observer.locator('.nn-replay details').count()).toBeGreaterThan(1)
+    await observer.locator('.nn-replay details summary').first().click()
+    await expect(observer.locator('.nn-replay [data-step=deal] .nn-card-face').first()).toBeVisible()
+    await expect(observer.locator('.nn-replay [data-step=draft1]').first()).toContainText('传出')
+    await expect(observer.locator('.nn-replay [data-step=round-score]').first()).toContainText('分')
     if(process.env.NINJA_PLAY_URL) await button(a,'解散房间').click()
   } finally { await Promise.all(contexts.map(context=>context.close())) }
 })
 
-test('eleven real seats fit the desktop ring and mobile target area',async({browser})=>{
+for(const count of [6,8,11]) test(count+' real seats fit the desktop ring and mobile target area',async({browser})=>{
   test.setTimeout(90_000)
   const baseURL='http://127.0.0.1:3214'
-  const contexts=await Promise.all(Array.from({length:11},(_,i)=>browser.newContext({baseURL,
+  const contexts=await Promise.all(Array.from({length:count},(_,i)=>browser.newContext({baseURL,
     viewport:i===1?{width:320,height:720}:{width:1440,height:900}})))
   try {
     const pages=await Promise.all(contexts.map(context=>context.newPage()))
     const [a,b]=pages
     async function login(page:Page,i:number,url=baseURL){
       await page.goto(url)
-      await page.getByRole('textbox',{name:'昵称'}).fill('席位'+i)
+      await page.getByRole('textbox',{name:'昵称'}).fill('练习机器人第'+(i+1)+'号')
       await page.getByRole('button',{name:'保存资料',exact:true}).click()
     }
     await login(a,0)
     await a.locator('.game-card').filter({has:a.getByRole('heading',{name:'忍者之夜',exact:true})}).getByRole('button',{name:'创建房间'}).click()
     await expect(a.locator('.members li')).toHaveCount(1)
-    await a.getByLabel('正式玩家数').selectOption('11')
+    await a.getByLabel('正式玩家数').selectOption(String(count))
     await Promise.all(pages.slice(1).map((page,i)=>login(page,i+1,a.url())))
-    await expect(a.locator('.members li')).toHaveCount(11)
+    await expect(a.locator('.members li')).toHaveCount(count)
     await a.getByLabel('轮抽秒数').selectOption('30')
     await Promise.all(pages.map(async (page,i)=>{
       await page.getByRole('button',{name:'肖像 '+(i+1),exact:true}).click()
       await page.getByRole('button',{name:'准备',exact:true}).click()
     }))
-    await expect(a.getByText(/在线 · 已准备/)).toHaveCount(11)
+    await expect(a.getByText(/在线 · 已准备/)).toHaveCount(count)
     await a.getByRole('button',{name:'开始游戏',exact:true}).click()
     for(const page of [a,b]) {
-      await expect(page.locator('.nn-seat')).toHaveCount(11)
+      await expect(page.locator('.nn-seat')).toHaveCount(count)
       const seats=await page.locator('.nn-seat').evaluateAll(nodes=>nodes.map(node=>{
         const {x,y,width,height}=node.getBoundingClientRect()
         return {x,y,width,height,self:(node as HTMLElement).dataset.self==='true'}
@@ -128,7 +135,7 @@ test('eleven real seats fit the desktop ring and mobile target area',async({brow
       }))).toEqual({scroll:height,height})
       await expect(a.getByRole('button',{name:'确认提交'})).toBeInViewport({ratio:1})
       await expect(a.locator('.nn-seat[data-self=true]')).toBeInViewport({ratio:1})
-      await expect(a.locator('.nn-seat-info')).toHaveCount(11)
+      await expect(a.locator('.nn-seat-info')).toHaveCount(count)
       const overlap=await a.locator('.nn-seat').evaluateAll(nodes=>{
         const seats=nodes.map(node=>node.getBoundingClientRect())
         return seats.some((a,i)=>seats.slice(i+1).some(b=>a.left<b.right && b.left<a.right && a.top<b.bottom && b.top<a.bottom))
@@ -139,9 +146,10 @@ test('eleven real seats fit the desktop ring and mobile target area',async({brow
       const images=page.locator('.nn-game img')
       await images.evaluateAll(images=>Promise.all(images.map(image=>(image as HTMLImageElement).decode())))
     }
-    await a.screenshot({path:'work/logs/'+evidence+'-11-desktop.png',fullPage:true})
-    await b.screenshot({path:'work/logs/'+evidence+'-11-mobile.png',fullPage:true})
+    await a.screenshot({path:'work/logs/'+evidence+'-'+count+'-desktop.png',fullPage:true})
+    await b.screenshot({path:'work/logs/'+evidence+'-'+count+'-mobile.png',fullPage:true})
     const action=a.locator('.nn-operation')
+    if(count!==11) return
     await expect(action).toHaveAttribute('data-action','draft2',{timeout:36_000})
     await expect(action.locator('.nn-card-deck button .nn-card-face')).toHaveCount(2)
   } finally {await Promise.all(contexts.map(context=>context.close()))}

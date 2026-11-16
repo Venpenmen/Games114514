@@ -318,3 +318,26 @@
 @media(max-width:800px) {
   .nn-p20 .nn-private-toast {inset:auto 18% 25%;font-size:.77rem}
 }
+
+.nn-featured-actors {display:flex;flex-wrap:wrap;justify-content:center;gap:.45rem}
+.nn-p20 .nn-featured-actors img {width:1.65rem;height:1.65rem;vertical-align:middle}
+.nn-p20 .nn-major-event {padding:.62rem;border:1px solid #d4aa6d;font-weight:650;text-align:center}
+.nn-p20 .nn-major-event .nn-featured-actors img {width:2.4rem;height:2.4rem}
+.nn-p20:is([data-effects=reduced],[data-static-presentation=true]) :is(.nn-event,.nn-event img,.nn-reveal span,.nn-focus>img,.nn-champion) {animation:none!important}
+.nn-seat-status {display:flex;align-items:center;gap:.22rem;color:#e9dcbd}
+.nn-status-label {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.nn-p20 .nn-seat-info strong {white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;max-width:100%}
+@media(min-width:801px) {
+  .nn-p20 .nn-seat {width:clamp(5.6rem,calc((100cqw - 2rem) / var(--nn-player-count)),8.4rem);height:auto;min-height:3.1rem}
+  .nn-p20 .nn-ring {container-type:inline-size}
+  .nn-p20 .nn-seat-info {line-height:1.1}
+  .nn-p20 .nn-seat-info strong {font-size:.84rem}
+  main:has(.nn-p20[data-mode=champion]) .nn-journal {grid-column:2}
+}
+.nn-replay {display:grid;gap:.55rem}
+.nn-replay details {border:1px solid #796448;border-radius:.4rem;padding:.4rem}
+.nn-replay summary {cursor:pointer;padding:.3rem}
+.nn-replay-row {display:grid;gap:.3rem;border-top:1px solid #5b5142;padding:.5rem .1rem}
+.nn-replay-cards {display:flex;flex-wrap:wrap;gap:.25rem}
+.nn-replay-person {display:inline-flex;align-items:center;gap:.35rem}
+.nn-replay-person img {width:1.65rem;height:1.65rem;object-fit:cover;border-radius:.2rem}

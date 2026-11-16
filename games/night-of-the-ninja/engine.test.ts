@@ -138,12 +138,12 @@ test('merchant may exchange an unseen token and thief compares counts',()=>{
   stage('trickster-4',s);expire(s);click(s,'a','b');click(s,'a','view:102');click(s,'a','give:101');click(s,'a','take:103')
   assert.equal(s.seats[0].honor[0].id,103)
   assert.equal(s.seats[0].intel[0].honor,2)
-  stage('trickster-5',s);expire(s);click(s,'a','b')
+  stage('trickster-5',s);expire(s);expire(s);click(s,'a','b')
   assert.deepEqual(s.seats[0].honor.map(x=>x.id),[103,102])
 })
 for(const card of ['blind-1','shinobi-1','trickster-6']) for(const response of ['mirror','martyr','pass']) {
   test('attack '+card+' / '+response,()=>{
-    const s=start();s.seats[1].hand=['mirror','martyr'];stage(card,s);expire(s);click(s,'a','b')
+    const s=start();s.seats[1].hand=['mirror','martyr'];stage(card,s);expire(s);if(card==='trickster-6') expire(s);click(s,'a','b')
     if(card==='shinobi-1') click(s,'a','yes')
     if(card==='trickster-6') {
       assert.equal(s.seats[1].alive,false);assert(!s.events.some(e=>e.kind==='mirror'||e.kind==='martyr'))
@@ -197,14 +197,57 @@ test('ronin mastermind receives only the survival award; no survivors receive no
   assert.equal(ronin.honor.length,1)
 })
 
-test('public animation timing is ordered and cannot precede the actual reaction result',()=>{
+test('authoritative presentation preserves reaction and the next full operation deadline',()=>{
   const s=start();s.seats[1].hand=['mirror']
   stage('blind-1',s);expire(s);click(s,'a','b')
-  const attack=s.events.find(e=>e.kind==='attack')!
-  assert.equal(attack.duration,1800)
+  const reactionDeadline=s.deadline!
+  assert.equal(s.mode,'reaction')
   assert(!s.events.some(e=>e.kind==='death'))
   click(s,'b','mirror')
-  const death=s.events.find(e=>e.kind==='death')!
-  assert(death.presentationAt!>=attack.presentationAt!+attack.duration!)
-  assert.deepEqual(death.actors,['a'])
+  assert.equal(s.mode,'presentation')
+  const projected=publicView(s).presentation!
+  assert.equal(projected.duration,4000)
+  assert.equal(projected.startedAt,reactionDeadline-1)
+  assert.deepEqual(projected.events.map(e=>e.kind),['mirror','death'])
+  assert.deepEqual(projected.events[1].actors,['a'])
+  assert.deepEqual(privateView(s,'b')?.options,[])
+  assert.throws(()=>click(s,'b','pass'))
+  assert(!Object.hasOwn(publicView(s),'replay'))
+  assert(!Object.hasOwn(privateView(s,'b')!,'replay'))
+  const restored=JSON.parse(JSON.stringify(s)) as NinjaState
+  assert.deepEqual(publicView(restored).presentation,projected)
+  const end=restored.deadline!
+  game.advance(restored,{now:end-1,random:()=>0})
+  assert.equal(restored.mode,'presentation')
+  expire(restored)
+  assert.equal(restored.mode,'commit')
+  assert.equal(restored.deadline,end+defaults.play*1000)
+  assert.equal(restored.events.filter(e=>e.kind==='death').length,1)
+})
+
+test('complete replay is captured by round and exposed only after the final barrier',()=>{
+  const s=start()
+  const deals=s.seats.map(p=>[...p.hand])
+  expire(s);expire(s)
+  const first=s.replay!.find(entry=>entry.step==='draft1')!
+  assert.deepEqual(first.draft![1].received,first.draft![0].passed)
+  for(let i=0;i<7;i++) expire(s)
+  while(s.mode==='presentation'||s.mode==='awards') expire(s)
+  assert.equal(s.mode,'ready')
+  expire(s)
+  assert.equal(s.round,2)
+  s.seats.forEach(p=>p.honor=[{id:300,value:12}])
+  for(let i=0;i<10 && publicView(s).mode!=='champion';i++) {
+    assert(!Object.hasOwn(publicView(s),'replay'))
+    expire(s)
+  }
+  assert.equal(s.mode,'champion')
+  const replay=publicView(JSON.parse(JSON.stringify(s)) as NinjaState)
+  assert(replay.replayComplete)
+  assert.deepEqual(replay.replay!.find(entry=>entry.step==='deal')!.seats!.map(p=>p.hand),deals)
+  assert(replay.replay!.some(entry=>entry.round===2 && entry.step==='round-score' && entry.seats?.some(p=>p.honor?.some(h=>h.value===12))))
+  delete s.replay
+  delete s.replayFrom
+  assert.deepEqual(publicView(s).replay,[])
+  assert.equal(publicView(s).replayComplete,false)
 })

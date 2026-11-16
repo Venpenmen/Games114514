@@ -7,6 +7,7 @@ import {cards,phaseNames,skills} from './cards.ts'
 import type {publicView,privateView,PublicEvent} from './engine.ts'
 import {asset,labels} from './art.ts'
 import Rules from './Rules.vue'
+import MatchReplay from './MatchReplay.vue'
 import CardFace from './CardFace.vue'
 import IntelPanel from './IntelPanel.vue'
 import IdentityCard from './IdentityCard.vue'
@@ -46,17 +47,23 @@ const seconds=computed(()=>Math.max(0,Math.ceil(((match.value.deadline??clock.va
 const modes:Record<typeof state.value.mode,string>={
   draft1:'第一步轮抽',draft2:'第二步轮抽',commit:'秘密出牌',play:'公开出牌',
   resolve:'技能结算',target:'选择目标',second:'选择第二名目标',choice:'技能确认',recover:'选择弃牌',
-  reaction:'刺杀反应',reveal:'流派揭示',awards:'荣誉结算',ready:'下一轮准备',champion:'冠军',
+  reaction:'刺杀反应',reveal:'流派揭示',awards:'荣誉结算',ready:'下一轮准备',champion:'冠军',presentation:'公开演出',
 }
 const step=computed(()=>privateState.value?.action?.step??state.value.mode)
 const attack=computed(()=>state.value.mode==='reaction'?state.value.events.findLast(event=>event.kind==='attack'):undefined)
-const roundResult=computed(()=>['reveal','awards','ready','champion'].includes(state.value.mode)
+const roundResult=computed(()=>(['reveal','awards','ready','champion'].includes(state.value.mode) || state.value.presentation?.events.some(event=>['reveal','honor','champion'].includes(event.kind)))
   ? state.value.events.findLast(event=>event.round===state.value.round && event.kind==='reveal'):undefined)
 const awardResult=computed(()=>roundResult.value
   ? state.value.events.findLast(event=>event.round===state.value.round && event.seq>roundResult.value!.seq && event.kind==='honor'):undefined)
 const effects=ref<'full'|'light'|'reduced'>(matchMedia('(prefers-reduced-motion: reduce)').matches?'reduced':innerWidth<620?'light':'full')
 const emit=defineEmits<{audioCue:[{matchId:string;sequence:number;kind:string}]}>()
-const shown=ref<PublicEvent>()
+const presented=computed(()=>state.value.presentation?.events??(attack.value?[attack.value]:[]))
+const recoveredPresentation=ref<number>()
+const staticPresentation=computed(()=>!!state.value.presentation &&
+  (recoveredPresentation.value===state.value.presentation.id || props.room.pausedMs!==undefined))
+const shown=computed(()=>presented.value.at(-1))
+const roundEvents=computed(()=>state.value.events.filter(event=>event.round===state.value.round))
+const major=computed(()=>presented.value.some(event=>!['play','attack'].includes(event.kind)))
 const ring=ref<HTMLElement>()
 const passing=ref(false)
 let passTimer:number|undefined
@@ -67,7 +74,7 @@ watch([()=>match.value.id,()=>state.value.mode,()=>match.value.phase,()=>props.c
 })
 const paths=computed(()=>{
   const event=shown.value
-  if(!ring.value || effects.value==='reduced' || (!passing.value && (!event || effects.value!=='full'))) return []
+  if(!ring.value || effects.value==='reduced' || (!passing.value && (!event || effects.value!=='full' || staticPresentation.value))) return []
   const frame=ring.value.getBoundingClientRect()
   const center=(element:Element|undefined|null)=>{
     const box=element?.getBoundingClientRect()
@@ -91,54 +98,22 @@ const paths=computed(()=>{
   if(event.kind==='honor'||event.kind==='martyr') return actors.flatMap(target=>route(stage,target,asset('honor-back')))
   return []
 })
-let cursor=0
 let privateCursor=0
 type PrivateEntry=NonNullable<ReturnType<typeof privateView>>['intel'][number]
 const freshIntel=ref<PrivateEntry>()
 const privateQueue:PrivateEntry[]=[]
 let letterTimer:number|undefined
-let effectTimer:number|undefined
-let queued:PublicEvent[]=[]
-let nextShowAt=0
-const hold:Record<string,number>={play:1150,identity:1550,attack:2450,mirror:1050,martyr:1050,death:1050,swap:1350,honor:1150,reveal:3900,champion:5600}
 function nextPrivate() {
   clearTimeout(letterTimer)
   freshIntel.value=privateQueue.shift()
   if(freshIntel.value) letterTimer=window.setTimeout(nextPrivate,8000)
 }
-function showNext() {
-  clearTimeout(effectTimer)
-  shown.value=undefined
-  const now=Date.now()
-  while(queued.length) {
-    const next=queued[0]
-    const published=next.presentationAt??next.at
-    const duration=hold[next.kind]??next.duration??1000
-    if(next.round!==state.value.round || published+duration+8000<=now) {queued.shift();continue}
-    const start=Math.max(published,nextShowAt)
-    if(start>now) {
-      effectTimer=window.setTimeout(showNext,start-now)
-      return
-    }
-    queued.shift()
-    shown.value=next
-    if(next.duration) emit('audioCue',{matchId:match.value.id,sequence:next.seq,kind:next.kind})
-    nextShowAt=now+duration+180
-    effectTimer=window.setTimeout(showNext,duration)
-    return
-  }
-}
-watch([()=>props.connectionEpoch,()=>state.value.round,()=>state.value.events.at(-1)?.seq,()=>privateState.value?.intel.at(-1)?.seq],
-  ([epoch,round,latest,intel],[oldEpoch,oldRound])=>{
+watch([()=>props.connectionEpoch,()=>state.value.round,()=>privateState.value?.intel.at(-1)?.seq],
+  ([epoch,round,intel],[oldEpoch,oldRound])=>{
     if(epoch!==oldEpoch || round!==oldRound) {
       privateQueue.length=0
       nextPrivate()
       privateCursor=intel??0
-      clearTimeout(effectTimer)
-      shown.value=undefined
-      queued=[]
-      nextShowAt=0
-      cursor=latest??0
       return
     }
     if(intel && intel>privateCursor) {
@@ -146,16 +121,19 @@ watch([()=>props.connectionEpoch,()=>state.value.round,()=>state.value.events.at
       privateCursor=intel
       if(!freshIntel.value) nextPrivate()
     }
-    if(!latest||latest<=cursor) return
-    queued.push(...state.value.events.filter(event=>event.seq>cursor&&(event.duration||event.kind==='identity')))
-    cursor=latest
-    if(!shown.value) showNext()
   })
-onMounted(()=>{
-  cursor=state.value.events.at(-1)?.seq??0
-  privateCursor=privateState.value?.intel.at(-1)?.seq??0
+watch([()=>props.connectionEpoch,()=>state.value.presentation?.id],([epoch,id],[oldEpoch,oldId])=>{
+  if(epoch!==oldEpoch) recoveredPresentation.value=id
+  if(id!==undefined && epoch===oldEpoch && id!==oldId) {
+    const cue=state.value.presentation!.events.at(-1)!
+    emit('audioCue',{matchId:match.value.id,sequence:id,kind:cue.kind})
+  }
 })
-onUnmounted(()=>{clearTimeout(effectTimer);clearTimeout(letterTimer);clearTimeout(passTimer)})
+onMounted(()=>{
+  privateCursor=privateState.value?.intel.at(-1)?.seq??0
+  recoveredPresentation.value=state.value.presentation?.id
+})
+onUnmounted(()=>{clearTimeout(letterTimer);clearTimeout(passTimer)})
 const cardName=(id:string)=>skills[cards[id].skill][0]
 const eventLabels:Record<string,[string,string]> = {
   round:['◈','新一轮'], 'reveal-card':['◇','亮牌'], play:['▷','执行'],
@@ -170,7 +148,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
 </script>
 
 <template>
-  <article class="nn-game nn-p20" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
+  <article class="nn-game nn-p20" :data-presentation="state.presentation?.id" :data-static-presentation="staticPresentation" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
     <header class="nn-header">
       <div><p>第 {{ state.round }} 轮<span v-if="state.night" :data-phase="state.night"> · {{ ({spy:'◈',mystic:'✦',trickster:'◇',blind:'◒',shinobi:'❖'})[state.night] }} {{ phaseNames[state.night] }}</span></p>
       <h2>{{ modes[step] ?? '技能结算' }}</h2><p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p><p v-else-if="match.deadline" class="nn-clock" :class="{'nn-clock-urgent':seconds<=5}">剩余 {{ seconds }} 秒 · {{ state.submitted }} 人已提交</p></div>
@@ -187,7 +165,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
       <div class="actions"><Rules :step="step"/><label>演出 <select v-model="effects"><option value="full">完整</option><option value="light">轻量</option><option value="reduced">减少动态</option></select></label></div>
       <p v-if="room.spectator">旁观中 · 仅公开信息</p>
     </header>
-    <div ref="ring" class="nn-ring" :data-dense="state.seats.length>=9">
+    <div ref="ring" class="nn-ring" :data-dense="state.seats.length>=9" :style="{'--nn-player-count':state.seats.length}">
       <div class="nn-seats" aria-label="玩家席位">
       <button v-for="(p,i) in state.seats" :key="p.id" type="button" class="nn-seat" :style="polar(i)"
         :data-self="p.id===player" :aria-label="name(p.id)+(p.id===player?'（本人）':'')"
@@ -196,9 +174,12 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id,'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id)}">
         <img :src="asset('portrait-'+p.portrait)" alt="" :class="{'nn-death-flash':shown?.kind==='death' && shown.actors.includes(p.id),'nn-attack-target':shown?.kind==='attack' && shown.actors[1]===p.id}">
         <span class="nn-seat-info"><strong>{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</strong>
-        <small>{{ p.alive?'存活':'已死亡' }} · {{ room.members.find(member=>member.id===p.id)?.online?'在线':'离线' }}</small>
-        <small><img :src="asset('honor-back')" alt=""> {{ p.honorCount }} 枚荣誉
-          <img v-if="p.id!==player && p.handCount" class="nn-seat-card-back" :src="asset('card-back')" :alt="p.handCount+' 张未公开牌'"></small>
+        <small class="nn-seat-status" :title="(p.alive?'存活':'已死亡')+' · '+(room.members.find(member=>member.id===p.id)?.online?'在线':'离线')">
+          <span :aria-label="p.alive?'存活':'已死亡'">{{ p.alive?'♥':'×' }}</span>
+          <span aria-hidden="true">{{ room.members.find(member=>member.id===p.id)?.online?'●':'○' }}</span>
+          <span class="nn-status-label">{{ room.members.find(member=>member.id===p.id)?.online?'在线':'离线' }}</span>
+          <img :src="asset('honor-back')" alt="荣誉"> {{ p.honorCount }}
+        </small>
         <small v-if="targetOptions.size">{{ privateState?.action?.targets.includes(p.id) ? '目标 '+(privateState.action.targets.indexOf(p.id)+1) : targetOptions.has(p.id)?'可选':'不可选' }}</small></span>
       </button>
       </div>
@@ -212,18 +193,23 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
             <p class="nn-active-effect">{{ skills[cards[state.current.card].skill][1] }}</p>
             <p v-if="attack">{{ attack.actors.map(name).join(' → ') }} · 攻击尚未裁决</p></div>
         </div>
-        <div v-if="shown" :key="shown.seq" class="nn-event" :data-event="shown.kind" aria-live="polite">
-          <img v-if="shown.card" :src="asset(cards[shown.card].skill)" alt="">
+        <div v-for="item in presented" :key="item.seq" class="nn-event" :class="{'nn-major-event':major}" :data-event="item.kind" aria-live="polite">
+          <img v-if="item.card" :src="asset(cards[item.card].skill)" alt="">
           <div>
-            <p>{{ shown.text }}</p><p v-if="shown.actors.length">{{ shown.actors.map(name).join('、') }}</p>
-            <p v-if="shown.kind==='reveal' && shown.identities">鹤派 {{ ranks(shown.identities,'crane') }} · 莲派 {{ ranks(shown.identities,'lotus') }}</p>
-            <div v-if="shown.identities" class="nn-reveal">
-              <span v-for="([id,identity],i) in Object.entries(shown.identities)" :key="id" :style="{'--reveal-order':i}">
+            <p>{{ item.text }}</p>
+            <p v-if="item.actors.length" class="nn-featured-actors">
+              <span v-for="id in item.actors" :key="id">
+                <img v-if="state.seats.some(seat=>seat.id===id)" :src="asset('portrait-'+state.seats.find(seat=>seat.id===id)!.portrait)" alt=""> {{ name(id) }}
+              </span>
+            </p>
+            <p v-if="item.kind==='reveal' && item.identities">鹤派 {{ ranks(item.identities,'crane') }} · 莲派 {{ ranks(item.identities,'lotus') }}</p>
+            <div v-if="item.identities" class="nn-reveal">
+              <span v-for="([id,identity],i) in Object.entries(item.identities)" :key="id" :style="{'--reveal-order':i}">
                 <img :src="asset(identity.house)" alt="">{{ name(id) }} · {{ labels[identity.house] }} {{ identity.rank || '' }}
               </span>
             </div>
           </div>
-          <img v-if="shown.kind==='honor' || shown.kind==='martyr'" :src="asset('honor-back')" alt="荣誉徽章">
+          <img v-if="item.kind==='honor' || item.kind==='martyr'" :src="asset('honor-back')" alt="荣誉徽章">
         </div>
         <section v-if="roundResult" class="nn-round-result">
           <h3>{{ roundResult.text }}</h3>
@@ -258,9 +244,10 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
     <OperationStage v-if="!match.finished" :state="state" :own="privateState" :selected="selection?.value??''"
           :locked="locked" :name="name" @select="select" @confirm="confirm"/>
     <aside class="nn-journal">
+      <MatchReplay v-if="match.finished" :state="state" :name="name"/>
       <GameHistory title="公开时间线">
         <ol class="nn-timeline">
-          <li v-for="event in state.events" :key="event.seq" :data-kind="event.kind">
+          <li v-for="event in roundEvents" :key="event.seq" :data-kind="event.kind">
             <header><strong><span aria-hidden="true">{{ eventLabels[event.kind]?.[0] ?? '•' }}</span> {{ eventLabels[event.kind]?.[1] ?? '公开事件' }}</strong><small>第 {{ event.round }} 轮</small></header>
             <div v-if="event.actors.length" class="nn-timeline-actors">
               <template v-for="(id,i) in event.actors" :key="id">
