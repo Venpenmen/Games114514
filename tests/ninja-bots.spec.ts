@@ -2,6 +2,7 @@ import {expect,test} from '@playwright/test'
 import {fillNinjaRoom,type BotMode} from '../scripts/ninja-bots.ts'
 
 const origin='http://127.0.0.1:3214'
+const evidence=process.env.NINJA_TEST_ASSETS?'ninja-p20':'ninja'
 const setups:[number,BotMode][]=[[4,'random'],[11,'simple']]
 test.describe.configure({mode:'parallel'})
 
@@ -62,7 +63,7 @@ for(const [count,mode] of setups) {
       const scores=await page.locator('.nn-champion > p').allTextContents()
       expect(scores).toHaveLength(count)
       expect(Math.max(...scores.map(score=>Number(score.match(/(\d+) 分/)?.[1])))).toBeGreaterThanOrEqual(10)
-      await page.screenshot({path:'work/logs/ninja-bots-'+count+'.png',fullPage:true})
+      await page.screenshot({path:'work/logs/'+evidence+'-bots-'+count+'.png',fullPage:true})
     } finally {
       await bots.stop()
     }

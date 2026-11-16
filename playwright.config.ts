@@ -16,7 +16,7 @@ export default defineConfig({
     command:'node apps/server/index.ts',
     url:'http://127.0.0.1:3214',
     env:{PORT:'3214',PUBLIC_ORIGIN:'http://127.0.0.1:3214',DATABASE_PATH:'work/logs/ninja-browser.db',
-      SESSION_COOKIE_NAME:'games_ninja_browser',NODE_ENV:'development'},
+      SESSION_COOKIE_NAME:'games_ninja_browser',NODE_ENV:'development',GAMES_WEB_ASSETS:process.env.NINJA_TEST_ASSETS??'dist'},
     reuseExistingServer:false,
   },{
     command:'node tests/ninja-rehearsal-server.ts',

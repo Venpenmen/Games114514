@@ -12,7 +12,7 @@ export type PublicEvent = {
   seq:number; at:number; round:number; kind:string; actors:string[]; text:string;
   card?:string; identities?:Record<string,Identity>; group?:string; presentationAt?:number; duration?:number;
 }
-type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; target?:string; text:string; identity?:Identity; card?:string; honor?:number}
+type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; text:string; identity?:Identity; card?:string; honor?:number}
 export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
 export type NinjaState = Turn & {
   config:Config; round:number; mode:Mode; night:number; seats:Seat[]; discard:string[];
@@ -51,7 +51,8 @@ function event(s:NinjaState,ctx:Context,kind:string,text:string,actors:string[]=
     ...(presentationAt===undefined?{}:{presentationAt,duration})})
 }
 function intel(s:NinjaState,ctx:Context,player:string,data:Omit<IntelEvent,'seq'|'at'|'round'>) {
-  seat(s,player).intel.push({seq:seat(s,player).intel.length+1,at:ctx.now,round:s.round,phase:phases[s.night],...data})
+  const source=s.current?.player===player && (data.target || data.card || skill(s)==='dig') ? skill(s) : undefined
+  seat(s,player).intel.push({seq:seat(s,player).intel.length+1,at:ctx.now,round:s.round,phase:phases[s.night],...data,source})
 }
 function enter(s:NinjaState,ctx:Context,mode:Mode,seconds:number) {
   s.mode=mode
@@ -397,8 +398,15 @@ export function publicView(s:NinjaState) {
 export function privateView(s:NinjaState,id:string) {
   const p=seat(s,id)
   if(!p) return undefined
+  const legal=s.mode==='draft2'?options(s,id).filter(choice=>choice.value!==p.hand[0]):options(s,id)
+  const action=legal.length?{
+    step:s.mode,
+    targets:s.current?.player===id
+      ? [s.target,skill(s)==='shift'?s.second:undefined].filter((target):target is string=>!!target)
+      : [],
+  }:undefined
   return {hand:p.hand, known:p.known, honor:p.honor, score:sum(p), intel:p.intel, submitted:Object.hasOwn(s.submissions,id),
-    options:s.mode==='draft2'?options(s,id).filter(choice=>choice.value!==p.hand[0]):options(s,id)}
+    options:legal,action}
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
   id:'night-of-the-ninja',version:1,name:'忍者之夜',minPlayers:4,maxPlayers:11,defaults,settings,

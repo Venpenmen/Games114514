@@ -1,4 +1,5 @@
 import {expect,test,type Page} from '@playwright/test'
+const evidence=process.env.NINJA_TEST_ASSETS?'ninja-p20':'ninja'
 
 test('four isolated browsers complete a real ninja tournament and inspect private and public UI',async({browser})=>{
   test.setTimeout(120000)
@@ -44,8 +45,8 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
       expect(await page.locator('.nn-options button img').first().evaluate((image:HTMLImageElement)=>image.decode().then(()=>image.naturalWidth))).toBeGreaterThan(0)
     }
     await a.emulateMedia({reducedMotion:'reduce'})
-    await a.screenshot({path:'work/logs/ninja-desktop.png',fullPage:true})
-    await b.screenshot({path:'work/logs/ninja-mobile.png',fullPage:true})
+    await a.screenshot({path:'work/logs/'+evidence+'-desktop.png',fullPage:true})
+    await b.screenshot({path:'work/logs/'+evidence+'-mobile.png',fullPage:true})
     await b.reload()
     await expect(banner(b)).toHaveText('第一步轮抽')
     for(let round=1;round<=5;round++) {
@@ -70,7 +71,7 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     }
     await expect(a.getByRole('heading',{name:/冠军 ·/})).toBeVisible()
     await expect(observer.getByRole('heading',{name:/冠军 ·/})).toBeVisible()
-    await a.screenshot({path:'work/logs/ninja-champion.png',fullPage:true})
+    await a.screenshot({path:'work/logs/'+evidence+'-champion.png',fullPage:true})
     await button(b,'公开时间线').click()
     await expect(b.getByRole('dialog',{name:'公开时间线'})).toBeVisible()
   } finally { await Promise.all(contexts.map(context=>context.close())) }
@@ -93,6 +94,7 @@ test('eleven real seats fit the desktop ring and mobile target area',async({brow
     await a.locator('.game-card').filter({has:a.getByRole('heading',{name:'忍者之夜',exact:true})}).getByRole('button',{name:'创建房间'}).click()
     await expect(a.locator('.members li')).toHaveCount(1)
     await a.getByLabel('正式玩家数').selectOption('11')
+    await a.getByLabel('轮抽秒数').selectOption('30')
     await Promise.all(pages.slice(1).map((page,i)=>login(page,i+1,a.url())))
     await expect(a.locator('.members li')).toHaveCount(11)
     await Promise.all(pages.map(async (page,i)=>{
@@ -109,7 +111,10 @@ test('eleven real seats fit the desktop ring and mobile target area',async({brow
       const images=page.locator('.nn-game img')
       await images.evaluateAll(images=>Promise.all(images.map(image=>(image as HTMLImageElement).decode())))
     }
-    await a.screenshot({path:'work/logs/ninja-11-desktop.png',fullPage:true})
-    await b.screenshot({path:'work/logs/ninja-11-mobile.png',fullPage:true})
+    await a.screenshot({path:'work/logs/'+evidence+'-11-desktop.png',fullPage:true})
+    await b.screenshot({path:'work/logs/'+evidence+'-11-mobile.png',fullPage:true})
+    const action=a.locator('.nn-operation')
+    await expect(action).toHaveAttribute('data-action','draft2',{timeout:36_000})
+    await expect(action.locator('.nn-card-deck .nn-card-face')).toHaveCount(2)
   } finally {await Promise.all(contexts.map(context=>context.close()))}
 })

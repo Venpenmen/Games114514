@@ -5,7 +5,13 @@ import {fileURLToPath} from 'node:url'
 import {stdin,stdout} from 'node:process'
 import {fillNinjaRoom,type BotMode} from './ninja-bots.ts'
 
-const fingerprint=createHash('sha256').update(fileURLToPath(new URL('../',import.meta.url)).toLowerCase()).digest('hex')
+const args=process.argv.slice(2)
+const p20=args[0]==='--p20'
+if(p20) args.shift()
+const origin=p20?'http://127.0.0.1:3216':'http://127.0.0.1:3213'
+const cookieName=p20?'games_ninja_p20':'games_ninja_preview'
+const stopCommand=p20?'ninja-bots.cmd --p20 stop':'ninja-bots.cmd stop'
+const fingerprint=createHash('sha256').update(fileURLToPath(new URL('../',import.meta.url)).toLowerCase()+(p20?':p20':'')).digest('hex')
 const pipe='\\\\.\\pipe\\games-ninja-bots-'+fingerprint
 
 async function stopRunning() {
@@ -43,7 +49,7 @@ async function run(room:string,mode:BotMode) {
     server.once('error',reject)
     server.listen(pipe,resolve)
   }).catch(error=>{
-    if((error as NodeJS.ErrnoException).code==='EADDRINUSE') throw new Error('已有一组机器人运行，请先执行 ninja-bots.cmd stop')
+    if((error as NodeJS.ErrnoException).code==='EADDRINUSE') throw new Error('已有一组机器人运行，请先执行 '+stopCommand)
     throw error
   })
   const stop=()=>abort.abort()
@@ -51,10 +57,10 @@ async function run(room:string,mode:BotMode) {
   process.on('SIGTERM',stop)
   let group:Awaited<ReturnType<typeof fillNinjaRoom>>|undefined
   try {
-    group=await fillNinjaRoom({origin:'http://127.0.0.1:3213',cookieName:'games_ninja_preview',room,mode,
+    group=await fillNinjaRoom({origin,cookieName,room,mode,
       signal:abort.signal,report:console.log})
     console.log('已加入并准备 '+group.count+' 名机器人。请在网页选择肖像、准备并开始游戏。')
-    console.log('停止：在此窗口按 Ctrl+C，或另开终端运行 ninja-bots.cmd stop。')
+    console.log('停止：在此窗口按 Ctrl+C，或另开终端运行 '+stopCommand+'。')
     if(!abort.signal.aborted) await new Promise<void>(resolve=>abort.signal.addEventListener('abort',()=>resolve(),{once:true}))
   } catch(error) {
     if(!abort.signal.aborted) throw error
@@ -68,7 +74,7 @@ async function run(room:string,mode:BotMode) {
 }
 
 try {
-  let [room,mode]=process.argv.slice(2)
+  let [room,mode]=args
   if(room==='stop') {
     await stopRunning()
   } else {
@@ -80,7 +86,7 @@ try {
       } finally {prompt.close()}
     }
     mode ||= 'simple'
-    if(!/^\d{6}$/.test(room) || (mode!=='simple' && mode!=='random')) throw new Error('用法：ninja-bots.cmd [六位房间码] [simple|random]，或 ninja-bots.cmd stop')
+    if(!/^\d{6}$/.test(room) || (mode!=='simple' && mode!=='random')) throw new Error('用法：ninja-bots.cmd [--p20] [六位房间码] [simple|random]，或 '+stopCommand)
     await run(room,mode)
   }
 } catch(error) {

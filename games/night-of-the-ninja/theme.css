@@ -91,7 +91,7 @@
 .nn-rank {display:inline-flex;align-items:center;gap:.18rem;border:1px solid #a28b5a;border-radius:.25rem;padding:0 .22rem}
 .nn-rank strong {color:#ffe6aa;font-size:1.05rem}
 .nn-rank span {color:#e2bc76;font-size:.48rem;letter-spacing:.08em}
-.nn-letter span {display:inline-grid;place-items:center;background:#813a40;color:#f4d5ab;border-radius:50%;width:1.45rem;height:1.45rem;font-family:serif}
+.nn-letter > p > span {display:inline-grid;place-items:center;background:#813a40;color:#f4d5ab;border-radius:50%;width:1.45rem;height:1.45rem;font-family:serif}
 .nn-game[data-effects=full] .nn-letter {animation:nn-enter .55s ease both}
 .nn-game[data-effects=full] .nn-reveal span {animation:nn-enter .34s both;animation-delay:calc(var(--reveal-order)*.2s)}
 .nn-game[data-effects=full] .nn-focus>img {animation:nn-spot .45s ease both}

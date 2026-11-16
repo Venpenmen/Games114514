@@ -6,7 +6,7 @@ let seed=83
 const platform=createPlatform({
   database:resolve('work/logs/ninja-rehearsal-'+process.pid+'.db'),
   origin:'http://127.0.0.1:3215',secure:false,cookieName:'games_ninja_rehearsal',
-  plugins:[nightOfTheNinja], assets:resolve('dist'),
+  plugins:[nightOfTheNinja], assets:resolve(process.env.NINJA_TEST_ASSETS??'dist'),
   random:limit=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)%limit),
 })
 platform.server.listen(3215,'127.0.0.1')
