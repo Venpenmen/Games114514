@@ -74,3 +74,7 @@ P13 补充验收：`npx.cmd playwright test -c work/logs/result-playwright.confi
 ## P14 《诡吹灯》玩家规则弹窗重写（2026-11-16）
 
 仅修改前端 `games/ghost-candle/Rules.vue` 的玩家可读说明和原生 CSS 图形化示例：两阵营胜利条件、夜晚操作 3 步、5 组具体人类/诡异选择与结果卡片、白天讨论/寻找/指认流程、超时与隐私提示。重点明确 GC-RULES-1.4 的三人同选且诡异摧毁时判为摧毁。保留服务端引擎、协议、数据库、规则技术文档与其他游戏界面。`npm.cmd run check` 退出 0，`npm.cmd test` 37/37，`npm.cmd run build` 退出 0。使用独立测试端口、数据库的 `npx.cmd playwright test -c work/logs/result-playwright.config.ts` 测试 4/4 通过，含《诡吹灯》三会话两阵营终局、规则弹窗移动端宽度和关闭，以及《骰子狼人杀》回归。公网与实体手机未执行。
+
+## P15 《骰子狼人杀》图解规则弹窗（2026-11-16）
+
+仅重写 `games/dice-werewolf/Rules.vue` 的玩家可读文案和弹窗内 CSS 图示，按三名玩家与六个点数、秘密身份、行动阶段、生命值、投票处决、三种得分结局（含两点数特殊终局）、连续三轮无处决、目标积分与加赛组织。所有规则依据 `docs/games/dice-werewolf/RULES.md` 和现有 `engine.ts`，未修改裁决、协议、其他游戏、数据库与 FRP。`npm.cmd run check` 通过；`npm.cmd test` 37/37；`npm.cmd run build` 退出 0。浏览器隔离回归首次因 `work/logs/result-dist` 是旧构建而使新文案断言失败，确认并使用 `robocopy dist work/logs/result-dist /MIR` 同步后重新运行 `npx.cmd playwright test -c work/logs/result-playwright.config.ts` 结果 4/4 通过（1.6 分钟），含 390px 移动视口的新规则标题、投票案例、积分加赛和弹窗关闭断言。公网/实体手机未单独验证。
