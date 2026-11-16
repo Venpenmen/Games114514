@@ -13,6 +13,22 @@ type Public = {
 const props = defineProps<{room:Snapshot;player:string;send:(type:string,data:unknown)=>Promise<boolean>}>()
 const state = computed(() => props.room.match!.public as Public)
 const recentBallot = computed(() => state.value.ballots.at(-1))
+const ballotTarget = computed(() => {
+  const ballot = recentBallot.value
+  if (!ballot) return undefined
+  const totals = new Map<string, number>()
+  for (const [, target] of ballot.votes) if (target) totals.set(target, (totals.get(target) ?? 0) + 1)
+  return [...totals].find(([, count]) => count >= 2)?.[0]
+})
+const pulseCandle = ref<number>()
+let candlePulseTimer: number | undefined
+watch(() => state.value.last ? [state.value.night, state.value.last.candle, state.value.last.status].join(':') : '',
+  (key, previous) => {
+    if (!key || !previous && state.value.night > 1) return
+    if (candlePulseTimer) clearTimeout(candlePulseTimer)
+    pulseCandle.value = state.value.last?.candle
+    candlePulseTimer = window.setTimeout(() => { pulseCandle.value = undefined }, 1600)
+  })
 const secret = computed(() => props.room.match!.private as {role:string})
 const submitted = computed(() => state.value.submitted.includes(props.player))
 const canChat = computed(() => ['DAY_DISCUSSION','DAY_DECISION','ACCUSATION','REVOTE'].includes(state.value.stage))
@@ -42,7 +58,7 @@ function cue(frequency:number) {
 const now = ref(Date.now())
 let clock: number
 onMounted(() => { clock = window.setInterval(() => { now.value=Date.now() },200) })
-onUnmounted(() => { clearInterval(clock); void audio?.close() })
+onUnmounted(() => { clearInterval(clock); if (candlePulseTimer) clearTimeout(candlePulseTimer); void audio?.close() })
 watch(() => props.room.match!.phase, () => { selected.value=undefined; action.value='LIGHT' })
 watch(() => state.value.last?.candle, () => cue(state.value.last?.status === 'LIT' ? 560 : 170))
 watch(() => state.value.winner, winner => { if (winner) cue(740) })
@@ -74,13 +90,15 @@ const command = (data:unknown) => props.send('game',data)
     <div class="ghost-layout">
     <section class="ghost-board">
     <div class="candles">
-      <button v-for="(candle,i) in state.candles" :key="i" :class="[candle.toLowerCase(),{selected:selected===i+1}]"
+      <button v-for="(candle,i) in state.candles" :key="i" :class="[candle.toLowerCase(),{selected:selected===i+1,'ghost-resolving':pulseCandle===i+1}]"
         :disabled="state.stage!=='NIGHT' || candle!=='INTACT' || submitted" @click="selected=i+1">
         <span class="candle-model" aria-hidden="true"><i class="flame"></i><i class="wax"></i><i class="dish"></i></span>
         <span>{{ i+1 }} · {{ candleLabel[candle] }}</span>
+        <span v-if="pulseCandle===i+1" class="ghost-impact" aria-hidden="true">{{ candle==='LIT'?'点亮！':'摧毁！' }}</span>
       </button>
     </div>
-    <p v-if="state.last">最近一夜 · {{ state.last.candle }} 号蜡烛已{{ candleLabel[state.last.status] }}</p>
+    <p v-if="state.last" class="ghost-outcome" role="status">最近一夜 · {{ state.last.candle }} 号蜡烛已{{ candleLabel[state.last.status] }}</p>
+    <p v-if="recentBallot && (state.stage==='RESULT'||state.stage==='FINISHED')" class="ghost-vote-outcome" role="status">{{ ballotTarget ? '公开指认结果：'+names(ballotTarget)+' 获得至少两票' : '公开指认结果：无人获得多数票' }}</p>
     <p v-if="submitted">已提交，等待其他玩家</p>
     <div v-else class="actions">
       <template v-if="state.stage==='NIGHT'">

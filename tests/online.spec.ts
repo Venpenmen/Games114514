@@ -67,6 +67,7 @@ for (const correct of [true,false]) test('three guests, '+(correct?'human':'ghos
     await expect(a.locator('.ghost strong').first()).toHaveText(role!)
     await expect(b.getByRole('heading',{name:'白天讨论'})).toBeVisible({timeout:36_000})
     await expect(c.getByText(/最近一夜/)).toBeVisible()
+    await expect(c.locator('.ghost-outcome')).toContainText('号蜡烛已')
     await checkGameLayout(b,correct?'ghost':'ghost-defeat','.candles','结束讨论')
     await checkRoomChat([a,b,c], names[1])
     const chatList=a.getByRole('list',{name:'公聊记录'})

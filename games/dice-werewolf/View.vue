@@ -19,7 +19,7 @@ const stageSeconds={ACTION:30,VOTE:30,REVOTE:30,BALLOT:3,SUMMARY:8,CHAMPION:0}
 const clock=computed(()=>Math.min(stageSeconds[state.value.stage],Math.max(0,Math.ceil(((match.value.deadline ?? now.value)-now.value)/1000))))
 let timer:number
 onMounted(()=>{timer=window.setInterval(()=>{now.value=Date.now()},200)})
-onUnmounted(()=>{clearInterval(timer);void audio?.close()})
+onUnmounted(()=>{clearInterval(timer);if(pointPulseTimer)clearTimeout(pointPulseTimer);if(executionTimer)clearTimeout(executionTimer);void audio?.close()})
 const labels={ACTION:'逐点报数',VOTE:'投票处决',REVOTE:'重新投票',BALLOT:'公开票型',SUMMARY:'本局结算',CHAMPION:'比赛结束'}
 const causes={health:'生命值处决',vote:'投票处决',dealer:'庄家清场'}
 const name=(id:string)=>props.room.members.find(member=>member.id===id)?.name ?? '离席玩家'
@@ -71,6 +71,22 @@ function toggleSound() {
 watch(()=>state.value.executions.length,(count,previous)=>{if(count>previous)sound(145)})
 watch(()=>state.value.game,()=>sound(280))
 const recentBallot=computed(()=>state.value.ballots.at(-1))
+const latestExecution=computed(()=>state.value.executions.at(-1))
+const pointPulse=ref<{face:number;delta:number;hp:number}|null>(null)
+const executionFaces=ref<number[]>([])
+let pointPulseTimer:number|undefined
+let executionTimer:number|undefined
+watch(()=>state.value.last ? [state.value.game,state.value.last.face,state.value.last.delta,state.value.last.hp].join(':') : '',key=>{
+  if(pointPulseTimer) clearTimeout(pointPulseTimer)
+  if(!key || !state.value.last){pointPulse.value=null;return}
+  pointPulse.value={face:state.value.last.face,delta:state.value.last.delta,hp:state.value.last.hp}
+  pointPulseTimer=window.setTimeout(()=>{pointPulse.value=null},1450)
+})
+watch(()=>[state.value.game,state.value.executions.length].join(':'),()=>{
+  if(executionTimer) clearTimeout(executionTimer)
+  executionFaces.value=[...(state.value.executions.at(-1)?.faces??[])]
+  if(executionFaces.value.length) executionTimer=window.setTimeout(()=>{executionFaces.value=[]},1850)
+})
 </script>
 
 <template>
@@ -116,16 +132,20 @@ const recentBallot=computed(()=>state.value.ballots.at(-1))
             'dw-current':state.stage==='ACTION'&&state.face===point.face,
             'dw-risk':!point.removed&&point.hp<=-3,'dw-condemned':!point.removed&&point.hp<=-5,
             'dw-removed':point.removed,
+            'dw-settling':pointPulse?.face===point.face,'dw-execution-focus':executionFaces.includes(point.face),
           }">
             <Die :face="point.face"/>
             <div class="dw-plinth"><strong>{{ point.face }} 点</strong><span>生命 {{ point.hp }}</span></div>
-            <span v-if="point.removed" class="dw-stamp">已处决</span>
+            <span v-if="pointPulse?.face===point.face" class="dw-delta-burst" aria-hidden="true">{{ pointPulse.delta>0?'+':'' }}{{ pointPulse.delta }}</span>
+            <span v-if="point.removed" class="dw-stamp" :class="{'dw-execution-flash':executionFaces.includes(point.face)}">已处决</span>
             <span v-else-if="point.hp<=-5" class="dw-stamp">待处决</span>
             <span v-else-if="point.hp<=-3" class="dw-danger-label">危险</span>
             <button v-if="voting && !point.removed" :disabled="submitted||pending" @click="submit('vote',point.face)">投 {{ point.face }} 点</button>
           </div>
         </div>
-        <p v-if="state.last" class="dw-last">{{ state.last.face }} 点：{{ state.last.delta>0?'+':'' }}{{ state.last.delta }}，生命 {{ state.last.hp }}<span v-if="state.last.automatic"> · 庄家代选 {{ state.last.automatic }} 人</span></p>
+        <p v-if="state.last" class="dw-last" role="status">{{ state.last.face }} 点：{{ state.last.delta>0?'+':'' }}{{ state.last.delta }}，生命 {{ state.last.hp }}<span v-if="state.last.automatic"> · 庄家代选 {{ state.last.automatic }} 人</span></p>
+        <p v-if="state.stage==='BALLOT' && recentBallot" class="dw-settlement-summary" role="status">{{ recentBallot.target===null?'公开票型：无人获得多数票': '公开票型：'+recentBallot.target+' 点获得多数票' }}</p>
+        <p v-if="latestExecution" class="dw-settlement-summary" role="status">{{ causes[latestExecution.cause] }} · {{ latestExecution.faces.join('、') }} 点已处决</p>
         <div v-if="state.stage==='ACTION'" class="actions dw-act">
           <button :disabled="submitted||pending" @click="submit('act',1)">增加 +1</button>
           <button :disabled="submitted||pending" @click="submit('act',-1)">减少 −1</button>

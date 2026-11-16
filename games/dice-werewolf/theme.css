@@ -126,3 +126,54 @@
   .dw-table-head { margin-bottom:.3rem; }
   .dw-ledger section:has(.room-chat) { padding:0; border:0; }
 }
+
+/* Mechanic-first public settlement feedback — Dice Werewolf. */
+.dw-point.dw-settling {
+  z-index:1;
+  border-color:#ffd48b;
+  outline:2px solid #e3af67;
+  box-shadow:inset 0 0 18px #ffc27b55,0 0 16px #e8ab6d55;
+  animation:dw-settlement-focus 1.35s ease-out both;
+}
+.dw-point.dw-execution-focus {
+  z-index:2;
+  outline:2px solid #f6a48b;
+  border-color:#f6a48b;
+  box-shadow:0 0 18px #f1736055,inset 0 0 16px #f173603e;
+  animation:dw-execution-focus 1.65s ease-out both;
+}
+.dw-delta-burst {
+  position:absolute;right:.22rem;top:.12rem;z-index:3;pointer-events:none;
+  border:1px solid #e6c78a;border-radius:.35rem;padding:.05rem .35rem;
+  background:#3b231de8;color:#ffdb9b;font-weight:800;font-size:1rem;
+  font-variant-numeric:tabular-nums;
+  animation:dw-settlement-label 1.35s ease-out both;
+}
+.dw-settlement-summary {
+  margin:.5rem 0 0;padding:.32rem .6rem;
+  border-left:3px solid #e8b67a;border-radius:.25rem;
+  background:#513525;color:#ffe0ac;font-weight:650;
+  overflow-wrap:anywhere;
+}
+.dw-execution-flash {border-color:#ffb59d;color:#fff2d5;}
+@keyframes dw-settlement-focus {
+  0% {transform:scale(1)}
+  22% {transform:scale(1.045)}
+  65% {transform:scale(1.018)}
+  100% {transform:scale(1)}
+}
+@keyframes dw-execution-focus {
+  0% {transform:scale(1)}
+  20% {transform:scale(1.05)}
+  55% {transform:scale(1.02)}
+  100% {transform:scale(1)}
+}
+@keyframes dw-settlement-label {
+  0% {opacity:0;transform:translateY(8px)}
+  15%,68% {opacity:1;transform:translateY(0)}
+  100% {opacity:0;transform:translateY(-6px)}
+}
+@media (prefers-reduced-motion:reduce) {
+  .dw-point.dw-settling,.dw-point.dw-execution-focus,.dw-delta-burst {animation:none;transform:none;}
+  .dw-delta-burst {opacity:1;}
+}

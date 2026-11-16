@@ -100,6 +100,7 @@ test('three guests play a complete match, sustained overtime and champion',async
           await draft.fill('跨阶段草稿')
           await button(c,'增加 +1').click()
           await expect(b.getByRole('heading',{name:'当前点数 2',exact:true})).toBeVisible()
+          await expect(a.locator('.dw-last')).toContainText('1 点：')
           await expect(draft).toHaveValue('跨阶段草稿')
           await draft.fill('')
           await closeChat(b)
@@ -109,6 +110,7 @@ test('three guests play a complete match, sustained overtime and champion',async
       if(game===1) {
         await Promise.all(pages.map((page,i)=>button(page,'投 '+(i+1)+' 点').click()))
         await expect(a.getByRole('heading',{name:'公开票型',exact:true})).toBeVisible()
+        await expect(a.locator('.dw-settlement-summary')).toContainText('无人获得多数票')
         await expect(a.getByText('无有效处决',{exact:true})).toBeVisible()
         await expect(a.getByRole('heading',{name:'重新投票',exact:true})).toBeVisible({timeout:7_000})
         await expect(a.locator('.dw-risk')).toHaveCount(1)

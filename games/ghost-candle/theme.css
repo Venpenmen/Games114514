@@ -80,3 +80,46 @@ p.role-label { border: 1px solid #8d704c; border-radius: .5rem; background: #221
   .candles button { min-height:56px; }
   .candle-model { height:32px; }
 }
+
+/* Mechanic-first public settlement feedback — Ghost Candle. */
+.candles button { position:relative; }
+.candles .ghost-resolving {
+  z-index:1;
+  border-color:#fff1ad;
+  outline:2px solid #ffd28c;
+  background:radial-gradient(ellipse at center,#865e3466,#292016 78%);
+  animation:ghost-settlement-focus 1.5s ease-out both;
+}
+.candles .ghost-resolving.destroyed {
+  outline-color:#f3a3a3;
+  border-color:#d97869;
+  background:radial-gradient(ellipse at center,#8c383c88,#29221d 78%);
+}
+.ghost-impact {
+  position:absolute;top:.15rem;right:.25rem;pointer-events:none;
+  padding:.12rem .34rem;border-radius:.3rem;
+  background:#54261fe8;color:#fff0d1;font-size:.78rem;font-weight:750;
+  box-shadow:0 0 13px #d77b4455;
+  animation:ghost-settlement-label 1.5s ease-out both;
+}
+.ghost-resolving.lit .ghost-impact { background:#775027e8; }
+.ghost-outcome,.ghost-vote-outcome {
+  border-left:3px solid #cfa76d;background:#342a1e;border-radius:.3rem;
+  padding:.35rem .6rem;font-weight:650;
+}
+.ghost-vote-outcome {border-left-color:#9c8dcc;}
+@keyframes ghost-settlement-focus {
+  0% {transform:scale(1);filter:brightness(1)}
+  23% {transform:scale(1.055);filter:brightness(1.32)}
+  75% {transform:scale(1.025)}
+  100% {transform:scale(1);filter:brightness(1)}
+}
+@keyframes ghost-settlement-label {
+  0% {opacity:0;transform:translateY(6px)}
+  18%,70% {opacity:1;transform:translateY(0)}
+  100% {opacity:0;transform:translateY(-5px)}
+}
+@media (prefers-reduced-motion:reduce) {
+  .candles .ghost-resolving,.ghost-impact {animation:none;transform:none;}
+  .ghost-impact {opacity:1;}
+}
