@@ -78,3 +78,12 @@ P13 补充验收：`npx.cmd playwright test -c work/logs/result-playwright.confi
 ## P15 《骰子狼人杀》图解规则弹窗（2026-11-16）
 
 仅重写 `games/dice-werewolf/Rules.vue` 的玩家可读文案和弹窗内 CSS 图示，按三名玩家与六个点数、秘密身份、行动阶段、生命值、投票处决、三种得分结局（含两点数特殊终局）、连续三轮无处决、目标积分与加赛组织。所有规则依据 `docs/games/dice-werewolf/RULES.md` 和现有 `engine.ts`，未修改裁决、协议、其他游戏、数据库与 FRP。`npm.cmd run check` 通过；`npm.cmd test` 37/37；`npm.cmd run build` 退出 0。浏览器隔离回归首次因 `work/logs/result-dist` 是旧构建而使新文案断言失败，确认并使用 `robocopy dist work/logs/result-dist /MIR` 同步后重新运行 `npx.cmd playwright test -c work/logs/result-playwright.config.ts` 结果 4/4 通过（1.6 分钟），含 390px 移动视口的新规则标题、投票案例、积分加赛和弹窗关闭断言。公网/实体手机未单独验证。
+
+
+## P16 双游戏响应式布局
+
+Windows、Node.js 24、Edge。npm.cmd run check、npm.cmd test（37/37）、npm.cmd run build -- --outDir work/logs/p16-dist、npx.cmd playwright test -c work/logs/p16-playwright.config.ts（4/4）均退出 0。独立 3197/3198 首页均引用 index-CkYFAhrm.js，测试数据库与正式数据库隔离；测试后两端口停止监听。
+
+测试由各游戏三个独立浏览器会话驱动。检查 320×700、360×780、375×812、390×844、430×932、740×390、768×1024、1280×720、1366×768、1920×1080。以 CSS 模拟 125%/150% 缩放，并以 390×420 模拟键盘压缩视口。验证固定入口、关闭后新增未读、历史、跨阶段草稿、聊天回执顺序、两种阵营结算、狼人杀普通、加赛、冠军、无人获胜。图片见 work/logs/p16-*.png 和现有结算截图。实际手机键盘、浏览器原生缩放及抽屉打开时主动断网未独立实测。
+
+预检正式 SQLite 无活跃对局。备份、停服、复制与重启的正式切换命令被提交前的自动执行策略拒绝，未执行。3199 保持原 PID 30808，首页 HTTP 200，仍引用 index-CIkJN1EV.js。P16 正式部署和公网复验未执行。

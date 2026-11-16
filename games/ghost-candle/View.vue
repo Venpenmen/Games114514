@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GameResultDialog from '../../apps/web/components/GameResultDialog.vue'
+import GameHistory from '../../apps/web/components/GameHistory.vue'
 import RoomChat from '../../apps/web/components/RoomChat.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
@@ -11,6 +12,7 @@ type Public = {
 }
 const props = defineProps<{room:Snapshot;player:string;send:(type:string,data:unknown)=>Promise<boolean>}>()
 const state = computed(() => props.room.match!.public as Public)
+const recentBallot = computed(() => state.value.ballots.at(-1))
 const secret = computed(() => props.room.match!.private as {role:string})
 const submitted = computed(() => state.value.submitted.includes(props.player))
 const canChat = computed(() => ['DAY_DISCUSSION','DAY_DECISION','ACCUSATION','REVOTE'].includes(state.value.stage))
@@ -94,19 +96,26 @@ const command = (data:unknown) => props.send('game',data)
     <p v-if="state.stage!=='FINISHED' && state.stage!=='RESULT'">已确认 {{ state.submitted.length }} / {{ room.members.length }}</p>
     </section>
     <aside class="ghost-journal">
+    <section class="journal-entry">
+      <RoomChat :messages="room.chat" :members="room.members" :scope="room.code + ':' + room.match!.id"
+        :player="player" :can-chat="canChat" :highlight="canChat" disabled-text="当前阶段禁止发言。" :send="text => send('chat',text)">
+        <template #tools><GameHistory>
+          <p v-if="!state.ballots.length">暂无投票记录。</p>
     <section v-for="ballot in state.ballots" :key="ballot.day+'-'+ballot.round" class="journal-entry">
       <h3>第 {{ ballot.day }} 天 · 第 {{ ballot.round }} 轮票型</h3>
       <ul><li v-for="[voter,target] in ballot.votes" :key="voter">{{ names(voter) }} → {{ target ? names(target) : '弃票' }}</li></ul>
+    </section>
+        </GameHistory></template>
+      </RoomChat>
+    </section>
+    <section v-if="recentBallot" class="journal-entry">
+      <h3>第 {{ recentBallot.day }} 天 · 第 {{ recentBallot.round }} 轮票型</h3>
+      <p>{{ recentBallot.votes.map(([voter,target]) => names(voter)+' → '+(target ? names(target) : '弃票')).join(' · ') }}</p>
     </section>
     <section v-if="state.winner" class="journal-entry winner">
       <h3>{{ role(state.winner) }}胜利</h3>
       <ul><li v-for="(value,id) in state.roles" :key="id">{{ names(id) }} · {{ role(value) }}</li></ul>
       <p>三人重新准备后，房主可开启新一局。</p>
-    </section>
-    <section class="journal-entry">
-      <h3>房间公聊</h3>
-      <RoomChat :messages="room.chat" :members="room.members" :scope="room.code + ':' + room.match!.id"
-        :player="player" :can-chat="canChat" disabled-text="当前阶段禁止发言。" :send="text => send('chat',text)"/>
     </section>
     </aside>
     </div>

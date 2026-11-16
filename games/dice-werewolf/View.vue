@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GameResultDialog from '../../apps/web/components/GameResultDialog.vue'
+import GameHistory from '../../apps/web/components/GameHistory.vue'
 import RoomChat from '../../apps/web/components/RoomChat.vue'
 import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
@@ -133,20 +134,28 @@ const recentBallot=computed(()=>state.value.ballots.at(-1))
       </section>
 
       <aside class="dw-ledger">
+        <section>
+          <RoomChat :messages="room.chat" :members="room.members" :scope="room.code + ':' + room.match!.id"
+            :player="player" :can-chat="!match.finished" :send="text => send('chat',text)">
+            <template #tools><GameHistory>
+        <section v-if="state.executions.length">
+          <h3>处决记录</h3>
+          <p v-for="(event,i) in state.executions" :key="i">第 {{ event.round }} 轮 · {{ causes[event.cause] }} · {{ event.faces.join('、') }} 点</p>
+        </section>
+      <p v-if="!state.ballots.length">本局暂无公开票型。</p>
+      <div v-for="ballot in state.ballots" :key="ballot.round+'-'+ballot.attempt">
+        <strong>第 {{ ballot.round }} 轮 · 第 {{ ballot.attempt }} 次</strong>
+        <p>{{ ballot.votes.map(vote=>name(vote.player)+' → '+vote.face+' 点'+(vote.automatic?'（代投）':'')).join(' · ') }}</p>
+        <p>{{ Object.entries(ballot.totals).map(([face,total])=>face+' 点 '+total+' 票').join(' · ') }} · {{ ballot.target===null?'无有效处决':'处决 '+ballot.target+' 点' }}</p>
+      </div>
+            </GameHistory></template>
+          </RoomChat>
+        </section>
         <section v-if="recentBallot">
           <h3>最近票型 · 第 {{ recentBallot.round }} 轮第 {{ recentBallot.attempt }} 次</h3>
           <p v-for="vote in recentBallot.votes" :key="vote.player">{{ name(vote.player) }} → {{ vote.face }} 点{{ vote.automatic?'（代投）':'' }}</p>
           <p>票数 {{ Object.entries(recentBallot.totals).map(([face,total])=>face+' 点 '+total+' 票').join(' · ') }}</p>
           <p>{{ recentBallot.target===null?'无有效处决':'处决 '+recentBallot.target+' 点' }}</p>
-        </section>
-        <section v-if="state.executions.length">
-          <h3>处决记录</h3>
-          <p v-for="(event,i) in state.executions" :key="i">第 {{ event.round }} 轮 · {{ causes[event.cause] }} · {{ event.faces.join('、') }} 点</p>
-        </section>
-        <section>
-          <h3>房间公聊</h3>
-          <RoomChat :messages="room.chat" :members="room.members" :scope="room.code + ':' + room.match!.id"
-            :player="player" :can-chat="!match.finished" :send="text => send('chat',text)"/>
         </section>
       </aside>
     </div>
@@ -161,14 +170,7 @@ const recentBallot=computed(()=>state.value.ballots.at(-1))
       </template>
       <button @click="review()">{{ showSummary?'查看本局完整结算':'查看上一局结算' }}</button>
     </section>
-    <details class="dw-history"><summary>本局完整票型</summary>
-      <p v-if="!state.ballots.length">本局暂无公开票型。</p>
-      <div v-for="ballot in state.ballots" :key="ballot.round+'-'+ballot.attempt">
-        <strong>第 {{ ballot.round }} 轮 · 第 {{ ballot.attempt }} 次</strong>
-        <p>{{ ballot.votes.map(vote=>name(vote.player)+' → '+vote.face+' 点'+(vote.automatic?'（代投）':'')).join(' · ') }}</p>
-        <p>{{ Object.entries(ballot.totals).map(([face,total])=>face+' 点 '+total+' 票').join(' · ') }} · {{ ballot.target===null?'无有效处决':'处决 '+ballot.target+' 点' }}</p>
-      </div>
-    </details>
+
 
     <dialog ref="results" class="dw-dialog" :aria-labelledby="resultTitle">
       <div class="dw-dialog-header"><h2 :id="resultTitle">第 {{ reviewed?.game }} 局完整结算</h2><form method="dialog"><button autofocus>关闭</button></form></div>

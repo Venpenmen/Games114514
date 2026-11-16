@@ -57,3 +57,26 @@ p.role-label { border: 1px solid #8d704c; border-radius: .5rem; background: #221
   .ghost-layout { grid-template-columns: minmax(0,1fr); }
   .ghost-board { border-right: 0; border-bottom: 1px solid #59432c; }
 }
+
+.ghost { --room-chat-surface:#282116; }
+.ghost-header { min-height:0; padding:.7rem 1rem; gap:.6rem; }
+.ghost-board,.ghost-journal { padding:clamp(.5rem,1.8vw,1rem); }
+.ghost-journal { gap:.45rem; min-width:0; }
+.ghost-journal p { overflow-wrap:anywhere; }
+@media (max-width:800px), (max-height:520px) and (pointer:coarse) {
+  .ghost-layout { grid-template-columns:minmax(0,1fr); }
+  .ghost-header { padding:.5rem .65rem; }
+  .ghost-header h2 { font-size:clamp(1.3rem,5vw,1.9rem); }
+  .ghost-tools { gap:.36rem; }
+  .ghost-tools button,.ghost-tools .role-label { padding:.25rem .4rem; }
+  .ghost-board { border-right:0; }
+  .candles button { min-height:70px; padding:.15rem; }
+  .candle-model { height:44px; }
+  .ghost-board .actions button { min-width:44px; }
+  .ghost-journal .journal-entry:has(.room-chat) { padding:0; border:0; }
+  .ghost-board p { margin-top:.35rem; }
+}
+@media (max-height:520px) and (pointer:coarse) {
+  .candles button { min-height:56px; }
+  .candle-model { height:32px; }
+}

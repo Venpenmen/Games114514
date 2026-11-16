@@ -1,7 +1,17 @@
 import { expect, type Page } from '@playwright/test'
 
+export async function openChat(page: Page) {
+  const toggle=page.getByRole('button',{name:/^聊天(?: ·|$)/})
+  if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded')==='false') await toggle.click()
+}
+export async function closeChat(page: Page) {
+  const close=page.getByRole('button',{name:'关闭聊天'})
+  if (await close.isVisible()) await close.click()
+}
+
 export async function checkRoomChat(pages: [Page, Page, Page], senderName: string, delayOwn?: {release: () => void; held: () => boolean}) {
   const [reader, sender, other] = pages
+  for (const page of pages) await openChat(page)
   const list = reader.getByRole('list',{name:'公聊记录'})
   const messages = list.locator('li')
   const unread = reader.getByRole('button',{name:/下方有/})
@@ -29,9 +39,16 @@ export async function checkRoomChat(pages: [Page, Page, Page], senderName: strin
   await expect(messages.first().locator('b')).toHaveCount(0)
   expect(await list.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true)
   await toTop()
+  const mobileToggle=reader.getByRole('button',{name:/^聊天(?: ·|$)/})
+  const mobile=await mobileToggle.isVisible()
+  if (mobile) await closeChat(reader)
   await reader.waitForTimeout(1050)
   await send(sender,'提醒一')
   await send(other,'提醒二')
+  if (mobile) {
+    await expect(mobileToggle).toHaveText('聊天 · 2 条未读')
+    await openChat(reader)
+  }
   await expect(unread).toHaveText('↓ 下方有 2 条新消息')
   expect(await top()).toBe(0)
 
@@ -70,7 +87,10 @@ export async function checkRoomChat(pages: [Page, Page, Page], senderName: strin
   expect(await top()).toBe(0)
 
   await reader.reload()
+  await expect(reader.locator('.room-chat')).toBeAttached()
+  await openChat(reader)
   await expect(messages).toHaveCount(8)
   await expect.poll(distance).toBeLessThanOrEqual(1)
   await expect(unread).toHaveCount(0)
+  for (const page of pages) await closeChat(page)
 }

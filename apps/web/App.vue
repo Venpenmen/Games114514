@@ -106,7 +106,7 @@ async function share() {
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>多人联机小游戏合集</a>
     <button v-if="profile?.name" class="profile" @click="edit">{{ avatars[profile.avatar] }} {{ profile.name }}</button>
   </div></header>
-  <main>
+  <main :class="{'game-page':room?.match}">
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="profile && !connected" role="status">正在连接服务器…</p>
     <form v-if="editing && !room?.match" class="panel stack" @submit.prevent="save">
@@ -136,8 +136,8 @@ async function share() {
       </div>
     </template>
     <template v-else-if="room">
-      <section class="panel room-panel">
-        <div class="actions room-heading">
+      <section v-if="!playing" class="panel room-panel" :class="{'room-panel-finished':room.match}">
+        <div v-if="!room.match" class="actions room-heading">
           <h1>{{ game?.name }} · {{ room.code }}</h1>
           <div class="actions">
             <component v-if="rules && !room.match" :is="rules"/>

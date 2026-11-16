@@ -1,4 +1,5 @@
-import {checkRoomChat} from './room-chat.ts'
+import {checkGameLayout} from './game-layout.ts'
+import {checkRoomChat, openChat, closeChat} from './room-chat.ts'
 import {expect,test,type Page} from '@playwright/test'
 
 test('three guests play a complete match, sustained overtime and champion',async({browser})=>{
@@ -79,6 +80,7 @@ test('three guests play a complete match, sustained overtime and champion',async
     expect(await b.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
     await a.screenshot({path:'work/logs/dice-desktop.png',fullPage:true})
     await b.screenshot({path:'work/logs/dice-mobile.png',fullPage:true})
+    await checkGameLayout(b,'dice','.dw-points','增加 +1')
     await checkRoomChat([b,a,c], names[0],{
       held:()=>!!held,
       release:()=>{holdNext=false;held?.()},
@@ -92,7 +94,15 @@ test('three guests play a complete match, sustained overtime and champion',async
           await button(a,'增加 +1').click()
           await expect(b.getByText('1 / 3 已提交',{exact:true})).toBeVisible()
           await expect(b.locator('.dw-last')).toHaveCount(0)
-          await Promise.all([button(b,'增加 +1').click(),button(c,'增加 +1').click()])
+          await button(b,'增加 +1').click()
+          await openChat(b)
+          const draft=b.getByRole('textbox',{name:'聊天消息'})
+          await draft.fill('跨阶段草稿')
+          await button(c,'增加 +1').click()
+          await expect(b.getByRole('heading',{name:'当前点数 2',exact:true})).toBeVisible()
+          await expect(draft).toHaveValue('跨阶段草稿')
+          await draft.fill('')
+          await closeChat(b)
         } else await all(game===1 && face===4?'减少 −1':'增加 +1')
       }
       const target=Number((await (game===5?b:c).getByTestId('own-identity').textContent())?.match(/\d+/)?.[0])
@@ -142,7 +152,9 @@ test('three guests play a complete match, sustained overtime and champion',async
         await expect(button(b,'增加 +1')).toBeEnabled()
         expect(await b.evaluate(()=>Boolean(document.activeElement?.closest('.game-result')))).toBe(false)
         if(game===1) {
+          await openChat(b)
           await expect(b.getByRole('list',{name:'公聊记录'}).locator('li')).toHaveCount(8)
+          await closeChat(b)
           const dialog=a.getByRole('dialog',{name:'第 1 局完整结算'})
           await expect(dialog.getByText('最终生命值',{exact:true})).toBeVisible()
           await dialog.getByRole('button',{name:'关闭',exact:true}).click()

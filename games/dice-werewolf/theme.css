@@ -102,3 +102,27 @@
 }
 @keyframes dw-lamplight {to{transform:translateX(2%) scale(1.06);opacity:.5}}
 @media(max-width:730px),(prefers-reduced-motion:reduce){.dw-banner::before{animation:none}}
+
+.dw-saloon { --room-chat-surface:#30221c; }
+.dw-banner { min-height:0; padding:.7rem 1rem; gap:.45rem; }
+.dw-banner h2 { font-size:clamp(1.45rem,4vw,2.35rem); }
+.dw-banner .actions { margin:0; }
+.dw-ledger .room-chat { --room-chat-height:23rem; }
+@media (max-width:800px), (max-height:520px) and (pointer:coarse) {
+  .dw-floor { grid-template-columns:minmax(0,1fr); }
+  .dw-banner { padding:.5rem .65rem; }
+  .dw-banner h2 { margin:.12rem 0; }
+  .dw-banner p { font-size:.86rem; }
+  .dw-seats { padding:.3rem; gap:.26rem; }
+  .dw-seat { display:grid; justify-items:center; text-align:center; align-content:start; gap:.12rem; padding:.25rem .15rem; }
+  .dw-seat img { width:30px; }
+  .dw-seat h3 { font-size:.84rem; }
+  .dw-seat p { font-size:.72rem; }
+  .dw-private { grid-auto-flow:column; align-items:center; margin:0; --dw-size:17px; }
+  .dw-table,.dw-ledger { padding:.45rem; }
+  .dw-points { padding:.35rem; gap:.28rem; }
+  .dw-point { min-height:5.2rem; padding:.28rem .1rem; --dw-size:clamp(30px,8vw,40px); }
+  .dw-point button { min-height:44px; }
+  .dw-table-head { margin-bottom:.3rem; }
+  .dw-ledger section:has(.room-chat) { padding:0; border:0; }
+}
