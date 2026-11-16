@@ -62,7 +62,29 @@ for(const phase of ['spy','mystic']) test(phase+' only projects authorization sn
   assert.equal(notice?.viewedBy,phase==='mystic'?'a':undefined)
   assert.equal(notice?.identity,undefined)
   assert.deepEqual(privateView(s,'c')?.intel,[])
+  for(const player of ids) {
+    const targets=privateView(s,player)!.tableTargets
+    assert.deepEqual(targets.map(({player,card,target,ordinal})=>({player,card,target,ordinal})),
+      [{player:'a',card:phase+'-1',target:'b',ordinal:1}])
+    assert(!JSON.stringify(targets).includes('mirror'))
+  }
+  assert(!Object.hasOwn(publicView(s),'tableTargets'))
   assert.equal(JSON.stringify(publicView(s)).includes('mirror'),false)
+})
+test('timeout records the legal target exactly once and ties it to execution',()=>{
+  const s=start()
+  expire(s);expire(s)
+  s.seats[0].hand=['spy-1']
+  for(const player of ids) click(s,player,player==='a'?'spy-1':'pass')
+  const executionId=publicView(s).presentation!.id
+  expire(s)
+  const targetPhase=s.phase
+  expire(s)
+  assert.notEqual(s.phase,targetPhase)
+  assert.equal(privateView(s,'d')!.tableTargets[0].executionId,executionId)
+  assert.equal(privateView(s,'d')!.tableTargets[0].target,'b')
+  assert.throws(()=>click(s,'a','b'))
+  assert.equal(privateView(s,'d')!.tableTargets.length,1)
 })
 test('mystic draws either card privately and records the phase',()=>{
   for(const [index,expected] of ['mirror','martyr'].entries()) {
@@ -83,10 +105,12 @@ test('mystic draws either card privately and records the phase',()=>{
     assert.equal(privateView(restored,'b')?.intel[0]?.viewedBy,'a')
     assert.throws(()=>click(restored,'a','b'))
     assert.equal(privateView(restored,'b')?.intel.length,1)
+    assert.equal(privateView(restored,'c')?.tableTargets.length,1)
     restored.mode='ready'
     restored.seats[1].honor.push({id:100,value:3})
     expire(restored)
     assert.deepEqual(privateView(restored,'b')?.intel,[])
+    assert.deepEqual(privateView(restored,'b')?.tableTargets,[])
     assert.equal(privateView(restored,'b')?.score,3)
     restored.seats[1].intel=s.seats[1].intel
     assert.deepEqual(privateView(restored,'b')?.intel,[])
@@ -105,6 +129,7 @@ test('shapeshifter truth, memory and public swap only on confirmation',()=>{
     assert.equal(privateView(s,'b')?.action,undefined)
     assert.equal(Object.hasOwn(publicView(s),'action'),false)
     click(s,'a','c')
+    assert.deepEqual(privateView(s,'d')?.tableTargets.map(entry=>[entry.ordinal,entry.target]),[[1,'b'],[2,'c']])
     assert.deepEqual(privateView(s,'a')?.action,{step:'choice',targets:['b','c']})
     assert.equal(privateView(s,'a')?.intel[0].source,'shift')
     click(s,'a',answer)

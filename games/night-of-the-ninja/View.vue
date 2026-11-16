@@ -62,7 +62,20 @@ const recoveredPresentation=ref<number>()
 const staticPresentation=computed(()=>!!state.value.presentation &&
   (recoveredPresentation.value===state.value.presentation.id || props.room.pausedMs!==undefined))
 const shown=computed(()=>presented.value.at(-1))
-const roundEvents=computed(()=>state.value.events.filter(event=>event.round===state.value.round))
+const roundEvents=computed(()=>{
+  const rows=state.value.events.filter(event=>event.round===state.value.round)
+    .map(event=>({key:'event-'+event.seq,order:event.seq,event}))
+  for(const [index,target] of (privateState.value?.tableTargets??[]).entries()) {
+    rows.push({key:'target-'+index,order:target.after+.5,event:{
+      seq:target.after,at:0,round:target.round,kind:'target',actors:[target.player,target.target],
+      executionId:target.executionId,card:target.card,
+      text:cards[target.card].skill==='shift'?'已确认目标 '+target.ordinal+'。':'已确认技能目标。',
+    }})
+  }
+  return rows.sort((a,b)=>a.order-b.order)
+})
+const timelineCard=(event:PublicEvent)=>event.card??
+  (event.executionId===undefined?undefined:state.value.events.find(item=>item.seq===event.executionId)?.card)
 const major=computed(()=>presented.value.some(event=>!['play','attack'].includes(event.kind)))
 const ring=ref<HTMLElement>()
 const passing=ref(false)
@@ -136,6 +149,7 @@ onMounted(()=>{
 onUnmounted(()=>{clearTimeout(letterTimer);clearTimeout(passTimer)})
 const cardName=(id:string)=>skills[cards[id].skill][0]
 const eventLabels:Record<string,[string,string]> = {
+  target:['→','技能选定目标'],
   round:['◈','新一轮'], 'reveal-card':['◇','亮牌'], play:['▷','执行'],
   identity:['◉','公开身份'], swap:['⇄','交换身份'], attack:['→','指定攻击目标'],
   mirror:['↶','镜僧反应'], martyr:['✦','殉道者反应'], death:['×','死亡'],
@@ -247,16 +261,17 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
       <MatchReplay v-if="match.finished" :state="state" :name="name"/>
       <GameHistory title="公开时间线">
         <ol class="nn-timeline">
-          <li v-for="event in roundEvents" :key="event.seq" :data-kind="event.kind">
+          <li v-for="{event,key} in roundEvents" :key="key" :data-kind="event.kind"
+            :data-execution="event.kind==='play'?event.seq:event.executionId">
             <header><strong><span aria-hidden="true">{{ eventLabels[event.kind]?.[0] ?? '•' }}</span> {{ eventLabels[event.kind]?.[1] ?? '公开事件' }}</strong><small>第 {{ event.round }} 轮</small></header>
             <div v-if="event.actors.length" class="nn-timeline-actors">
-              <template v-for="(id,i) in event.actors" :key="id">
-                <span v-if="i" aria-hidden="true">{{ event.kind==='attack'?'→':event.kind==='swap'?'⇄':'·' }}</span>
+              <template v-for="(id,i) in event.actors" :key="i">
+                <span v-if="i" aria-hidden="true">{{ ['attack','target'].includes(event.kind)?'→':event.kind==='swap'?'⇄':'·' }}</span>
                 <span><img v-if="state.seats.some(seat=>seat.id===id)" :src="asset('portrait-'+state.seats.find(seat=>seat.id===id)!.portrait)" alt=""> {{ name(id) }}</span>
               </template>
             </div>
             <p><img v-if="['honor','pool','martyr'].includes(event.kind)" :src="asset('honor-back')" alt=""> {{ event.text }}</p>
-            <CardFace v-if="event.card" :id="event.card" compact/>
+            <CardFace v-if="timelineCard(event)" :id="timelineCard(event)!" compact/>
             <p v-for="(identity,id) in event.identities" :key="id"><img :src="asset(identity.house)" alt=""> {{ name(id) }} · {{ labels[identity.house] }}{{ identity.rank?' '+identity.rank:'' }}（公开时）</p>
           </li>
         </ol>

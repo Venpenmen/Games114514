@@ -6,11 +6,13 @@ export type Identity = {house:House; rank:number}
 type Honor = {id:number; value:number}
 type Config = {playerCount:number; draft:number; play:number; target:number; reaction:number}
 type Mode = 'draft1'|'draft2'|'commit'|'play'|'target'|'second'|'choice'|'recover'|'reaction'|'reveal'|'awards'|'ready'|'champion'|'presentation'
-type Play = {player:string; card:string}
+type Play = {player:string; card:string; executionId?:number}
+type TableTarget = {round:number; after:number; executionId?:number; player:string; card:string; target:string; ordinal:1|2}
 type Option = {value:string; label:string; target?:string; card?:string}
 export type PublicEvent = {
   seq:number; at:number; round:number; kind:string; actors:string[]; text:string;
   card?:string; identities?:Record<string,Identity>; group?:string; presentationAt?:number; duration?:number;
+  executionId?:number;
 }
 type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; viewedBy?:string; text:string; identity?:Identity; card?:string; honor?:number}
 export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
@@ -25,7 +27,7 @@ export type NinjaState = Turn & {
   config:Config; round:number; mode:Mode; night:number; seats:Seat[]; discard:string[];
   pool:Honor[]; nextHonor:number; events:PublicEvent[]; seq:number; submissions:Record<string,string>;
   queue:Play[]; current?:Play; target?:string; second?:string; offered:string[];
-  presentation?:Presentation; presentedThrough?:number; replay?:ReplayEntry[]; replayFrom?:number;
+  presentation?:Presentation; presentedThrough?:number; replay?:ReplayEntry[]; replayFrom?:number; tableTargets?:TableTarget[];
   awardees:string[]; champions:string[]; finalScores?:Record<string,number>;
 }
 const settings = [
@@ -64,12 +66,20 @@ function replaySeats(s:NinjaState,kind:'deal'|'identity'|'score') {
   }))
 }
 function event(s:NinjaState,ctx:Context,kind:string,text:string,actors:string[]=[],extra:Pick<PublicEvent,'card'|'identities'|'group'>={}) {
-  const result={seq:++s.seq,at:ctx.now,round:s.round,kind,text,actors,...extra}
+  const executionId=['identity','swap','attack','death','mirror','martyr','honor'].includes(kind)?s.current?.executionId:undefined
+  const result={seq:++s.seq,at:ctx.now,round:s.round,kind,text,actors,...extra,...(executionId===undefined?{}:{executionId})}
   s.events.push(result)
   recordReplay(s,{step:kind,result,
     ...(['honor','champion'].includes(kind)?{seats:replaySeats(s,'score')}:{}),
     ...(['swap','reveal'].includes(kind)?{seats:replaySeats(s,'identity')}:{}),
   })
+}
+function confirmTarget(s:NinjaState,id:string,ordinal:1|2) {
+  const play=s.current!
+  play.executionId??=s.events.findLast(item=>item.round===s.round && item.kind==='play' &&
+    item.card===play.card && item.actors[0]===play.player)?.seq
+  ;(s.tableTargets??=[]).push({round:s.round,after:s.seq,executionId:play.executionId,
+    player:play.player,card:play.card,target:id,ordinal})
 }
 function intel(s:NinjaState,ctx:Context,player:string,data:Omit<IntelEvent,'seq'|'at'|'round'>) {
   const source=s.current?.player===player && (data.target || data.card || skill(s)==='dig') ? skill(s) : undefined
@@ -126,6 +136,7 @@ function newRound(s:NinjaState,ctx:Context) {
   s.second=undefined
   s.offered=[]
   const hands=shuffle(deck.map(card=>card.id),ctx.random)
+  s.tableTargets=[]
   const deals=shuffle(identities(s.seats.length),ctx.random)
   s.seats.forEach((p,i)=>{
     p.alive=true
@@ -196,6 +207,7 @@ function nextCard(s:NinjaState,ctx:Context) {
     s.current=s.queue.shift()!
     if(!seat(s,s.current.player).alive) continue
     event(s,ctx,'play','开始结算公开牌。',[s.current.player],{card:s.current.card})
+    s.current.executionId=s.seq
     enter(s,ctx,'play',0.001)
     return
   }
@@ -250,6 +262,7 @@ function onTarget(s:NinjaState,ctx:Context,value:string) {
   const id=s.current!.player
   const p=seat(s,value)
   s.target=value
+  confirmTarget(s,value,1)
   switch(skill(s)) {
     case 'shift':
       inspect(s,ctx,id,value)
@@ -414,6 +427,7 @@ function settle(s:NinjaState,ctx:Context) {
     case 'second':
       if(value==='pass') {nextCard(s,ctx);return}
       s.second=value
+      confirmTarget(s,value,2)
       inspect(s,ctx,s.current!.player,value)
       enter(s,ctx,'choice',s.config.target)
       return
@@ -473,7 +487,7 @@ export function privateView(s:NinjaState,id:string) {
       : [],
   }:undefined
   return {hand:p.hand, known:p.known, honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
-    options:legal,action}
+    options:legal,action,tableTargets:(s.tableTargets??[]).filter(entry=>entry.round===s.round)}
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
   id:'night-of-the-ninja',version:1,name:'忍者之夜',minPlayers:4,maxPlayers:11,defaults,settings,

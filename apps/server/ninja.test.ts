@@ -146,6 +146,9 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
     assert(visible.seats.every(seat=>!Object.hasOwn(seat,'identity')&&!Object.hasOwn(seat,'hand')&&!Object.hasOwn(seat,'honor')))
     assert(visible.events.every((event,i)=>i===0||event.seq>visible.events[i-1].seq))
     const views=guests.slice(0,count).map(guest=>guest.snapshot!.match!.private as NonNullable<ReturnType<typeof privateView>>)
+    assert(!Object.hasOwn(visible,'tableTargets'))
+    assert(!Object.hasOwn(guests[count].snapshot!.match!.public as object,'tableTargets'))
+    assert(views.every(view=>JSON.stringify(view.tableTargets)===JSON.stringify(views[0].tableTargets)))
     if(!match.finished) {
       assert(!Object.hasOwn(visible,'replay'))
       assert(!Object.hasOwn(guests[count].snapshot!.match!.public as object,'replay'))
