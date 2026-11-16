@@ -40,6 +40,7 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await expect(observer.getByRole('button',{name:'私人情报'})).toHaveCount(0)
     await expect(observer.getByRole('textbox',{name:'聊天消息'})).toHaveCount(0)
     await expect(observer.getByRole('button',{name:'完整复盘'})).toHaveCount(0)
+    await expect(observer.locator('.nn-private-toast')).toHaveCount(0)
     await expect(observer.locator('.nn-hand')).toHaveCount(0)
     await expect(b.locator('.nn-seat')).toHaveCount(4)
     expect(await b.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)

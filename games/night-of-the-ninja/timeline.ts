@@ -1,14 +1,14 @@
 import type {PublicEvent,privateView} from './engine.ts'
 import {cards} from './cards.ts'
 
-type Targets=NonNullable<ReturnType<typeof privateView>>['tableTargets']
+export type TableTargets=NonNullable<ReturnType<typeof privateView>>['tableTargets']
 type TimelineEvent=PublicEvent & {key:string;order:number}
 export type TimelineRow=
   | {kind:'batch';key:string;events:TimelineEvent[]}
   | {kind:'execution';key:string;play:TimelineEvent;details:TimelineEvent[]}
   | {kind:'event';key:string;event:TimelineEvent}
 
-export function timelineRows(events:PublicEvent[],targets:Targets,round:number):TimelineRow[] {
+export function timelineRows(events:PublicEvent[],targets:TableTargets,round:number):TimelineRow[] {
   const entries:TimelineEvent[]=events.filter(event=>event.round===round)
     .map(event=>({...event,key:'event-'+event.seq,order:event.seq}))
   for(const [index,target] of targets.entries()) {

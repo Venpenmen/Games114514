@@ -6,13 +6,26 @@ import IdentityCard from './IdentityCard.vue'
 import {asset} from './art.ts'
 import {cards,phaseNames} from './cards.ts'
 import type {publicView,ReplayEntry} from './engine.ts'
+import {timelineRows,type TableTargets} from './timeline.ts'
 
-const props=defineProps<{state:ReturnType<typeof publicView>;name:(id:string)=>string}>()
+const props=defineProps<{state:ReturnType<typeof publicView>;name:(id:string)=>string;roundOnly?:boolean;targets?:TableTargets}>()
 const portrait=(id:string)=>props.state.seats.find(seat=>seat.id===id)?.portrait
 const labels:Record<string,string>={deal:'初始身份与发牌',draft1:'第一步轮抽',draft2:'第二步轮抽',commit:'实际出牌',target:'指定目标',second:'指定第二目标',choice:'技能选择',recover:'取得弃牌',reaction:'反应选择',intel:'私人情报', 'round-score':'本轮累计荣誉'}
+const entries=computed<ReplayEntry[]>(()=>{
+  if(!props.roundOnly) return props.state.replay??[]
+  const rows=timelineRows(props.state.events,props.targets??[],props.state.round)
+  return rows.flatMap(row=>{
+    const events=row.kind==='batch'?row.events:row.kind==='execution'?[row.play,...row.details]:[row.event]
+    return events.map(event=>{
+      const id=event.card??(row.kind==='execution'?row.play.card:undefined)
+      const phase=id?cards[id].phase:undefined
+      return {round:event.round,step:event.kind,result:event,phase:phase && phase!=='special'?phase:null}
+    })
+  })
+})
 const rounds=computed(()=>{
   const rounds: {round:number; groups:{name:string;entries:ReplayEntry[]}[]}[]=[]
-  for(const entry of props.state.replay??[]) {
+  for(const entry of entries.value) {
     if(rounds.at(-1)?.round!==entry.round) rounds.push({round:entry.round,groups:[]})
     const groups=rounds.at(-1)!.groups
     const name=['deal','round','draft1','draft2'].includes(entry.step)?'发牌与轮抽':entry.phase?phaseNames[entry.phase]:'轮末与结算'
@@ -36,30 +49,34 @@ function choiceText(entry:ReplayEntry) {
 </script>
 
 <template>
-  <GameHistory title="完整复盘">
+  <GameHistory :title="roundOnly?'本轮复盘':'完整复盘'">
     <div class="nn-replay">
+      <template v-if="!roundOnly">
       <p v-if="!state.replayComplete">此存档缺少升级前的复盘明细，仅显示实际保存的内容。</p>
       <h3>最终排名</h3>
-      <div v-for="([id,score],i) in rankings" :key="id" class="nn-replay-person">
+      <div v-for="[id,score] in rankings" :key="id" class="nn-replay-person">
         <img v-if="portrait(id)!==undefined" :src="asset('portrait-'+portrait(id))" alt="">
         <strong>{{ rankings.findIndex(([,points])=>points===score)+1 }} · {{ name(id) }} · {{ score }} 分{{ state.champions.includes(id)?' · 冠军':'' }}</strong>
         <IdentityCard v-if="state.finalIdentities?.find(seat=>seat.id===id)?.identity"
           :identity="state.finalIdentities.find(seat=>seat.id===id)!.identity!" caption="最终身份"/>
       </div>
-      <details v-for="round in rounds" :key="round.round">
+      </template>
+      <details v-for="round in rounds" :key="round.round" :open="roundOnly || undefined">
         <summary>第 {{ round.round }} 轮</summary>
         <section v-for="(group,i) in round.groups" :key="i">
           <h3>{{ group.name }}</h3>
           <article v-for="(entry,j) in group.entries" :key="j" class="nn-replay-row" :data-step="entry.step">
             <strong>{{ labels[entry.step] ?? entry.result?.text }}</strong>
             <div v-if="entry.player || entry.result?.actors.length" class="nn-replay-cards">
-              <span v-for="id in (entry.player?[entry.player]:entry.result?.actors)" :key="id" class="nn-replay-person">
+              <span v-for="(id,k) in (entry.player?[entry.player]:entry.result?.actors)" :key="k" class="nn-replay-person">
+                <span v-if="k && ['target','attack'].includes(entry.step)" aria-hidden="true">→</span>
                 <img v-if="portrait(id)!==undefined" :src="asset('portrait-'+portrait(id))" alt="">{{ name(id) }}
               </span>
               <span v-if="entry.choice && choiceText(entry)"> → {{ choiceText(entry) }}</span>
             </div>
             <p v-if="entry.intel">{{ entry.intel.text }} {{ entry.intel.target ? name(entry.intel.target) : '' }}{{ entry.intel.viewedBy ? ' · 查看者 '+name(entry.intel.viewedBy) : '' }}{{ entry.intel.honor!==undefined?' · '+entry.intel.honor+' 分':'' }}</p>
             <IdentityCard v-if="entry.intel?.identity" :identity="entry.intel.identity" caption="当时查阅"/>
+            <IdentityCard v-for="(identity,id) in entry.result?.identities" :key="id" :identity="identity" :caption="name(id)+' · 当时公开'"/>
             <div class="nn-replay-cards">
               <CardFace v-for="id in choiceCards(entry)" :key="id" :id="id" compact/>
               <CardFace v-if="entry.card || entry.result?.card || entry.intel?.card" :id="(entry.card || entry.result?.card || entry.intel?.card)!" compact/>

@@ -103,13 +103,24 @@ const paths=computed(()=>{
 })
 let privateCursor=0
 type PrivateEntry=NonNullable<ReturnType<typeof privateView>>['intel'][number]
-const freshIntel=ref<PrivateEntry>()
-const privateQueue:PrivateEntry[]=[]
+type PrivateNotice=PrivateEntry & {roundIdentity?:true}
+const freshIntel=ref<PrivateNotice>()
+const privateQueue:PrivateNotice[]=[]
 let letterTimer:number|undefined
 function nextPrivate() {
   clearTimeout(letterTimer)
   freshIntel.value=privateQueue.shift()
   if(freshIntel.value) letterTimer=window.setTimeout(nextPrivate,8000)
+}
+function announceRoundIdentity() {
+  const identity=privateState.value?.known
+  if(state.value.mode!=='draft1' || !identity) return
+  const key='ninja-round-identity:'+props.player+':'+match.value.id
+  const round=state.value.round
+  if(sessionStorage.getItem(key)===String(round)) return
+  sessionStorage.setItem(key,String(round))
+  privateQueue.push({seq:0,at:0,round,identity,text:'本轮身份已揭晓。',roundIdentity:true})
+  if(!freshIntel.value) nextPrivate()
 }
 watch([()=>props.connectionEpoch,()=>state.value.round,()=>privateState.value?.intel.at(-1)?.seq],
   ([epoch,round,intel],[oldEpoch,oldRound])=>{
@@ -117,6 +128,7 @@ watch([()=>props.connectionEpoch,()=>state.value.round,()=>privateState.value?.i
       privateQueue.length=0
       nextPrivate()
       privateCursor=intel??0
+      announceRoundIdentity()
       return
     }
     if(intel && intel>privateCursor) {
@@ -135,6 +147,7 @@ watch([()=>props.connectionEpoch,()=>state.value.presentation?.id],([epoch,id],[
 onMounted(()=>{
   privateCursor=privateState.value?.intel.at(-1)?.seq??0
   recoveredPresentation.value=state.value.presentation?.id
+  announceRoundIdentity()
 })
 onUnmounted(()=>{clearTimeout(letterTimer);clearTimeout(passTimer)})
 const cardName=(id:string)=>skills[cards[id].skill][0]
@@ -233,7 +246,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         <section v-if="freshIntel" class="nn-letter nn-private-toast" :key="freshIntel.seq" aria-label="新收到的私人情报">
           <p role="status"><span aria-hidden="true">封</span> {{ freshIntel.viewedBy ? name(freshIntel.viewedBy)+' 查看了你的 '+cardName(freshIntel.card!)+' '+cards[freshIntel.card!].number+'。' : freshIntel.actor ? name(freshIntel.actor)+' 对你使用了 '+cardName(freshIntel.actingCard!)+ '。' : (freshIntel.source ? skills[freshIntel.source][0]+' · ' : '')+freshIntel.text }}</p>
           <div class="nn-letter-cards">
-            <IdentityCard v-if="freshIntel.identity" :identity="freshIntel.identity" :caption="freshIntel.target ? name(freshIntel.target)+' · 取得时' : '取得时的身份'"/>
+            <IdentityCard v-if="freshIntel.identity" :identity="freshIntel.identity" :caption="freshIntel.roundIdentity?'你的本轮身份':freshIntel.target ? name(freshIntel.target)+' · 取得时' : '取得时的身份'"/>
             <div v-if="freshIntel.actingCard">执行牌 <CardFace :id="freshIntel.actingCard" compact/></div>
             <div v-if="freshIntel.card"><span v-if="freshIntel.viewedBy">被查看的手牌 </span><CardFace :id="freshIntel.card" compact/></div>
             <span v-if="freshIntel.honor!==undefined" class="nn-honor"><img :src="asset('honor-front')" alt=""><b>{{ freshIntel.honor }}</b></span>
@@ -250,6 +263,8 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           :locked="locked" :name="name" @select="select" @confirm="confirm"/>
     <aside class="nn-journal">
       <MatchReplay v-if="match.finished" :state="state" :name="name"/>
+      <MatchReplay v-else-if="state.mode==='ready'" :key="state.round" :state="state" :name="name"
+        round-only :targets="privateState?.tableTargets"/>
       <GameHistory title="公开时间线">
         <ol class="nn-timeline">
           <li v-for="row in roundEvents" :key="row.key"
