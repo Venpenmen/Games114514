@@ -70,3 +70,7 @@ Windows、Node.js 24、Edge。npm.cmd test 通过 36/36（包含工作树中已�
 规则变更：两名人类同选同根、诡异选同根并执行 DESTROY 时，该根变为 DESTROYED；其他两人同选仍点亮。服务端规则、前端游戏规则弹窗及规则文档已同步。定向 `node --test games/ghost-candle/engine.test.ts` 原 19/19 通过；新增连续五夜三人同选摧毁、超时三人重合的验证。全量 `npm.cmd test` 37/37，`npm.cmd run check` 及 `npm.cmd run build` 成功。保留未提交的网络、Cookie 与启停配置改动。本轮不包含前端布局与语言简化改版。
 
 P13 补充验收：`npx.cmd playwright test -c work/logs/result-playwright.config.ts` 两款游戏三会话浏览器联机 4/4 通过（1.7 分钟）。项目服务管理脚本受控停止并启动原 3199 服务，启动前后 `/api/catalog` 返回 HTTP 200；部署后首页及游戏目录 HTTP 200，两个插件均存在，构建 Rules JS 资源已确认包含新的三人同选摧毁判定文字。运行配置仍为 PORT=3199、PUBLIC_ORIGIN=auto、DATABASE_PATH=work/logs/dice-preview.db、NODE_ENV=production；未更换或清空数据库，未修改 FRP，公网/实体手机未独立复验。
+
+## P14 《诡吹灯》玩家规则弹窗重写（2026-11-16）
+
+仅修改前端 `games/ghost-candle/Rules.vue` 的玩家可读说明和原生 CSS 图形化示例：两阵营胜利条件、夜晚操作 3 步、5 组具体人类/诡异选择与结果卡片、白天讨论/寻找/指认流程、超时与隐私提示。重点明确 GC-RULES-1.4 的三人同选且诡异摧毁时判为摧毁。保留服务端引擎、协议、数据库、规则技术文档与其他游戏界面。`npm.cmd run check` 退出 0，`npm.cmd test` 37/37，`npm.cmd run build` 退出 0。使用独立测试端口、数据库的 `npx.cmd playwright test -c work/logs/result-playwright.config.ts` 测试 4/4 通过，含《诡吹灯》三会话两阵营终局、规则弹窗移动端宽度和关闭，以及《骰子狼人杀》回归。公网与实体手机未执行。
