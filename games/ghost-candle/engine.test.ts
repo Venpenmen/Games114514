@@ -10,7 +10,7 @@ function actions(s: ReturnType<typeof start>, a:number,b:number,c:number,action:
   game.command(s,'a',{kind:'night',candle:c,action},context)
 }
 for (const [a,b,c,action,target,status] of [
-  [1,1,1,'DESTROY',1,'LIT'],
+  [1,1,1,'DESTROY',1,'DESTROYED'],
   [1,1,2,'DESTROY',1,'LIT'],
   [1,1,1,'LIGHT',1,'LIT'],
   [1,1,2,'LIGHT',1,'LIT'],
@@ -118,15 +118,27 @@ test('random destruction can choose any intact candle, including the ghost targe
     assert.equal(s.candles.filter(candle=>candle!=='INTACT').length,3)
   }
 })
-test('timeout overlap lights once', () => {
+test('timeout triple overlap destroys once', () => {
   const s = start()
   const time = {...ctx,now:s.deadline!}
   game.advance(s,time)
-  assert.deepEqual(s.last,{candle:1,status:'LIT'})
+  assert.deepEqual(s.last,{candle:1,status:'DESTROYED'})
   const settled = structuredClone(s)
   game.advance(s,time)
   assert.deepEqual(s,settled)
 })
+test('five triple-overlap destructions give the ghost victory', () => {
+  const s = start()
+  for (let i=1;i<=5;i++) {
+    actions(s,i,i,i,'DESTROY')
+    if (s.deadline !== null) progress(s)
+    if (s.stage === 'DAY_DECISION') progress(s)
+  }
+  assert.equal(s.winner,'GHOST')
+  assert.equal(s.night,5)
+  assert.equal(s.candles.filter(candle=>candle==='DESTROYED').length,5)
+})
+
 test('five directed destructions give the ghost victory', () => {
   const s = start()
   for (let i=1;i<=5;i++) {

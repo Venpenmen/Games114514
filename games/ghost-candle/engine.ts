@@ -47,7 +47,7 @@ function settle(s: State, {now, random}: Context) {
       let status: Candle
       if (a.candle === b.candle) {
         candle = a.candle
-        status = 'LIT'
+        status = ghost.action === 'DESTROY' && ghost.candle === a.candle ? 'DESTROYED' : 'LIT'
       } else if (hits && ghost.action === 'DESTROY') {
         candle = ghost.candle
         status = 'DESTROYED'

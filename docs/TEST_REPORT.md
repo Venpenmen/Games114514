@@ -64,3 +64,9 @@ npx.cmd playwright test -c work/logs/chat-playwright.config.ts 以独立 3197/31
 Windows、Node.js 24、Edge。npm.cmd test 通过 36/36（包含工作树中已有的网络测试）；npm.cmd run check、npm.cmd run build -- --outDir work/logs/result-dist、npx.cmd playwright test -c work/logs/result-playwright.config.ts 均退出 0。行为定向断言随真实三会话浏览器用例运行。
 
 独立端口 3197/3198 与临时 SQLite 验收 4/4。覆盖大厅与房间入口可见性、刷新、离房、人类和诡异各胜一局、同标签页去重、狼人杀多人获胜和无人获胜、旧详情打开时延迟提示、续局自动关闭与焦点脱离、加赛、冠军和历史聊天位置。截图见 work/logs/ghost-result-true-0.png、ghost-result-false-1.png、dice-mobile-result.png 和 dice-champion-result.png。测试实例已停止；正式 3199 目录 HTTP 200，原进程未重启。公网、实体手机及 SUMMARY 最后数秒专门刷新未独立复验。
+
+## P13 《诡吹灯》三人同选摧毁优先（2026-11-16）
+
+规则变更：两名人类同选同根、诡异选同根并执行 DESTROY 时，该根变为 DESTROYED；其他两人同选仍点亮。服务端规则、前端游戏规则弹窗及规则文档已同步。定向 `node --test games/ghost-candle/engine.test.ts` 原 19/19 通过；新增连续五夜三人同选摧毁、超时三人重合的验证。全量 `npm.cmd test` 37/37，`npm.cmd run check` 及 `npm.cmd run build` 成功。保留未提交的网络、Cookie 与启停配置改动。本轮不包含前端布局与语言简化改版。
+
+P13 补充验收：`npx.cmd playwright test -c work/logs/result-playwright.config.ts` 两款游戏三会话浏览器联机 4/4 通过（1.7 分钟）。项目服务管理脚本受控停止并启动原 3199 服务，启动前后 `/api/catalog` 返回 HTTP 200；部署后首页及游戏目录 HTTP 200，两个插件均存在，构建 Rules JS 资源已确认包含新的三人同选摧毁判定文字。运行配置仍为 PORT=3199、PUBLIC_ORIGIN=auto、DATABASE_PATH=work/logs/dice-preview.db、NODE_ENV=production；未更换或清空数据库，未修改 FRP，公网/实体手机未独立复验。

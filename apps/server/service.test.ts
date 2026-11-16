@@ -117,7 +117,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   const next=a.rooms.get(code)!.match!
   assert.equal(next.phase,night.phase+1)
   const candles=(next.public as {candles:string[]}).candles
-  assert.equal(candles[target-1],'LIT')
+  assert.equal(candles[target-1],'DESTROYED')
   assert.equal(candles.filter(candle=>candle!=='INTACT').length,2)
   clock+=1000
   const third=await send(a,'create',undefined,{gameId:'dice-werewolf'})
