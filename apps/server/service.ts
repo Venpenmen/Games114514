@@ -224,6 +224,11 @@ export function createPlatform(options: {
       if (typeof cmd.room !== 'string' || !/^\d{6}$/.test(cmd.room)) throw new Error('请输入六位房间码')
       room = load(cmd.room)
       if (!room) throw new Error('房间不存在')
+      if (cmd.type==='join' && cmd.data && typeof cmd.data==='object' && Object.hasOwn(cmd.data,'waitingMembers')) {
+        const {gameId,waitingMembers}=record(cmd.data)
+        if (gameId!==room.gameId || room.match || waitingMembers!==room.members.length)
+          throw new Error('等待房间的游戏、对局或人数已变化')
+      }
       if (advance(room,time)) {
         room.updated = time
         save(room)

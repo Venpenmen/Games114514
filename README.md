@@ -56,3 +56,12 @@ npm.cmd run build
 打开 [本地隔离试玩](http://127.0.0.1:3213)。用四个以上独立浏览器配置或容器登录同一个地址，创建房间后用房间码加入。`ninja-preview.cmd stop` 关闭此工作树的隔离实例，试玩数据库保留在 `work/logs/ninja-preview.db`。
 
 [冻结规则](docs/games/night-of-the-ninja/RULES.md) · [需求追踪](docs/games/night-of-the-ninja/TRACEABILITY.md) · [美术清单](docs/games/night-of-the-ninja/ASSET_STATUS.md) · [验证记录](docs/games/night-of-the-ninja/TEST_REPORT.md)
+
+### 单人混合试玩
+
+1. 在 [本地隔离试玩](http://127.0.0.1:3213) 创建一个新的《忍者之夜》房间，设定 4～11 个正式席位。保留一个真人席位，记下六位房间码。
+2. 在 Game 03 工作树双击 `ninja-bots.cmd` 并按提示填入房间码，或直接执行 `.\ninja-bots.cmd 123456 simple`（替换为实际房间码）。机器人自动填满其余席位、选择肖像并准备。
+3. 在网页选择自己的肖像，点「准备」和「开始游戏」。自己的操作仍需手动完成；机器人持续处理轮抽、出牌、目标、反应和轮间准备，直到产生冠军。
+4. 停止时在机器人窗口按 Ctrl+C，或另开终端运行 `.\ninja-bots.cmd stop`。开局前停止会释放机器人席位。开局后停止会让机器人离线，保留原席位和比赛记录。如需重新试一场，创建新房间后再填充。
+
+`simple`（默认）会优先保留较强卡牌、使用可用技能或反应，并优先选择公开荣誉枚数较多的合法目标。`random` 在本人当前的合法选项中随机选择，包括允许时的跳过。机器人是独立游客，只接收各自的私人投影与公共快照。脚本固定连接本机 3213 并核对试玩专属 Cookie；普通房间仍按原方式邀请真人。

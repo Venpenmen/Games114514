@@ -18,3 +18,12 @@ Windows，Node.js 24.17.0，Playwright 使用 Microsoft Edge。所有服务经�
 - **隔离**。运行入口仅 `127.0.0.1:3213`，独立 `work/logs/ninja-preview.db` 和 `games_ninja_preview` Cookie。Playwright 的 3197、3198、3214、3215 自动退出。P0 正式 3199 只读请求返回 200，交付复查时收到连接失败（curl 退出码 7）；本任务未对其执行启停或修改配置。
 
 [追踪矩阵](TRACEABILITY.md) 记录逐项证据与尚未验收的边缘用例；[素材清单](ASSET_STATUS.md) 记录原画规格及检查。公网、实体手机、跨设备高延迟同步和逐牌手机裁切未执行。等级称谓、密函细节与部分专项验证仍待补齐，见矩阵。
+
+## 单人混合试玩
+
+- `playwright.cmd test tests/ninja-bots.spec.ts`，退出码 0，2/2。一名 Edge 浏览器玩家加三个随机机器人打到冠军，另一场是一名 Edge 浏览器玩家加十个简单策略机器人打到冠军。验证机器人准备、重复填充拒绝、冠军达到 10 分、停止前后席位状态及冠军展示保留。浏览器脚本只操作真人网页，机器人从独立登录的 Socket.IO 游客会话执行同一套合法命令。
+- `npm.cmd test`，退出码 0，93/93。`npm.cmd run check`，退出码 0。日志 `work/logs/ninja-bots-unit.log`、`work/logs/ninja-bots-browser.log`。
+- `npm.cmd run build`，退出码 0。旧游戏 Playwright 回归 `playwright.cmd test online.spec.ts dice-online.spec.ts --grep 'three guests|simultaneous execution'`，退出码 0，4/4。日志 `work/logs/ninja-bots-build.log`、`work/logs/ninja-bots-regression.log`。
+- 3213 实测 `ninja-bots.cmd <房间码> simple` 和 `ninja-bots.cmd stop`，两个进程均退出 0。启动后三个机器人在线且准备，停止后等待区回到一个真人席位。烟测房间已关闭，试玩服务仍提供 HTTP 200。日志 `work/logs/ninja-bots-cli.log`。
+- 隔离协议烟测退出码 0。向两款旧游戏的测试房间请求填充，服务端拒绝，两间房均保留原本的单人名单。日志 `work/logs/ninja-bots-isolation.log`。
+- 冠军截图 `work/logs/ninja-bots-4.png` 与 `work/logs/ninja-bots-11.png`。浏览器用独立 3214 与自动化数据库，脚本人工入口固定 3213。日志不含机器人会话 Cookie。

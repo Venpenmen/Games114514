@@ -10,3 +10,5 @@ TEST_DB: work/logs/ninja-preview.db；自动化以各自数据库运行。
 WORKTREE: Game 03 专用目录；前两款游戏沿用原插件，公共房间能力仅由 Game 03 启用。
 BLOCKERS: 概念参考图未定位，已依据冻结文档重建风格。公网、实体手机与高延时同步未验证。正式 3199 初查 200，收尾只读探测连接失败；本任务无启停或迁移。
 NEXT_ACTION: 打开 http://127.0.0.1:3213 验收，依据 docs/games/night-of-the-ninja/TRACEABILITY.md 逐项复核 A-3.05、A-4.03、A-4.11 与部分验证条目。
+
+SOLO_BOTS: 3213 混合试玩已启用。基于 785b89c，复用现有游客注册、Socket.IO 命令和真实浏览器验收；4／11 人混合比赛 2/2 到冠军，启停脚本实测通过。NEXT_ACTION: 在 3213 创建新《忍者之夜》房间，运行 ninja-bots.cmd 填充。

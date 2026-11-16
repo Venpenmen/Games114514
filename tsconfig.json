@@ -19,6 +19,7 @@
     "apps/**/*",
     "games/**/*",
     "packages/**/*",
+    "scripts/*.ts",
     "*.ts",
     "tests/**/*"
   ]
