@@ -98,9 +98,9 @@ test('eleven real seats fit the desktop ring and mobile target area',async({brow
     await a.locator('.game-card').filter({has:a.getByRole('heading',{name:'忍者之夜',exact:true})}).getByRole('button',{name:'创建房间'}).click()
     await expect(a.locator('.members li')).toHaveCount(1)
     await a.getByLabel('正式玩家数').selectOption('11')
-    await a.getByLabel('轮抽秒数').selectOption('30')
     await Promise.all(pages.slice(1).map((page,i)=>login(page,i+1,a.url())))
     await expect(a.locator('.members li')).toHaveCount(11)
+    await a.getByLabel('轮抽秒数').selectOption('30')
     await Promise.all(pages.map(async (page,i)=>{
       await page.getByRole('button',{name:'肖像 '+(i+1),exact:true}).click()
       await page.getByRole('button',{name:'准备',exact:true}).click()
@@ -128,6 +128,12 @@ test('eleven real seats fit the desktop ring and mobile target area',async({brow
       }))).toEqual({scroll:height,height})
       await expect(a.getByRole('button',{name:'确认提交'})).toBeInViewport({ratio:1})
       await expect(a.locator('.nn-seat[data-self=true]')).toBeInViewport({ratio:1})
+      await expect(a.locator('.nn-seat-info')).toHaveCount(11)
+      const overlap=await a.locator('.nn-seat').evaluateAll(nodes=>{
+        const seats=nodes.map(node=>node.getBoundingClientRect())
+        return seats.some((a,i)=>seats.slice(i+1).some(b=>a.left<b.right && b.left<a.right && a.top<b.bottom && b.top<a.bottom))
+      })
+      expect(overlap,`${width}×${height} 席位相交`).toBe(false)
     }
     for (const page of [a,b]) {
       const images=page.locator('.nn-game img')

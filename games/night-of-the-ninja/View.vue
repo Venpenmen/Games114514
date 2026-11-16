@@ -93,53 +93,64 @@ const paths=computed(()=>{
 })
 let cursor=0
 let privateCursor=0
-const letter=ref(false)
-const freshIntel=computed(()=>letter.value?privateState.value?.intel.at(-1):undefined)
+type PrivateEntry=NonNullable<ReturnType<typeof privateView>>['intel'][number]
+const freshIntel=ref<PrivateEntry>()
+const privateQueue:PrivateEntry[]=[]
 let letterTimer:number|undefined
 let effectTimer:number|undefined
 let queued:PublicEvent[]=[]
+let nextShowAt=0
+const hold:Record<string,number>={play:1150,identity:1550,attack:2450,mirror:1050,martyr:1050,death:1050,swap:1350,honor:1150,reveal:3900,champion:5600}
+function nextPrivate() {
+  clearTimeout(letterTimer)
+  freshIntel.value=privateQueue.shift()
+  if(freshIntel.value) letterTimer=window.setTimeout(nextPrivate,8000)
+}
 function showNext() {
   clearTimeout(effectTimer)
   shown.value=undefined
   const now=Date.now()
   while(queued.length) {
     const next=queued[0]
-    const start=next.presentationAt!
-    const end=start+next.duration!
-    if(end<=now) {queued.shift();continue}
+    const published=next.presentationAt??next.at
+    const duration=hold[next.kind]??next.duration??1000
+    if(next.round!==state.value.round || published+duration+8000<=now) {queued.shift();continue}
+    const start=Math.max(published,nextShowAt)
     if(start>now) {
       effectTimer=window.setTimeout(showNext,start-now)
       return
     }
     queued.shift()
     shown.value=next
-    emit('audioCue',{matchId:match.value.id,sequence:next.seq,kind:next.kind})
-    effectTimer=window.setTimeout(showNext,end-now)
+    if(next.duration) emit('audioCue',{matchId:match.value.id,sequence:next.seq,kind:next.kind})
+    nextShowAt=now+duration+180
+    effectTimer=window.setTimeout(showNext,duration)
     return
   }
 }
-watch([()=>props.connectionEpoch,()=>state.value.events.at(-1)?.seq,()=>privateState.value?.intel.at(-1)?.seq],([epoch,latest,intel],[oldEpoch])=>{
-  if(epoch!==oldEpoch) {
-    clearTimeout(effectTimer)
-    clearTimeout(letterTimer)
-    shown.value=undefined
-    letter.value=false
-    queued=[]
-    cursor=latest??0
-    privateCursor=intel??0
-    return
-  }
-  if(intel && intel>privateCursor) {
-    privateCursor=intel
-    letter.value=true
-    clearTimeout(letterTimer)
-    letterTimer=window.setTimeout(()=>{letter.value=false},1800)
-  }
-  if(!latest||latest<=cursor) return
-  queued.push(...state.value.events.filter(event=>event.seq>cursor&&event.duration))
-  cursor=latest
-  if(!shown.value) showNext()
-})
+watch([()=>props.connectionEpoch,()=>state.value.round,()=>state.value.events.at(-1)?.seq,()=>privateState.value?.intel.at(-1)?.seq],
+  ([epoch,round,latest,intel],[oldEpoch,oldRound])=>{
+    if(epoch!==oldEpoch || round!==oldRound) {
+      privateQueue.length=0
+      nextPrivate()
+      privateCursor=intel??0
+      clearTimeout(effectTimer)
+      shown.value=undefined
+      queued=[]
+      nextShowAt=0
+      cursor=latest??0
+      return
+    }
+    if(intel && intel>privateCursor) {
+      privateQueue.push(...privateState.value!.intel.filter(entry=>entry.seq>privateCursor))
+      privateCursor=intel
+      if(!freshIntel.value) nextPrivate()
+    }
+    if(!latest||latest<=cursor) return
+    queued.push(...state.value.events.filter(event=>event.seq>cursor&&(event.duration||event.kind==='identity')))
+    cursor=latest
+    if(!shown.value) showNext()
+  })
 onMounted(()=>{
   cursor=state.value.events.at(-1)?.seq??0
   privateCursor=privateState.value?.intel.at(-1)?.seq??0
@@ -184,11 +195,11 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         :disabled="locked || !targetOptions.has(p.id)" @click="select(targetOptions.get(p.id)!)"
         :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id,'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id)}">
         <img :src="asset('portrait-'+p.portrait)" alt="" :class="{'nn-death-flash':shown?.kind==='death' && shown.actors.includes(p.id),'nn-attack-target':shown?.kind==='attack' && shown.actors[1]===p.id}">
-        <strong>{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</strong>
+        <span class="nn-seat-info"><strong>{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</strong>
         <small>{{ p.alive?'存活':'已死亡' }} · {{ room.members.find(member=>member.id===p.id)?.online?'在线':'离线' }}</small>
         <small><img :src="asset('honor-back')" alt=""> {{ p.honorCount }} 枚荣誉
           <img v-if="p.id!==player && p.handCount" class="nn-seat-card-back" :src="asset('card-back')" :alt="p.handCount+' 张未公开牌'"></small>
-        <small v-if="targetOptions.size">{{ privateState?.action?.targets.includes(p.id) ? '目标 '+(privateState.action.targets.indexOf(p.id)+1) : targetOptions.has(p.id)?'可选':'不可选' }}</small>
+        <small v-if="targetOptions.size">{{ privateState?.action?.targets.includes(p.id) ? '目标 '+(privateState.action.targets.indexOf(p.id)+1) : targetOptions.has(p.id)?'可选':'不可选' }}</small></span>
       </button>
       </div>
       <section class="nn-stage">
@@ -214,13 +225,6 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           </div>
           <img v-if="shown.kind==='honor' || shown.kind==='martyr'" :src="asset('honor-back')" alt="荣誉徽章">
         </div>
-        <section v-if="freshIntel" class="nn-letter" aria-label="新收到的私人情报">
-          <p role="status"><span aria-hidden="true">封</span> {{ freshIntel.viewedBy ? name(freshIntel.viewedBy)+' 查看了你的 '+cardName(freshIntel.card!)+' '+cards[freshIntel.card!].number+'。' : (freshIntel.source ? skills[freshIntel.source][0]+' · ' : '')+freshIntel.text }}</p>
-          <div class="nn-letter-cards">
-            <IdentityCard v-if="freshIntel.identity" :identity="freshIntel.identity" :caption="freshIntel.target ? name(freshIntel.target)+' · 取得时' : '取得时的身份'"/>
-            <CardFace v-if="freshIntel.card" :id="freshIntel.card" compact/>
-          </div>
-        </section>
         <section v-if="roundResult" class="nn-round-result">
           <h3>{{ roundResult.text }}</h3>
           <p v-if="roundResult.identities">鹤派 {{ ranks(roundResult.identities,'crane') }} · 莲派 {{ ranks(roundResult.identities,'lotus') }}</p>
@@ -236,6 +240,15 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           <p v-for="(score,id) in state.finalScores" :key="id">{{ name(id) }} · {{ score }} 分</p>
         </div>
       </section>
+        <section v-if="freshIntel" class="nn-letter nn-private-toast" :key="freshIntel.seq" aria-label="新收到的私人情报">
+          <p role="status"><span aria-hidden="true">封</span> {{ freshIntel.viewedBy ? name(freshIntel.viewedBy)+' 查看了你的 '+cardName(freshIntel.card!)+' '+cards[freshIntel.card!].number+'。' : (freshIntel.source ? skills[freshIntel.source][0]+' · ' : '')+freshIntel.text }}</p>
+          <div class="nn-letter-cards">
+            <IdentityCard v-if="freshIntel.identity" :identity="freshIntel.identity" :caption="freshIntel.target ? name(freshIntel.target)+' · 取得时' : '取得时的身份'"/>
+            <CardFace v-if="freshIntel.card" :id="freshIntel.card" compact/>
+            <span v-if="freshIntel.honor!==undefined" class="nn-honor"><img :src="asset('honor-front')" alt=""><b>{{ freshIntel.honor }}</b></span>
+          </div>
+          <button type="button" @click="nextPrivate">确定</button>
+        </section>
       <div v-if="paths.length" :key="passing?'draft-pass':shown?.seq" class="nn-paths" :data-kind="passing?'draft-pass':shown?.kind" aria-hidden="true">
         <span v-for="(path,i) in paths" :key="i" :style="path.style">
           <img v-if="path.image" :src="path.image" alt=""><b v-else>◇</b>

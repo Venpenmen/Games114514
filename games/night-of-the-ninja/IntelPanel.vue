@@ -24,8 +24,8 @@ defineProps<{own:NonNullable<ReturnType<typeof privateView>>; seats:Seat[]; name
         </div>
       </section>
       <section>
-        <h3>本场比赛的历史情报</h3>
-        <p v-if="!own.intel.length">本场尚未收到技能情报。</p>
+        <h3>本轮私人情报</h3>
+        <p v-if="!own.intel.length">本轮尚未收到技能情报。</p>
         <ol v-else class="nn-intel-list">
           <li v-for="entry in [...own.intel].reverse()" :key="entry.seq">
             <header>

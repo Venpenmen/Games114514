@@ -84,8 +84,12 @@ test('mystic draws either card privately and records the phase',()=>{
     assert.throws(()=>click(restored,'a','b'))
     assert.equal(privateView(restored,'b')?.intel.length,1)
     restored.mode='ready'
+    restored.seats[1].honor.push({id:100,value:3})
     expire(restored)
-    assert.equal(privateView(restored,'b')?.intel[0]?.card,expected)
+    assert.deepEqual(privateView(restored,'b')?.intel,[])
+    assert.equal(privateView(restored,'b')?.score,3)
+    restored.seats[1].intel=s.seats[1].intel
+    assert.deepEqual(privateView(restored,'b')?.intel,[])
     assert.deepEqual(privateView(start(),'b')?.intel,[])
   }
 })

@@ -293,3 +293,28 @@
   .nn-p20 .nn-choice-card .nn-card-copy strong {font-size:.9rem}
   .nn-p20 .nn-options .nn-choice-card > strong {font-size:.78rem}
 }
+
+.nn-p20 .nn-seat-info {display:grid;min-width:0;max-width:100%;justify-items:center}
+.nn-p20 .nn-private-toast {
+  position:absolute;z-index:3;inset:auto 23% 25%;max-height:48%;overflow:auto;
+  border:1px solid #c8a571;background:#252035f5;box-shadow:0 .35rem 1.1rem #0008;
+  display:grid;gap:.35rem;pointer-events:none;
+}
+.nn-p20 .nn-private-toast > button {justify-self:end;min-height:36px;pointer-events:auto}
+.nn-p20[data-effects=full] .nn-event {animation-duration:.65s}
+.nn-p20[data-effects=full] .nn-event[data-event=attack] {animation-duration:2.15s}
+.nn-p20[data-effects=full] .nn-event[data-event=swap] {animation-duration:1.12s}
+.nn-p20[data-effects=reduced] .nn-private-toast {animation:none}
+@media(min-width:801px) {
+  .nn-p20 .nn-seat {
+    grid-template-columns:auto minmax(0,1fr);justify-content:start;text-align:left;
+    width:clamp(5.25rem,8.2vw,7.65rem);padding:.23rem .3rem;gap:.3rem;
+  }
+  .nn-p20 .nn-seat > img {width:clamp(1.45rem,2.35vw,2.4rem)}
+  .nn-p20 .nn-seat-info {justify-items:start;gap:.1rem}
+  .nn-p20 .nn-seat-info strong {font-size:.82rem;line-height:1.1}
+  .nn-p20 .nn-seat-info small {font-size:.63rem}
+}
+@media(max-width:800px) {
+  .nn-p20 .nn-private-toast {inset:auto 18% 25%;font-size:.77rem}
+}

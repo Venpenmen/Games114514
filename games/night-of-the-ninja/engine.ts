@@ -95,6 +95,7 @@ function newRound(s:NinjaState,ctx:Context) {
     p.identity=deals[i]
     p.known={...p.identity}
     p.hand=hands.slice(i*3,i*3+3)
+    p.intel=[]
   })
   event(s,ctx,'round','新一轮已发牌。')
   enter(s,ctx,'draft1',s.config.draft)
@@ -405,7 +406,7 @@ export function privateView(s:NinjaState,id:string) {
       ? [s.target,skill(s)==='shift'?s.second:undefined].filter((target):target is string=>!!target)
       : [],
   }:undefined
-  return {hand:p.hand, known:p.known, honor:p.honor, score:sum(p), intel:p.intel, submitted:Object.hasOwn(s.submissions,id),
+  return {hand:p.hand, known:p.known, honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
     options:legal,action}
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
