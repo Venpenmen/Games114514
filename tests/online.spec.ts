@@ -1,3 +1,4 @@
+import {checkRoomChat} from './room-chat.ts'
 import { expect,test,type Page } from '@playwright/test'
 
 test('three isolated guests complete and restart a real online match', async ({browser,baseURL}) => {
@@ -59,15 +60,17 @@ test('three isolated guests complete and restart a real online match', async ({b
     await expect(a.locator('.ghost strong').first()).toHaveText(role!)
     await expect(b.getByRole('heading',{name:'白天讨论'})).toBeVisible({timeout:36_000})
     await expect(c.getByText(/最近一夜/)).toBeVisible()
-    await b.getByRole('textbox',{name:'聊天消息'}).fill('三人联机验收')
-    await button(b,'发送').click()
-    await expect(a.getByText('三人联机验收',{exact:false})).toBeVisible()
+    await checkRoomChat([a,b,c], names[1])
+    const chatList=a.getByRole('list',{name:'公聊记录'})
+    await chatList.evaluate(el=>{el.dataset.instance='original'})
     async function all(name:string) {
       await Promise.all(pages.map(page=>button(page,name).click()))
     }
     for (let n=2;n<=3;n++) {
       await all('结束讨论')
       await expect(a.getByRole('heading',{name:'夜晚',exact:true})).toBeVisible()
+      await expect(a.getByRole('textbox',{name:'聊天消息'})).toHaveCount(0)
+      await expect(chatList).toHaveAttribute('data-instance','original')
       const label=await a.locator('.candles .intact').first().innerText()
       const target=label.match(/\d+/)![0]
       await Promise.all(pages.map(async page=>{
@@ -95,6 +98,7 @@ test('three isolated guests complete and restart a real online match', async ({b
     await button(a,'开始新一局').click()
     await expect(c.getByRole('heading',{name:'夜晚',exact:true})).toBeVisible()
     await expect(c.locator('.candles .intact')).toHaveCount(9)
+    await expect(a.getByRole('list',{name:'公聊记录',includeHidden:true}).locator('li')).toHaveCount(0)
     expect(await b.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   } finally {
     await Promise.all(contexts.map(context=>context.close()))

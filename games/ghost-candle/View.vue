@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RoomChat from '../../apps/web/components/RoomChat.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
 import Rules from './Rules.vue'
@@ -14,7 +15,6 @@ const submitted = computed(() => state.value.submitted.includes(props.player))
 const canChat = computed(() => ['DAY_DISCUSSION','DAY_DECISION','ACCUSATION','REVOTE'].includes(state.value.stage))
 const selected = ref<number>()
 const action = ref('LIGHT')
-const message = ref('')
 const muted = ref(localStorage.getItem('ghost-muted') !== 'false')
 watch(muted,value=>localStorage.setItem('ghost-muted',String(value)))
 let audio: AudioContext | undefined
@@ -50,10 +50,6 @@ const names = (id:string) => props.room.members.find(member=>member.id===id)?.na
 const role = (id:string) => id==='GHOST' ? '诡异' : '人类'
 const candleLabel:Record<string,string> = {INTACT:'完好',LIT:'点亮',DESTROYED:'摧毁'}
 const command = (data:unknown) => props.send('game',data)
-async function chat() {
-  const text = message.value
-  if (await props.send('chat',text) && message.value === text) message.value=''
-}
 </script>
 
 <template>
@@ -101,9 +97,8 @@ async function chat() {
     </section>
     <section class="journal-entry">
       <h3>房间公聊</h3>
-      <ol class="chat" aria-label="公聊记录"><li v-for="item in room.chat" :key="item.author+'-'+item.at"><strong>{{ names(item.author) }}</strong> {{ item.text }}</li></ol>
-      <form v-if="canChat" class="actions" @submit.prevent="chat"><input v-model="message" maxlength="280" aria-label="聊天消息" required><button>发送</button></form>
-      <p v-else>当前阶段禁止发言。</p>
+      <RoomChat :messages="room.chat" :members="room.members" :scope="room.code + ':' + room.match!.id"
+        :player="player" :can-chat="canChat" disabled-text="当前阶段禁止发言。" :send="text => send('chat',text)"/>
     </section>
     </aside>
     </div>

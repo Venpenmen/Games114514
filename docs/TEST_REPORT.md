@@ -50,3 +50,10 @@
 已查看桌面、390 px 移动和待处决截图，检查骰子六面、点数、动画和减少动态 CSS。截图保存在 work/logs/dice-desktop.png、dice-mobile.png、dice-condemned.png、dice-champion.png。生产随机源仍为服务器 randomInt。
 
 常驻本地入口 3199 的启动动作被执行策略拒绝，临时浏览器验收服务结束后停止。按 README 的独立工作树方式可手动启动。实体手机、公网和原生端均未执行。
+
+
+## P11 公共房间聊天
+
+Windows、Node.js 24、Edge。定向 node --test apps/web/components/chat-history.test.ts 通过 1/1。npm.cmd test 通过 36/36，npm.cmd run check 与 npm.cmd run build -- --outDir work/logs/chat-dist 均退出 0。全量计入工作树中已有的网络测试，其源码未混入聊天提交。
+
+npx.cmd playwright test -c work/logs/chat-playwright.config.ts 以独立 3197/3198 端口、独立数据库和独立构建目录运行，两款游戏各三会话，2/2 通过。浏览器验证桌面与 390 px、无编号、昵称字重、长文本与 HTML 文本安全、历史位置、未读计数、手动或按钮跳转、只读快照、自己发送成功、回执先于快照、限流失败保留草稿、刷新恢复、阶段禁言、重赛清空和冠军禁言。配置与日志保存在 work/logs。正式进程未重启，未执行公网和实体手机复验。

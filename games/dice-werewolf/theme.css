@@ -44,11 +44,10 @@
 .dw-last,.dw-table>p {margin-top:.55rem;color:#f2d7a7}
 .dw-act button {flex:1;background:linear-gradient(#52351f,#3e281c)}
 .dw-ledger {padding:.75rem;display:grid;align-content:start;gap:.65rem;background:#271d18;border-left:1px solid #785337;min-width:0}
+.dw-ledger .room-chat {--room-chat-height:10rem}
 .dw-ledger section,.dw-results,.dw-history {background:#30221c;border:1px solid #765538;border-radius:.5rem;padding:.65rem;overflow-wrap:anywhere}
 .dw-ledger h3,.dw-results h3 {color:#fdd49b;font-size:1.05rem}
 .dw-ledger p,.dw-results p {font-size:.9rem;margin:.2rem 0}
-.dw-chat {max-height:10rem;overflow:auto;padding-left:1.2rem}
-.dw-chat:empty {display:none}
 .dw-ledger input {flex:1 1 7rem;min-width:0;background:#231813;color:#ffe6bf;border-color:#9c784f}
 .dw-results,.dw-history {margin:.75rem}
 .dw-history summary {cursor:pointer}

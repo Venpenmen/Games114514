@@ -1,3 +1,4 @@
+import {checkRoomChat} from './room-chat.ts'
 import {expect,test,type Page} from '@playwright/test'
 
 test('three guests play a complete match, sustained overtime and champion',async({browser})=>{
@@ -11,6 +12,18 @@ test('three guests play a complete match, sustained overtime and champion',async
   try {
     const pages=await Promise.all(contexts.map(context=>context.newPage()))
     const [a,b,c]=pages
+    let holdNext=true
+    let held: (()=>void) | undefined
+    await b.routeWebSocket('**/socket.io/**',route=>{
+      const server=route.connectToServer()
+      server.onMessage(message=>{
+        if(holdNext && typeof message==='string' && message.startsWith('42["room"') && message.includes('本人成功消息')) {
+          held=()=>route.send(message)
+          return
+        }
+        route.send(message)
+      })
+    })
     const names=['安妮','比利','克莱']
     const button=(page:Page,name:string)=>page.getByRole('button',{name,exact:true})
     const all=(name:string)=>Promise.all(pages.map(page=>button(page,name).click()))
@@ -55,9 +68,10 @@ test('three guests play a complete match, sustained overtime and champion',async
     expect(await b.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
     await a.screenshot({path:'work/logs/dice-desktop.png',fullPage:true})
     await b.screenshot({path:'work/logs/dice-mobile.png',fullPage:true})
-    await b.getByRole('textbox',{name:'聊天消息'}).fill('赌桌联机验证')
-    await button(b,'发送').click()
-    await expect(a.getByText('赌桌联机验证',{exact:false})).toBeVisible()
+    await checkRoomChat([b,a,c], names[0],{
+      held:()=>!!held,
+      release:()=>{holdNext=false;held?.()},
+    })
     for(let game=1;game<=5;game++) {
       await expect(a.locator('.dw-banner')).toContainText('第 '+game+' 局')
       if(game>=4) await expect(a.locator('.dw-banner')).toContainText('加赛')
@@ -103,6 +117,7 @@ test('three guests play a complete match, sustained overtime and champion',async
     }
     await expect(c.getByRole('heading',{name:'冠军 · 安妮'})).toBeVisible()
     await expect(c.locator('.dw-results')).toContainText('共 5 分')
+    await expect(c.getByRole('textbox',{name:'聊天消息'})).toHaveCount(0)
     await c.reload()
     await expect(c.getByRole('heading',{name:'冠军 · 安妮'})).toBeVisible()
     await c.screenshot({path:'work/logs/dice-champion.png',fullPage:true})

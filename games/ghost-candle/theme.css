@@ -49,11 +49,8 @@ p.role-label { border: 1px solid #8d704c; border-radius: .5rem; background: #221
 .journal-entry { padding: .8rem; border: 1px solid #624b32; border-radius: .48rem; background: #1e1b14; min-width: 0; }
 .journal-entry h3 { font-size: 1.05rem; color: #f0cea1; }
 .journal-entry p, .journal-entry li { color: #dfcdb3; }
-.journal-entry ul, .chat { padding-left: 1.25rem; }
+.journal-entry ul:not(.room-chat-list) { padding-left: 1.25rem; }
 .journal-entry.winner { border-color: #ba915d; }
-.chat { max-height: 12rem; overflow: auto; overflow-wrap: anywhere; }
-.chat:empty { display: none; }
-.chat + form input { flex: 1 1 7rem; min-width: 0; }
 @keyframes flicker { to { transform: translateX(-50%) rotate(10deg) scale(.9); box-shadow: 0 0 19px 7px #e7893a95; } }
 @media (prefers-reduced-motion: reduce) { .lit .flame { animation: none; } }
 @media (max-width: 650px) {

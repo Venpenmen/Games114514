@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RoomChat from '../../apps/web/components/RoomChat.vue'
 import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
 import type { DicePublic } from './engine.ts'
@@ -28,11 +29,6 @@ async function submit(kind:string,value:number) {
   pending.value=true
   try { await props.send('game',{kind,value}) }
   finally { pending.value=false }
-}
-const message=ref('')
-async function chat() {
-  const text=message.value
-  if(await props.send('chat',text) && message.value===text) message.value=''
 }
 const results=ref<HTMLDialogElement>()
 const resultTitle=useId()
@@ -131,8 +127,8 @@ const recentBallot=computed(()=>state.value.ballots.at(-1))
         </section>
         <section>
           <h3>房间公聊</h3>
-          <ol class="dw-chat" aria-label="公聊记录"><li v-for="entry in room.chat" :key="entry.author+'-'+entry.at"><strong>{{ name(entry.author) }}</strong> {{ entry.text }}</li></ol>
-          <form v-if="!match.finished" class="actions" @submit.prevent="chat"><input v-model.trim="message" maxlength="280" aria-label="聊天消息" required><button>发送</button></form>
+          <RoomChat :messages="room.chat" :members="room.members" :scope="room.code + ':' + room.match!.id"
+            :player="player" :can-chat="!match.finished" :send="text => send('chat',text)"/>
         </section>
       </aside>
     </div>
