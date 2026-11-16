@@ -12,6 +12,7 @@ import CardFace from './CardFace.vue'
 import IntelPanel from './IntelPanel.vue'
 import IdentityCard from './IdentityCard.vue'
 import OperationStage from './OperationStage.vue'
+import {timelineRows,revealedPlayers} from './timeline.ts'
 import './theme.css'
 import './p20.css'
 
@@ -62,20 +63,9 @@ const recoveredPresentation=ref<number>()
 const staticPresentation=computed(()=>!!state.value.presentation &&
   (recoveredPresentation.value===state.value.presentation.id || props.room.pausedMs!==undefined))
 const shown=computed(()=>presented.value.at(-1))
-const roundEvents=computed(()=>{
-  const rows=state.value.events.filter(event=>event.round===state.value.round)
-    .map(event=>({key:'event-'+event.seq,order:event.seq,event}))
-  for(const [index,target] of (privateState.value?.tableTargets??[]).entries()) {
-    rows.push({key:'target-'+index,order:target.after+.5,event:{
-      seq:target.after,at:0,round:target.round,kind:'target',actors:[target.player,target.target],
-      executionId:target.executionId,card:target.card,
-      text:cards[target.card].skill==='shift'?'已确认目标 '+target.ordinal+'。':'已确认技能目标。',
-    }})
-  }
-  return rows.sort((a,b)=>a.order-b.order)
-})
-const timelineCard=(event:PublicEvent)=>event.card??
-  (event.executionId===undefined?undefined:state.value.events.find(item=>item.seq===event.executionId)?.card)
+const roundEvents=computed(()=>timelineRows(state.value.events,privateState.value?.tableTargets??[],state.value.round))
+const batchTitle=(event:PublicEvent)=>event.card && cards[event.card].phase!=='special'
+  ? phaseNames[cards[event.card].phase as keyof typeof phaseNames]+'阶段 · 同时亮牌' : '同时亮牌'
 const major=computed(()=>presented.value.some(event=>!['play','attack'].includes(event.kind)))
 const ring=ref<HTMLElement>()
 const passing=ref(false)
@@ -241,10 +231,11 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         </div>
       </section>
         <section v-if="freshIntel" class="nn-letter nn-private-toast" :key="freshIntel.seq" aria-label="新收到的私人情报">
-          <p role="status"><span aria-hidden="true">封</span> {{ freshIntel.viewedBy ? name(freshIntel.viewedBy)+' 查看了你的 '+cardName(freshIntel.card!)+' '+cards[freshIntel.card!].number+'。' : (freshIntel.source ? skills[freshIntel.source][0]+' · ' : '')+freshIntel.text }}</p>
+          <p role="status"><span aria-hidden="true">封</span> {{ freshIntel.viewedBy ? name(freshIntel.viewedBy)+' 查看了你的 '+cardName(freshIntel.card!)+' '+cards[freshIntel.card!].number+'。' : freshIntel.actor ? name(freshIntel.actor)+' 对你使用了 '+cardName(freshIntel.actingCard!)+ '。' : (freshIntel.source ? skills[freshIntel.source][0]+' · ' : '')+freshIntel.text }}</p>
           <div class="nn-letter-cards">
             <IdentityCard v-if="freshIntel.identity" :identity="freshIntel.identity" :caption="freshIntel.target ? name(freshIntel.target)+' · 取得时' : '取得时的身份'"/>
-            <CardFace v-if="freshIntel.card" :id="freshIntel.card" compact/>
+            <div v-if="freshIntel.actingCard">执行牌 <CardFace :id="freshIntel.actingCard" compact/></div>
+            <div v-if="freshIntel.card"><span v-if="freshIntel.viewedBy">被查看的手牌 </span><CardFace :id="freshIntel.card" compact/></div>
             <span v-if="freshIntel.honor!==undefined" class="nn-honor"><img :src="asset('honor-front')" alt=""><b>{{ freshIntel.honor }}</b></span>
           </div>
           <button type="button" @click="nextPrivate">确定</button>
@@ -261,18 +252,40 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
       <MatchReplay v-if="match.finished" :state="state" :name="name"/>
       <GameHistory title="公开时间线">
         <ol class="nn-timeline">
-          <li v-for="{event,key} in roundEvents" :key="key" :data-kind="event.kind"
-            :data-execution="event.kind==='play'?event.seq:event.executionId">
-            <header><strong><span aria-hidden="true">{{ eventLabels[event.kind]?.[0] ?? '•' }}</span> {{ eventLabels[event.kind]?.[1] ?? '公开事件' }}</strong><small>第 {{ event.round }} 轮</small></header>
-            <div v-if="event.actors.length" class="nn-timeline-actors">
-              <template v-for="(id,i) in event.actors" :key="i">
-                <span v-if="i" aria-hidden="true">{{ ['attack','target'].includes(event.kind)?'→':event.kind==='swap'?'⇄':'·' }}</span>
-                <span><img v-if="state.seats.some(seat=>seat.id===id)" :src="asset('portrait-'+state.seats.find(seat=>seat.id===id)!.portrait)" alt=""> {{ name(id) }}</span>
-              </template>
-            </div>
-            <p><img v-if="['honor','pool','martyr'].includes(event.kind)" :src="asset('honor-back')" alt=""> {{ event.text }}</p>
-            <CardFace v-if="timelineCard(event)" :id="timelineCard(event)!" compact/>
-            <p v-for="(identity,id) in event.identities" :key="id"><img :src="asset(identity.house)" alt=""> {{ name(id) }} · {{ labels[identity.house] }}{{ identity.rank?' '+identity.rank:'' }}（公开时）</p>
+          <li v-for="row in roundEvents" :key="row.key"
+            :data-kind="row.kind==='execution'?'play':row.kind==='batch'?'reveal-batch':row.event.kind"
+            :data-execution="row.kind==='execution'?row.play.seq:undefined">
+            <template v-if="row.kind==='batch'">
+              <header><strong>{{ batchTitle(row.events[0]) }}</strong><small>{{ revealedPlayers(row.events).length }} 人 · {{ row.events.length }} 张</small></header>
+              <div v-for="[player,held] in revealedPlayers(row.events)" :key="player" class="nn-reveal-line">
+                <strong>{{ name(player) }}</strong>
+                <span v-for="id in held" :key="id" class="nn-timeline-chip">{{ cardName(id) }} {{ cards[id].number }}</span>
+              </div>
+            </template>
+            <template v-else>
+              <header v-if="row.kind==='execution'">
+                <strong>{{ name(row.play.actors[0]) }} · {{ cardName(row.play.card!) }} {{ cards[row.play.card!].number }}</strong>
+                <small>第 {{ row.play.round }} 轮</small>
+              </header>
+              <header v-else><strong>{{ eventLabels[row.event.kind]?.[1] ?? '公开事件' }}</strong><small>第 {{ row.event.round }} 轮</small></header>
+              <CardFace v-if="row.kind==='execution'" :id="row.play.card!" compact/>
+              <p v-if="row.kind==='execution' && !row.details.length">开始执行。</p>
+              <div v-for="event in (row.kind==='execution'?row.details:[row.event])" :key="event.key"
+                class="nn-timeline-detail" :data-kind="event.kind" :data-execution="event.executionId">
+                <div v-if="event.actors.length && !(event.kind==='attack' && row.kind==='execution' &&
+                  row.details.some(target=>target.kind==='target' && target.actors[0]===event.actors[0] && target.actors[1]===event.actors[1]))" class="nn-timeline-actors">
+                  <template v-for="(id,i) in event.actors" :key="i">
+                    <span v-if="i" aria-hidden="true">{{ ['attack','target'].includes(event.kind)?'→':event.kind==='swap'?'⇄':'·' }}</span>
+                    <span><img v-if="state.seats.some(seat=>seat.id===id)" :src="asset('portrait-'+state.seats.find(seat=>seat.id===id)!.portrait)" alt=""> {{ name(id) }}</span>
+                  </template>
+                  <span v-if="event.kind==='mirror' && row.kind==='execution'">→ {{ name(row.play.actors[0]) }}</span>
+                </div>
+                <p><img v-if="['honor','pool','martyr'].includes(event.kind)" class="nn-timeline-icon" :src="asset('honor-back')" alt=""> {{ event.text }}</p>
+                <span v-if="event.kind==='target' && row.kind==='event'" class="nn-timeline-chip">{{ cardName(event.card!) }} {{ cards[event.card!].number }}</span>
+                <CardFace v-else-if="event.card && event.kind!=='target'" :id="event.card" compact/>
+                <p v-for="(identity,id) in event.identities" :key="id"><img :src="asset(identity.house)" class="nn-timeline-icon" alt=""> {{ name(id) }} · {{ labels[identity.house] }}{{ identity.rank?' '+identity.rank:'' }}（公开时）</p>
+              </div>
+            </template>
           </li>
         </ol>
       </GameHistory>

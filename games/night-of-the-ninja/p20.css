@@ -341,3 +341,11 @@
 .nn-replay-cards {display:flex;flex-wrap:wrap;gap:.25rem}
 .nn-replay-person {display:inline-flex;align-items:center;gap:.35rem}
 .nn-replay-person img {width:1.65rem;height:1.65rem;object-fit:cover;border-radius:.2rem}
+
+.nn-reveal-line {display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .5rem}
+.nn-reveal-line + .nn-reveal-line,.nn-timeline-detail + .nn-timeline-detail {border-top:1px solid #524b46;padding-top:.25rem}
+.nn-reveal-line > strong {min-width:6rem;overflow-wrap:anywhere}
+.nn-timeline-chip {display:inline-block;background:#181b2a;border:1px solid #786449;border-radius:.3rem;padding:.1rem .33rem}
+.nn-timeline-detail {display:grid;gap:.15rem;margin-left:.3rem}
+.nn-timeline-detail .nn-timeline-chip {justify-self:start}
+.nn-timeline-icon {width:1.45rem;height:1.45rem;vertical-align:middle;object-fit:cover}

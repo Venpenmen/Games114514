@@ -76,7 +76,7 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await a.screenshot({path:'work/logs/'+evidence+'-champion.png',fullPage:true})
     await expect.poll(()=>a.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBe(0)
     await button(b,'公开时间线').click()
-    await expect(b.locator('.nn-timeline [data-kind=champion]')).toContainText('比赛结算')
+    await expect(b.locator('.nn-timeline > li[data-kind=champion]')).toContainText('比赛结算')
     await expect(b.getByRole('dialog',{name:'公开时间线'})).toBeVisible()
     await button(observer,'完整复盘').click()
     expect(await observer.locator('.nn-replay details').count()).toBeGreaterThan(1)

@@ -61,6 +61,9 @@ for(const phase of ['spy','mystic']) test(phase+' only projects authorization sn
   assert.equal(notice?.card,phase==='mystic'?'mirror':undefined)
   assert.equal(notice?.viewedBy,phase==='mystic'?'a':undefined)
   assert.equal(notice?.identity,undefined)
+  assert.equal(notice?.actor,'a')
+  assert.equal(notice?.actingCard,phase+'-1')
+  assert.equal(privateView(s,'b')?.intel.length,1)
   assert.deepEqual(privateView(s,'c')?.intel,[])
   for(const player of ids) {
     const targets=privateView(s,player)!.tableTargets
@@ -181,6 +184,10 @@ for(const card of ['blind-1','shinobi-1','trickster-6']) for(const response of [
     assert.equal(s.seats[1].alive,response==='mirror')
     assert.equal(s.seats[0].alive,response!=='mirror')
     assert.equal(s.seats[1].honor.length,response==='martyr'?1:0)
+    if(response==='mirror') {
+      assert.equal(privateView(s,'a')?.intel.at(-1)?.actingCard,'mirror')
+      assert.equal(privateView(s,'a')?.intel.at(-1)?.actor,'b')
+    }
   })
 }
 test('mastermind, dead teammates and finishing only after the award batch',()=>{

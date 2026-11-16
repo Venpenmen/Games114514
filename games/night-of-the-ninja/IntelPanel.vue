@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import GameHistory from '../../apps/web/components/GameHistory.vue'
-import {phaseNames,skills} from './cards.ts'
+import {cards,phaseNames,skills} from './cards.ts'
 import {asset} from './art.ts'
 import type {privateView,publicView} from './engine.ts'
 import CardFace from './CardFace.vue'
@@ -32,10 +32,11 @@ defineProps<{own:NonNullable<ReturnType<typeof privateView>>; seats:Seat[]; name
               <strong>{{ entry.viewedBy ? '手牌被查看' : entry.source ? skills[entry.source][0] : entry.phase ? phaseNames[entry.phase] : '私人提示' }}</strong>
               <span>第 {{ entry.round }} 轮 · <time :datetime="new Date(entry.at).toISOString()">{{ new Date(entry.at).toLocaleTimeString() }}</time></span>
             </header>
-            <p>{{ entry.viewedBy ? name(entry.viewedBy)+' 查看了你的这张手牌。' : (entry.target ? name(entry.target)+' · ' : '')+entry.text }}</p>
+            <p>{{ entry.viewedBy ? name(entry.viewedBy)+' 查看了你的这张手牌。' : entry.actor ? name(entry.actor)+' 对你使用了 '+skills[cards[entry.actingCard!].skill][0]+'。' : (entry.target ? name(entry.target)+' · ' : '')+entry.text }}</p>
             <div class="nn-intel-evidence">
               <IdentityCard v-if="entry.identity" :identity="entry.identity" caption="取得时的身份"/>
-              <CardFace v-if="entry.card" :id="entry.card" compact/>
+              <div v-if="entry.actingCard">执行牌 <CardFace :id="entry.actingCard" compact/></div>
+              <div v-if="entry.card"><span v-if="entry.viewedBy">被查看的手牌 </span><CardFace :id="entry.card" compact/></div>
               <span v-if="entry.honor!==undefined"><span class="nn-honor"><img :src="asset('honor-front')" alt=""><b>{{ entry.honor }}</b></span> 查阅时的分值</span>
             </div>
           </li>

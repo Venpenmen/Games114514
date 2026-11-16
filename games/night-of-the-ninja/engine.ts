@@ -14,7 +14,7 @@ export type PublicEvent = {
   card?:string; identities?:Record<string,Identity>; group?:string; presentationAt?:number; duration?:number;
   executionId?:number;
 }
-type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; viewedBy?:string; text:string; identity?:Identity; card?:string; honor?:number}
+type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; viewedBy?:string; actor?:string; actingCard?:string; text:string; identity?:Identity; card?:string; honor?:number}
 export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
 export type ReplayEntry = {
   round:number; phase:Phase|null; step:string; player?:string; card?:string;
@@ -74,18 +74,23 @@ function event(s:NinjaState,ctx:Context,kind:string,text:string,actors:string[]=
     ...(['swap','reveal'].includes(kind)?{seats:replaySeats(s,'identity')}:{}),
   })
 }
-function confirmTarget(s:NinjaState,id:string,ordinal:1|2) {
+function confirmTarget(s:NinjaState,ctx:Context,id:string,ordinal:1|2) {
   const play=s.current!
   play.executionId??=s.events.findLast(item=>item.round===s.round && item.kind==='play' &&
     item.card===play.card && item.actors[0]===play.player)?.seq
   ;(s.tableTargets??=[]).push({round:s.round,after:s.seq,executionId:play.executionId,
     player:play.player,card:play.card,target:id,ordinal})
+  if(skill(s)!=='mystic') notifyTarget(s,ctx,id,play.player,play.card)
 }
 function intel(s:NinjaState,ctx:Context,player:string,data:Omit<IntelEvent,'seq'|'at'|'round'>) {
   const source=s.current?.player===player && (data.target || data.card || skill(s)==='dig') ? skill(s) : undefined
   const entry={seq:seat(s,player).intel.length+1,at:ctx.now,round:s.round,phase:phases[s.night],...data,source}
   seat(s,player).intel.push(entry)
   recordReplay(s,{step:'intel',player,intel:entry})
+}
+function notifyTarget(s:NinjaState,ctx:Context,target:string,actor:string,actingCard:string,card?:string) {
+  intel(s,ctx,target,{actor,actingCard,card,viewedBy:card?actor:undefined,
+    text:card?'你的手牌被查看。':'你被选为技能目标。'})
 }
 function changeMode(s:NinjaState,ctx:Context,mode:Mode,seconds:number) {
   s.mode=mode
@@ -196,7 +201,7 @@ function inspect(s:NinjaState,ctx:Context,id:string,target:string,withCard=false
   const p=seat(s,target)
   const card=withCard && p.hand.length ? p.hand[ctx.random(p.hand.length)] : undefined
   intel(s,ctx,id,{text:'查阅了目标的当时身份。',target,identity:{...p.identity},card})
-  if(card) intel(s,ctx,target,{text:'你的手牌被查看。',viewedBy:id,card})
+  if(withCard) notifyTarget(s,ctx,target,id,s.current!.card,card)
 }
 function nextCard(s:NinjaState,ctx:Context) {
   if(hold(s,ctx,'card')) return
@@ -262,7 +267,7 @@ function onTarget(s:NinjaState,ctx:Context,value:string) {
   const id=s.current!.player
   const p=seat(s,value)
   s.target=value
-  confirmTarget(s,value,1)
+  confirmTarget(s,ctx,value,1)
   switch(skill(s)) {
     case 'shift':
       inspect(s,ctx,id,value)
@@ -427,7 +432,7 @@ function settle(s:NinjaState,ctx:Context) {
     case 'second':
       if(value==='pass') {nextCard(s,ctx);return}
       s.second=value
-      confirmTarget(s,value,2)
+      confirmTarget(s,ctx,value,2)
       inspect(s,ctx,s.current!.player,value)
       enter(s,ctx,'choice',s.config.target)
       return
@@ -444,7 +449,10 @@ function settle(s:NinjaState,ctx:Context) {
         removeHand(seat(s,s.target!),value)
         event(s,ctx,value,'反应牌已发动。',[s.target!],{card:value})
       }
-      if(value==='mirror') kill(s,ctx,s.current!.player)
+      if(value==='mirror') {
+        notifyTarget(s,ctx,s.current!.player,s.target!,'mirror')
+        kill(s,ctx,s.current!.player)
+      }
       else {
         if(value==='martyr') award(s,ctx,[s.target!])
         kill(s,ctx,s.target!)
