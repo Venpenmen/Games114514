@@ -114,6 +114,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   service=open()
   url=await listen()
   ;[a,b,c,d]=await Promise.all(cookies.map(connect))
+  assert((await send(d,'join',second.room)).ok)
   for (const client of [a,b,c]) assert.equal((await send(client,'join',code)).ok,true)
   const paused=a.rooms.get(code)!.match!
   assert.equal(paused.phase,original.phase)
@@ -154,6 +155,10 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   assert.equal(candles[target-1],'DESTROYED')
   assert.equal(candles.filter(candle=>candle!=='INTACT').length,2)
   clock+=1000
+  const denied=await send(a,'create',undefined,{gameId:'dice-werewolf'})
+  assert(!denied.ok && denied.occupiedRoom===code)
+  for(const client of [a,b,c]) assert((await send(client,'leave',code)).ok)
+  clock+=60*60_000
   const third=await send(a,'create',undefined,{gameId:'dice-werewolf'})
   assert(third.ok && third.room)
   const dice=third.room
@@ -177,7 +182,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   }
   assert.equal(d.rooms.get(dice),undefined)
   assert.equal((await send(b,'lobby',dice,{portrait:5})).ok,false)
-  assert.deepEqual(new Set(await resumable(cookies[0])),new Set([code,dice]))
+  assert.deepEqual(new Set(await resumable(cookies[0])),new Set([dice]))
   await pauseWithSeats(dice)
   for(let face=1;face<=6;face++) {
     clock+=1000
@@ -206,6 +211,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   service=open()
   url=await listen()
   ;[a,b,c,d]=await Promise.all(cookies.map(connect))
+  assert((await send(d,'join',second.room)).ok)
   for(const client of [a,b,c]) assert((await send(client,'join',dice)).ok)
   const stillSummary=a.rooms.get(dice)!.match!
   assert.equal(stillSummary.phase,result.phase)
@@ -226,6 +232,12 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   assert.deepEqual((a.rooms.get(dice)!.match!.public as DicePublic).scores,score)
   await pauseWithSeats(dice)
 
+  assert((await send(a,'join',dice)).ok)
+  for(const client of [a,b,c]) assert((await send(client,'leave',dice)).ok)
+  clock+=60*60_000
+  assert(!(await send(a,'join',dice,{resume:true})).ok)
+  assert(!(await resumable(cookies[0])).includes(dice))
+
   const waiting=await send(a,'create',undefined,{gameId:'ghost-candle'})
   assert(waiting.ok && waiting.room)
   clock+=30*60_000-1
@@ -238,12 +250,6 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   assert((await send(a,'dissolve',disposable.room)).ok)
   assert(!(await resumable(cookies[0])).includes(disposable.room))
   assert(!(await send(a,'join',disposable.room,{resume:true})).ok)
-
-  assert((await send(a,'join',dice)).ok)
-  for(const client of [a,b,c]) assert((await send(client,'leave',dice)).ok)
-  clock+=60*60_000
-  assert(!(await send(a,'join',dice,{resume:true})).ok)
-  assert(!(await resumable(cookies[0])).includes(dice))
 
   // A legacy active room without timestamps gets a fresh offline interval on startup.
   await service.close()

@@ -97,8 +97,21 @@ export function createPlatform(options: {
   function attending(socket:Socket,room:Room) {
     return socket.data.seated===room.code
   }
+  const tabOwners=new Map<string,{socketId:string;tab?:string;session:string}>()
+  const ownerKey=(room:Room,id:string)=>room.code+':'+id
   function permitted(socket:Socket,room:Room,id:string) {
-    return !room.match || control(room,id)?.sessionId===socket.data.session
+    return tabOwners.get(ownerKey(room,id))?.socketId===socket.id &&
+      (!room.match || control(room,id)?.sessionId===socket.data.session)
+  }
+  function canAttach(socket:Socket,room:Room,id:string,sessionId:string) {
+    const owner=tabOwners.get(ownerKey(room,id))
+    const controlSession=control(room,id)?.sessionId
+    if(controlSession && controlSession!==sessionId) return false
+    return !owner || owner.socketId===socket.id || (!io.sockets.sockets.has(owner.socketId) &&
+      (!socket.data.tab || owner.session===sessionId && owner.tab===socket.data.tab))
+  }
+  function claimTab(socket:Socket,room:Room,id:string,sessionId:string) {
+    tabOwners.set(ownerKey(room,id),{socketId:socket.id,tab:socket.data.tab,session:sessionId})
   }
   function present(room:Room,id:string) {
     return !room.departed?.includes(id) && devices(id).some(socket=>attending(socket,room) && permitted(socket,room,id))
@@ -159,6 +172,7 @@ export function createPlatform(options: {
     const since=active ? room.emptySince : room.lastMemberActivityAt
     if(since===undefined || time-since < (active ? emptyMatchMs : idleRoomMs)) return false
     db.prepare('DELETE FROM rooms WHERE code=?').run(room.code)
+    for(const member of room.members) tabOwners.delete(ownerKey(room,member.id))
     if(room.match) db.prepare('DELETE FROM match_control WHERE match_id=?').run(room.match.id)
     for(const member of room.members) io.to(member.id).emit('left',room.code)
     io.to('watch:'+room.code).emit('left',room.code)
@@ -168,24 +182,35 @@ export function createPlatform(options: {
   function live(room:Room|undefined,time:number) {
     return room && !removeExpired(room,time) ? room : undefined
   }
-  function snapshot(room: Room, id: string, spectator=false): Snapshot {
+  // Rooms are the durable source of membership. Departed seats remain occupied.
+  const occupiedRows=db.prepare(`SELECT r.body FROM rooms r
+    WHERE EXISTS (SELECT 1 FROM json_each(r.body,'$.members') m WHERE json_extract(m.value,'$.id')=?)
+    ORDER BY r.updated DESC,r.code`)
+  function occupied(id:string,time:number,except?:string) {
+    for(const row of occupiedRows.all(id)) {
+      const room=JSON.parse(String(row.body)) as Room
+      if(room.code!==except && live(room,time)) return room
+    }
+  }
+  function snapshot(room: Room, id: string, spectator=false, readOnly=false): Snapshot {
     const state = room.match?.state
     const game = plugin(room)
-    return { code: room.code, host: room.host, gameId: room.gameId, config: room.config, lobby: room.lobby,
+    return { code: room.code, host: room.host, gameId: room.gameId, config: room.config, lobby: readOnly?undefined:room.lobby, readOnly,
       members: room.members.map(member => ({...member, online: present(room,member.id)})),
-      chat: spectator ? [] : room.chat, pausedMs:room.pausedMs,
+      chat: spectator || readOnly ? [] : room.chat, pausedMs:room.pausedMs,
       ...(spectator?{spectator:true}:game.roomPolicy?.allowActiveLeave?{canLeaveActive:true}:{}),
       match: room.match && state ? {id: room.match.id, phase: state.phase, deadline: state.deadline,
-        finished: game.finished(state), public: game.public(state), ...(spectator?{}:{private:game.private(state,id),controlVersion:control(room,id)?.version})} : undefined }
+        finished: game.finished(state), public: game.public(state), ...(spectator||readOnly?{}:{private:game.private(state,id),controlVersion:control(room,id)?.version})} : undefined }
   }
   function broadcast(room: Room, finishedNow=false) {
     for (const member of room.members) {
       if(room.departed?.includes(member.id)) {
         if(finishedNow) io.to(member.id).emit('left',room.code)
+        for(const socket of devices(member.id)) if(attending(socket,room)) socket.emit('room',snapshot(room,member.id,false,true))
         continue
       }
-      for(const socket of devices(member.id)) if(attending(socket,room) && permitted(socket,room,member.id))
-        socket.emit('room',snapshot(room,member.id))
+      for(const socket of devices(member.id)) if(attending(socket,room))
+        socket.emit('room',snapshot(room,member.id,false,!permitted(socket,room,member.id)))
     }
     if(plugin(room).roomPolicy?.spectators && room.match) io.to('watch:'+room.code).emit('room',snapshot(room,'',true))
   }
@@ -268,6 +293,12 @@ export function createPlatform(options: {
     return !!(game?.roomPolicy?.resumeFromLobby && game.version===room.version && room.match &&
       !game.finished(room.match.state) && room.members.some(member=>member.id===id))
   }
+  app.get('/api/occupied-room',(req,res)=>{
+    const current=session(req.headers.cookie)
+    if(!current) return res.status(401).json({error:'请先登录'})
+    const room=occupied(current.profile.id,now())
+    return res.json(room?{code:room.code,name:plugin(room).name}:null)
+  })
   app.get('/api/resumable-matches',(req,res)=>{
     res.set('Cache-Control','no-store')
     const current=session(req.headers.cookie)
@@ -324,8 +355,9 @@ export function createPlatform(options: {
     const entered=cmd.room ? live(load(cmd.room),time) : undefined
     const activeControl=entered && control(entered,id)
     const switching=cmd.type==='takeover'
-    if(entered?.match && !switching && activeControl && activeControl.sessionId!==current.id)
-      throw new Error('本设备没有操作权，请切换到当前设备操作')
+    const joining=cmd.type==='join'
+    if(entered && !joining && !switching && cmd.type!=='sync' && !permitted(socket,entered,id))
+      throw new Error('本标签页没有操作权，请先接管操作')
     if(cmd.type!=='create' && cmd.type!=='join' && !switching &&
        (!entered || !attending(socket,entered))) throw new Error('请先加入房间')
     if(entered && isActive(entered) && !['join','takeover','sync'].includes(cmd.type) &&
@@ -339,11 +371,17 @@ export function createPlatform(options: {
       if(code && !live(load(code),time)) throw new Error('房间不存在或已过期')
       return reply
     }
+    const acquiring=cmd.type==='create' || Boolean(joining && entered && !entered.members.some(member=>member.id===id))
+    if(acquiring) {
+      const existing=occupied(id,time,entered?.code)
+      if(existing) return {ok:false,error:'你已占据房间 '+existing.code+' 的正式席位',occupiedRoom:existing.code}
+    }
     let room: Room | undefined
     let removed: string[] = []
     let dissolved = false
     let finishedNow = false
     let newControl=false
+    let ownsTab=cmd.type==='create'
     let retiredMatch:string|undefined
     if (!profile.name) throw new Error('请先设置昵称')
     if (cmd.type === 'create') {
@@ -374,7 +412,7 @@ export function createPlatform(options: {
       const state = room.match?.state
       const active = !!state && !game.finished(state)
       if (cmd.type === 'join' || switching) {
-        if(switching && (!member || !room.match || cmd.match!==room.match.id)) throw new Error('原对局或席位已变化')
+        if(switching && (!member || (room.match && cmd.match!==room.match.id))) throw new Error('原对局或席位已变化')
         if (cmd.data && typeof cmd.data==='object' && 'resume' in cmd.data && cmd.data.resume===true && !canResume(room,id))
           throw new Error('对局无法恢复')
 
@@ -384,8 +422,9 @@ export function createPlatform(options: {
           if (room.match) { retiredMatch=room.match.id; delete room.match; room.chat = [] }
           room.members.push({...profile,ready:false})
         }
-        if(room.match && (!activeControl || switching)) newControl=true
-        if(room.departed?.includes(id)) {
+        ownsTab=switching || canAttach(socket,room,id,current.id)
+        if(room.match && ownsTab && (!activeControl || switching)) newControl=true
+        if(ownsTab && room.departed?.includes(id)) {
           room.departed=room.departed.filter(value=>value!==id)
         }
       } else {
@@ -478,6 +517,14 @@ export function createPlatform(options: {
     const reply: Reply = {ok:true, room:dissolved || removed.includes(id) ? undefined : room.code}
     db.exec('BEGIN IMMEDIATE')
     try {
+      if(acquiring) {
+        // Repeat under SQLite's writer lock before saving a new membership.
+        const conflict=occupied(id,time,room.code)
+        if(conflict) {
+          db.exec('ROLLBACK')
+          return {ok:false,error:'你已占据房间 '+conflict.code+' 的正式席位',occupiedRoom:conflict.code}
+        }
+      }
       room.updated = time
       room.lastMemberActivityAt=time
       const obsolete=retiredMatch ?? (dissolved?room.match?.id:undefined)
@@ -489,7 +536,7 @@ export function createPlatform(options: {
           .run(room.match.id,id,current.id,1,time)
       }
       if(room.match && cmd.type==='start') for(const member of room.members) {
-        const chosen=member.id===id?socket:devices(member.id).find(peer=>attending(peer,room!))
+        const chosen=member.id===id?socket:devices(member.id).find(peer=>attending(peer,room!) && tabOwners.get(ownerKey(room!,member.id))?.socketId===peer.id)
         db.prepare('INSERT INTO match_control VALUES (?,?,?,?,?)').run(room.match.id,member.id,chosen!.data.session,1,time)
       }
       if(finishedNow) recordResult(room,time)
@@ -499,16 +546,12 @@ export function createPlatform(options: {
       db.exec('COMMIT')
     } catch (error) { db.exec('ROLLBACK'); throw error }
     const previous=socket.data.seated as string|undefined
-    if(cmd.type==='join'||cmd.type==='create'||switching) socket.data.seated=room.code
+    if(joining||cmd.type==='create'||switching) socket.data.seated=room.code
+    if(ownsTab) claimTab(socket,room,id,current.id)
     for(const target of removed) {
+      if(!room.members.some(member=>member.id===target) || dissolved) tabOwners.delete(ownerKey(room,target))
       for(const peer of devices(target)) if(attending(peer,room)) delete peer.data.seated
       io.to(target).emit('left',room.code)
-    }
-    if(room.match && (cmd.type==='start'||switching)) for(const member of room.members) {
-      for(const peer of devices(member.id)) if(attending(peer,room) && !permitted(peer,room,member.id)) {
-        delete peer.data.seated
-        peer.emit('control-lost',{code:room.code,match:room.match.id})
-      }
     }
     if(!dissolved && syncPresence(room,time)) save(room)
     if(previous && previous!==room.code && socket.data.seated!==previous) changedPresence(id)
@@ -525,6 +568,8 @@ export function createPlatform(options: {
     socket.data.user = current.profile.id
     socket.data.session = current.id
     socket.data.expires = current.expires
+    const tab=socket.handshake.auth.tab
+    if(typeof tab==='string' && /^[a-f0-9-]{36}$/.test(tab)) socket.data.tab=tab
     next()
   })
   io.on('connection', socket => {
@@ -560,8 +605,12 @@ export function createPlatform(options: {
           ack({ok:true,room:room.code})
           return
         }
-        if(data.type==='unwatch') {
+        if(data.type==='unwatch' || data.type==='detach') {
           for(const channel of socket.rooms) if(channel.startsWith('watch:')) socket.leave(channel)
+          if(data.type==='detach' && socket.data.seated) {
+            delete socket.data.seated
+            changedPresence(id)
+          }
           ack({ok:true})
           return
         }
@@ -569,7 +618,7 @@ export function createPlatform(options: {
         if (reply.ok && reply.room) {
           if(data.type==='join'||data.type==='create'||data.type==='takeover') for(const channel of socket.rooms) if(channel.startsWith('watch:')) socket.leave(channel)
           const room = live(load(reply.room),time)
-          if (room?.members.some(value => value.id === id) && !room.departed?.includes(id) && attending(socket,room) && permitted(socket,room,id)) socket.emit('room',snapshot(room,id))
+          if (room?.members.some(value => value.id === id) && attending(socket,room)) socket.emit('room',snapshot(room,id,false,!permitted(socket,room,id)||!!room.departed?.includes(id)))
         }
       } catch (error) {
         reply = {ok:false,error:error instanceof Error ? error.message : '服务器错误'}
