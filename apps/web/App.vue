@@ -190,7 +190,7 @@ async function share() {
 </script>
 
 <template>
-  <header v-if="!room?.match && (!restoring || !!room || (editing && !profile?.name))" class="bar"><div class="bar-inner">
+  <header v-if="!(profile && editing) && !room?.match && (!restoring || !!room || (editing && !profile?.name))" class="bar"><div class="bar-inner">
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>多人联机小游戏合集</a>
     <button v-if="profile?.name" class="profile" @click="editing=true"><PlayerAvatar :name="profile.name" :glyph="avatars[profile.avatar]" online/> {{ profile.name }}</button>
   </div></header>
