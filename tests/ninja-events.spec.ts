@@ -85,6 +85,13 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await Promise.all([a,b,d].map(page=>select(page,'跳过')))
     const boardCard=a.locator('.nn-table-play[data-card="mystic-3"]')
     await expect(boardCard).toHaveAttribute('data-status','resolving')
+    await expect.poll(()=>boardCard.evaluate(card=>{
+      const play=card.getBoundingClientRect()
+      return Array.from(document.querySelectorAll('.nn-identity-trigger')).some(identity=>{
+        const box=identity.getBoundingClientRect()
+        return box.left<play.right && play.left<box.right && box.top<play.bottom && play.top<box.bottom
+      })
+    })).toBe(false)
     await boardCard.hover()
     await boardCard.click()
     await expect(a.getByRole('dialog',{name:'公开卡牌详情'})).toContainText('隐士')

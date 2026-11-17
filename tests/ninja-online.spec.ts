@@ -117,7 +117,7 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
   } finally { await Promise.all(contexts.map(context=>context.close())) }
 })
 
-for(const count of [6,8,11]) test(count+' real seats fit the desktop ring and mobile target area',async({browser})=>{
+for(const count of [6,8,9,11]) test(count+' real seats fit the desktop ring and mobile target area',async({browser})=>{
   test.setTimeout(90_000)
   const baseURL='http://127.0.0.1:3214'
   const contexts=await Promise.all(Array.from({length:count},(_,i)=>browser.newContext({baseURL,
@@ -174,6 +174,33 @@ for(const count of [6,8,11]) test(count+' real seats fit the desktop ring and mo
         return name.right>identity.left && name.left<identity.right && name.top<identity.bottom && name.bottom>identity.top
       }))
       expect(overlays).toBe(false)
+      const cards=await a.locator('.nn-identity-trigger').evaluateAll(elements=>elements.map(element=>{
+        const box=element.getBoundingClientRect()
+        return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:box.width}
+      }))
+      expect(cards.every(card=>card.width>=(count===9?39:31))).toBe(true)
+      await expect.poll(()=>a.locator('.nn-ring').evaluate(ring=>{
+        const cards=Array.from(ring.querySelectorAll('.nn-identity-trigger'),el=>el.getBoundingClientRect())
+        const blocks=Array.from(ring.querySelectorAll('.nn-seat-shell,.nn-stage'),el=>el.getBoundingClientRect())
+        const covers=(a:DOMRect,b:DOMRect)=>a.left<b.right-1 && b.left<a.right-1 && a.top<b.bottom-1 && b.top<a.bottom-1
+        return cards.flatMap((card,i)=>[
+          ...blocks.flatMap((block,j)=>covers(card,block)?[{card:i,block:j,box:card.toJSON()}]:[]),
+          ...cards.flatMap((other,j)=>j>i && covers(card,other)?[{card:i,other:j,box:card.toJSON()}]:[]),
+        ])
+      }),{message:`${count} 人 ${width}×${height} 身份牌碰撞`}).toEqual([])
+      if(count===9 && width===1366) {
+        await a.screenshot({path:'work/logs/p20-8-1-1-nine-seats.png'})
+        const trigger=a.locator('.nn-identity-trigger').first()
+        const widthBefore=(await trigger.boundingBox())!.width
+        await trigger.hover()
+        await expect.poll(async()=>(await trigger.boundingBox())!.width).toBeGreaterThan(widthBefore*1.35)
+        await trigger.click()
+        await expect(a.getByRole('dialog',{name:'身份牌详情'})).toBeVisible()
+        await a.keyboard.press('Escape')
+        await a.mouse.move(0,0)
+        await trigger.evaluate(element=>element.blur())
+        await expect.poll(async()=>(await trigger.boundingBox())!.width).toBeLessThan(widthBefore*1.05)
+      }
       const clipped=await a.locator('.nn-seat-info').evaluateAll(nodes=>nodes.some(node=>{
         const seat=node.closest('button')!.getBoundingClientRect()
         return Array.from(node.children).some(child=>{

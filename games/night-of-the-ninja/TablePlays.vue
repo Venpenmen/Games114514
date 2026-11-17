@@ -8,7 +8,7 @@ type State=ReturnType<typeof publicView>
 type Play=State['cardArea']['played'][number]
 type Point={x:number;y:number}
 type Flying={play:Play;point:Point}
-const props=defineProps<{ring?:HTMLElement;state:State;name:(id:string)=>string;effects:'full'|'light'|'reduced';epoch?:number}>()
+const props=defineProps<{ring?:HTMLElement;state:State;name:(id:string)=>string;effects:'full'|'light'|'reduced';epoch?:number;seatLayout:number}>()
 const visible=computed(()=>props.state.cardArea.played.filter(play=>play.status==='queued'||play.status==='resolving'))
 const fading=ref<Flying[]>([])
 const bounds=ref({width:0,height:0})
@@ -25,7 +25,7 @@ function layout(plays:Play[]) {
   if(!shells?.length) return points
   const center={x:width/2,y:height/2}
   const frame=props.ring!.getBoundingClientRect()
-  const obstacles=Array.from(props.ring!.querySelectorAll<HTMLElement>('.nn-seat-shell,.nn-stage'),element=>element.getBoundingClientRect())
+  const obstacles=Array.from(props.ring!.querySelectorAll<HTMLElement>('.nn-seat-shell,.nn-stage,.nn-identity-trigger'),element=>element.getBoundingClientRect())
   const placed:Point[]=[]
   const covers=(point:Point)=>{
     const x=point.x+frame.left,y=point.y+frame.top
@@ -53,7 +53,7 @@ function layout(plays:Play[]) {
   }
   return points
 }
-const positions=computed(()=>layout(visible.value))
+const positions=computed(()=>props.seatLayout ? layout(visible.value) : new Map<string,Point & {angle:number}>())
 const activeSpecial=computed(()=>props.state.presentation?.events.find(event=>
   event.card && ['mirror','martyr','master'].includes(event.kind)))
 const specialLive=ref<number>()

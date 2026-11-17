@@ -105,6 +105,54 @@ const batchTitle=(event:PublicEvent)=>event.card && cards[event.card].phase!=='s
   ? phaseNames[cards[event.card].phase as keyof typeof phaseNames]+'阶段 · 同时亮牌' : '同时亮牌'
 const major=(event:PublicEvent)=>['identity','houses','mirror','martyr','death','swap','honor','reveal','champion'].includes(event.kind)
 const ring=ref<HTMLElement>()
+const seatLayout=ref(0)
+let seatObserver:ResizeObserver|undefined
+function placeIdentityCards() {
+  const board=ring.value
+  if(!board || !matchMedia('(min-width:801px)').matches) return
+  const frame=board.getBoundingClientRect()
+  const seats=Array.from(board.querySelectorAll<HTMLElement>('.nn-seat-shell'))
+  const rectangles=seats.map(seat=>seat.getBoundingClientRect())
+  const stage=board.querySelector('.nn-stage')?.getBoundingClientRect()
+  const used=stage?[...rectangles,stage]:[...rectangles]
+  const intersects=(a:DOMRect,b:DOMRect)=>a.left<b.right && b.left<a.right && a.top<b.bottom && b.top<a.bottom
+  seats.forEach((seat,index)=>{
+    const box=rectangles[index]
+    const card=seat.querySelector<HTMLElement>('.nn-identity-trigger')!
+    const width=card.offsetWidth,height=card.offsetHeight, gap=5
+    const outwardX=box.left+box.width/2<frame.left+frame.width/2 ? -1 : 1
+    const outwardY=box.top+box.height/2<frame.top+frame.height/2 ? -1 : 1
+    const side=(direction:number,shift:number)=>new DOMRect(direction<0?box.left-width-gap:box.right+gap,box.top+(box.height-height)/2+shift,width,height)
+    const end=(direction:number,shift:number)=>new DOMRect(box.left+(box.width-width)/2+shift,direction<0?box.top-height-gap:box.bottom+gap,width,height)
+    const choices=[0,12,-12,24,-24,36,-36,48,-48,60,-60].flatMap(shift=>[
+      side(outwardX,shift),end(outwardY,shift),side(-outwardX,shift),end(-outwardY,shift),
+    ])
+    const chosen=choices.find(candidate=>candidate.left>=frame.left+2 && candidate.right<=frame.right-2 &&
+      candidate.top>=frame.top+2 && candidate.bottom<=frame.bottom-2 && !used.some(box=>intersects(candidate,box)))
+    if(chosen) {
+      card.style.setProperty('--identity-left',chosen.left-box.left+'px')
+      card.style.setProperty('--identity-top',chosen.top-box.top+'px')
+      const origin=chosen.left>=box.right?'left center':chosen.right<=box.left?'right center':
+        chosen.top>=box.bottom?'center top':'center bottom'
+      card.style.setProperty('--identity-origin',origin)
+      used.push(chosen)
+    }
+  })
+  seatLayout.value++
+}
+onMounted(()=>{
+  seatObserver=new ResizeObserver(placeIdentityCards)
+  watch(()=>[ring.value,state.value.seats.length] as const,([board])=>{
+    seatObserver?.disconnect()
+    if(board) {
+      seatObserver?.observe(board)
+      board.querySelectorAll('.nn-seat-shell,.nn-stage,.nn-identity-trigger').forEach(element=>seatObserver?.observe(element))
+      placeIdentityCards()
+    }
+  },{immediate:true,flush:'post'})
+})
+onUnmounted(()=>seatObserver?.disconnect())
+
 const passing=ref(false)
 let passTimer:number|undefined
 watch([()=>match.value.id,()=>state.value.mode,()=>match.value.phase,()=>props.connectionEpoch],([id,mode,phase,epoch],[oldId,oldMode,oldPhase,oldEpoch])=>{
@@ -219,7 +267,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
       <div class="actions"><Rules :step="step"/><label>演出 <select v-model="effects"><option value="full">完整</option><option value="light">轻量</option><option value="reduced">减少动态</option></select></label></div>
       <p v-if="room.spectator">旁观中 · 仅公开信息</p>
     </header>
-    <div ref="ring" class="nn-ring" :data-dense="state.seats.length>=9" :style="{'--nn-player-count':state.seats.length,'--nn-mobile-rows':Math.ceil((state.seats.length-1)/2)+1}">
+    <div ref="ring" class="nn-ring" :data-seat-count="state.seats.length" :data-dense="state.seats.length>=9" :style="{'--nn-player-count':state.seats.length,'--nn-mobile-rows':Math.ceil((state.seats.length-1)/2)+1}">
       <div class="nn-seats" aria-label="玩家席位">
       <div v-for="(p,i) in state.seats" :key="p.id" class="nn-seat-shell" :data-player="p.id" :style="polar(i)">
       <button type="button" class="nn-seat"
@@ -244,7 +292,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
       </button>
       </div>
       </div>
-      <TablePlays :ring="ring" :state="state" :name="name" :effects="effects" :epoch="connectionEpoch"/>
+      <TablePlays :ring="ring" :state="state" :name="name" :effects="effects" :epoch="connectionEpoch" :seat-layout="seatLayout"/>
       <section class="nn-stage">
         <p v-if="step==='draft1'">保留一张 · 两张传给左邻</p>
         <p v-else-if="step==='draft2'">收到右邻的两张牌</p>
