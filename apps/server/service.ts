@@ -137,9 +137,10 @@ export function createPlatform(options: {
       match: room.match && state ? {id: room.match.id, phase: state.phase, deadline: state.deadline,
         finished: game.finished(state), public: game.public(state), ...(spectator?{}:{private:game.private(state,id)})} : undefined }
   }
-  function broadcast(room: Room) {
+  function broadcast(room: Room, finishedNow=false) {
     for (const member of room.members) {
       if(!room.departed?.includes(member.id)) io.to(member.id).emit('room',snapshot(room, member.id))
+      else if(finishedNow) io.to(member.id).emit('left',room.code)
     }
     if(plugin(room).roomPolicy?.spectators && room.match) io.to('watch:'+room.code).emit('room',snapshot(room,'',true))
   }
@@ -177,7 +178,7 @@ export function createPlatform(options: {
       if(advanced) room.updated=time
       if(advanced || presenceChanged) {
         save(room)
-        broadcast(room)
+        broadcast(room,advanced && !isActive(room))
       }
     }
     db.prepare('DELETE FROM receipts WHERE created<?').run(time - day)
@@ -247,7 +248,7 @@ export function createPlatform(options: {
       }
       db.exec('COMMIT')
     } catch (error) { db.exec('ROLLBACK'); throw error }
-    affected.forEach(broadcast)
+    affected.forEach(room=>broadcast(room))
     res.json(profile)
   })
   function execute(profile: Profile, cmd: Command) {
@@ -264,6 +265,7 @@ export function createPlatform(options: {
     let room: Room | undefined
     let removed: string[] = []
     let dissolved = false
+    let finishedNow = false
     if (!profile.name) throw new Error('请先设置昵称')
     if (cmd.type === 'create') {
       const gameId = record(cmd.data).gameId
@@ -285,7 +287,7 @@ export function createPlatform(options: {
       if (advance(room,time)) {
         room.updated = time
         save(room)
-        broadcast(room)
+        broadcast(room,!isActive(room))
       }
       const game = plugin(room)
       const member = room.members.find(value => value.id === id)
@@ -376,7 +378,8 @@ export function createPlatform(options: {
             if (cmd.type === 'game') {
               if (room.pausedMs!==undefined) throw new Error('比赛已暂停')
               game.command(state,id,cmd.data,{now:time,random})
-              if (game.finished(state)) room.members.forEach(value => { value.ready = false })
+              finishedNow=game.finished(state)
+              if (finishedNow) room.members.forEach(value => { value.ready = false })
             } else {
               if (!game.canChat(state)) throw new Error('当前阶段禁止发言')
               const message = typeof cmd.data === 'string' ? cmd.data.trim() : ''
@@ -400,7 +403,7 @@ export function createPlatform(options: {
       db.exec('COMMIT')
     } catch (error) { db.exec('ROLLBACK'); throw error }
     for (const target of removed) io.to(target).emit('left',room.code)
-    if (!dissolved) broadcast(room)
+    if (!dissolved) broadcast(room,finishedNow)
     else {
       io.to('watch:'+room.code).emit('left',room.code)
       io.in('watch:'+room.code).socketsLeave('watch:'+room.code)

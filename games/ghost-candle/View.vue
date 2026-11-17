@@ -162,5 +162,6 @@ const command = (data:unknown) => props.send('game',data)
   .ghost-seats {grid-column:2;grid-row:1;margin:0}
   .ghost-tools {grid-column:3;grid-row:1}
 }
+@media(min-width:1000px) and (max-height:780px){.ghost-header {padding-block:.4rem}}
 @media(max-width:420px){.ghost-seats li {flex-direction:column;text-align:center}}
 </style>

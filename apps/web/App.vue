@@ -8,10 +8,12 @@ type Game = {spectators?:boolean;id:string;name:string;min:number;max:number;set
 type Resumable={gameId:string;name:string;code:string}
 const resumable=ref<Resumable[]>([])
 const resuming=ref(false)
+let resumableRequest=0
 async function refreshResumable() {
   if(!profile.value || room.value || activeCode.value) return
-  try {resumable.value=await api<Resumable[]>('resumable-matches')}
-  catch {resumable.value=[]}
+  const request=++resumableRequest
+  const matches=await api<Resumable[]>('resumable-matches').catch(()=>[])
+  if(request===resumableRequest) resumable.value=matches
 }
 async function resumeMatch(code:string) {
   if(resuming.value || room.value || activeCode.value) return
@@ -68,7 +70,8 @@ socket.on('room', (value: Snapshot) => {
 })
 socket.on('left', (value: string) => {
   resumable.value = resumable.value.filter(item => item.code !== value)
-  if (value === activeCode.value) { room.value = undefined; setCode(''); void refreshResumable() }
+  if (value === activeCode.value) { room.value = undefined; setCode('') }
+  void refreshResumable()
 })
 async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch('/api/'+path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})

@@ -60,6 +60,32 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
     const match=room ? client.rooms.get(room)?.match : undefined
     return client.socket.timeout(2000).emitWithAck('command',{v:1,id:randomUUID(),type,room,data,match:match?.id,phase:match?.phase,...extra})
   }
+  async function resumable(cookie:string) {
+    const response=await fetch(url+'/api/resumable-matches',{headers:{cookie}})
+    assert.equal(response.status,200)
+    const list=await response.json() as {code:string}[]
+    return list.map(room=>room.code)
+  }
+  async function pauseWithSeats(room:string) {
+    await send(a,'sync',room)
+    const before=a.rooms.get(room)!
+    assert.equal(before.canLeaveActive,true)
+    const remaining=before.match!.deadline!-clock
+    assert(remaining>1000)
+    for(const client of [a,b,c]) assert((await send(client,'leave',room)).ok)
+    assert((await resumable(cookies[0])).includes(room))
+    assert(!(await resumable(cookies[3])).includes(room))
+    assert(!(await send(d,'join',room,{resume:true})).ok)
+    assert(!(await send(a,'sync',room)).ok)
+    clock+=remaining+5_000
+    service.tick()
+    assert((await send(a,'join',room,{resume:true})).ok)
+    const after=a.rooms.get(room)!
+    assert.deepEqual(after.match,{...before.match,deadline:clock+remaining})
+    assert.equal(after.host,before.host)
+    assert.equal(after.members.filter(member=>member.online).length,1)
+    for(const client of [b,c]) assert((await send(client,'join',room,{resume:true})).ok)
+  }
   const created=await send(a,'create',undefined,{gameId:'ghost-candle'})
   assert(created.ok && created.room)
   const code=created.room
@@ -81,6 +107,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   assert.equal((b.rooms.get(code)?.match?.private as {role:string}).role,'HUMAN')
   assert.equal((await send(a,'chat',code,'夜间消息')).ok,false)
   assert.equal((await send(a,'game',code,{kind:'night',candle:2,action:'DESTROY'},{id:'night-retry-1'})).ok,true)
+  await pauseWithSeats(code)
   const original=a.rooms.get(code)!.match!
   const remaining=original.deadline!-clock
   sockets.forEach(socket=>socket.disconnect())
@@ -152,10 +179,17 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   }
   assert.equal(d.rooms.get(dice),undefined)
   assert.equal((await send(b,'lobby',dice,{portrait:5})).ok,false)
+  assert.deepEqual(new Set(await resumable(cookies[0])),new Set([code,dice]))
+  await pauseWithSeats(dice)
   for(let face=1;face<=6;face++) {
     clock+=1000
     for(const client of [a,b,c]) await send(client,'sync',dice)
-    const actions=await Promise.all([a,b,c].map(client=>send(client,'game',dice,{kind:'act',value:1})))
+    assert((await send(a,'game',dice,{kind:'act',value:1})).ok)
+    if(face===1) {
+      await pauseWithSeats(dice)
+      assert(!(await send(a,'game',dice,{kind:'act',value:-1})).ok)
+    }
+    const actions=await Promise.all([b,c].map(client=>send(client,'game',dice,{kind:'act',value:1})))
     assert(actions.every(reply=>reply.ok))
   }
   for(const client of [a,b,c]) await send(client,'sync',dice)
@@ -192,6 +226,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   assert.equal((await send(b,'game',dice,{kind:'vote',value:3},{phase:ballot.phase})).ok,false)
   await send(a,'sync',dice)
   assert.deepEqual((a.rooms.get(dice)!.match!.public as DicePublic).scores,score)
+  await pauseWithSeats(dice)
 
   const waiting=await send(a,'create',undefined,{gameId:'ghost-candle'})
   assert(waiting.ok && waiting.room)
@@ -200,6 +235,16 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   clock++
   assert(!(await send(a,'sync',waiting.room)).ok)
   assert(!(await send(b,'join',waiting.room)).ok)
+  const disposable=await send(a,'create',undefined,{gameId:'dice-werewolf'})
+  assert(disposable.ok && disposable.room)
+  assert((await send(a,'dissolve',disposable.room)).ok)
+  assert(!(await resumable(cookies[0])).includes(disposable.room))
+  assert(!(await send(a,'join',disposable.room,{resume:true})).ok)
+
+  for(const client of [a,b,c]) assert((await send(client,'leave',dice)).ok)
+  clock+=60*60_000
+  assert(!(await send(a,'join',dice,{resume:true})).ok)
+  assert(!(await resumable(cookies[0])).includes(dice))
 
   // A legacy active room without timestamps gets a fresh offline interval on startup.
   await service.close()

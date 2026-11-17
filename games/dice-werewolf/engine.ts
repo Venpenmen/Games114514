@@ -141,6 +141,7 @@ function settle(s: DiceState, ctx: Context) {
 }
 export const diceWerewolf: GamePlugin<Config,DiceState> = {
   id:'dice-werewolf', version:1, name:'骰子狼人杀', minPlayers:3, maxPlayers:3,
+  roomPolicy:{capacity:()=>3,allowActiveLeave:true,resumeFromLobby:true},
   defaults:{target:5}, settings:[{key:'target',label:'目标积分',options:[3,5,7]}],
   config(input) {
     const target = record(input).target

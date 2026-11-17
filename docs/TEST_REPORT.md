@@ -94,3 +94,10 @@ Windows、Node.js 24、Edge。npm.cmd run check、npm.cmd test（37/37）、npm.
 - `npm.cmd run check` 退出 0，`npm.cmd test` 107/107，退出 0。覆盖 30/60 分钟边界、第 59 分钟恢复、重启续算、旧房间安全初始化、旁观者在线时清理、过期房间不可访问和恢复入口失效。真实 Socket.IO 验证《诡吹灯》部分提交、《骰子狼人杀》续局结算及《忍者之夜》权威演出的暂停与恢复。
 - `npm.cmd run build -- --outDir work/logs/p20-6-dist` 退出 0。Playwright 指向该构建，使用独立本地端口与数据库。最终 `playwright.cmd test online.spec.ts --workers=2` 8/8，退出 0，包含三款游戏与《忍者之夜》4/6/8/11 人布局。另一次运行中 `ninja-events.spec.ts` 通过，验证交换和镜僧裁决时序。初次《诡吹灯》桌面按钮受新增状态栏挤压，调整到页头后，两种阵营完整对局均通过复验。桌面和手机视口均使用 Edge。
 - 3216 通过 `ninja-p20.cmd` 停止和启动，使用原 `work/logs/ninja-p20/preview.db`，数据库创建时间一致。健康检查 HTTP 200，Edge 实际加载新版 `index-BjNWNDTZ.js`，验证三游戏目录、游客创建和解散房间及等待区头像标签。未操作 3199、3213 或 FRP。未做实体手机与公网验收。
+
+
+## P20.6.1 经典游戏暂离与继续对局
+
+- `npm.cmd run check`、`npm.cmd test`（107/107）、`npm.cmd run build -- --outDir work/logs/p20-6-1-dist` 均退出 0。真实 Socket.IO 覆盖全员主动暂离、剩余倒计时、身份与已提交操作、非零积分、陌生会话拒绝、多房间、到期与解散。
+- 独立端口及数据库的 Edge 定向联机 4/4，退出 0。覆盖《诡吹灯》两种终局、《骰子狼人杀》与《忍者之夜》回归。新增暂离按钮一度使《诡吹灯》1280×720 的主要操作按钮低于首屏约 4 像素，收紧短桌面视口页头间距后通过原布局断言。
+- 仅更新 3216，原 SQLite 文件创建时间一致，HTTP 200。Edge 实际加载 `index-Bi5sDczm.js` 并验证大厅和认证后的恢复列表。隔离测试服务已停止。

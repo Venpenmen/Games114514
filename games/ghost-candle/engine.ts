@@ -91,6 +91,7 @@ function settle(s: State, {now, random}: Context) {
 }
 export const ghostCandle: GamePlugin<Config, State> = {
   id: 'ghost-candle', version: 1, name: '诡吹灯', minPlayers: 3, maxPlayers: 3,
+  roomPolicy:{capacity:()=>3,allowActiveLeave:true,resumeFromLobby:true},
   defaults: { night: 60, day: 120 }, settings,
   config(input) {
     const { night, day } = record(input)
