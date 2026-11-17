@@ -12,9 +12,11 @@ type Room = {
   members: (Profile & {ready: boolean})[]; updated: number; chat: Snapshot['chat'];
   match?: { id: string; state: Turn };
   lobby?: Record<string, unknown>;
-  departed?: string[]; hostOfflineAt?: number; pausedMs?: number; clockAt?: number;
+  emptySince?: number; lastMemberActivityAt?: number; departed?: string[]; hostOfflineAt?: number; pausedMs?: number; clockAt?: number;
 }
 const day = 86_400_000
+const idleRoomMs = 30*60_000
+const emptyMatchMs = 60*60_000
 const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 export function createPlatform(options: {
   database: string; origin: string; secure: boolean; plugins: Plugin[];
@@ -61,32 +63,46 @@ export function createPlatform(options: {
   function present(room:Room,id:string) {
     return online.has(id) && !room.departed?.includes(id)
   }
-  function syncPresence(room:Room,time:number) {
+  function isActive(room:Room) {
+    return !!room.match && !plugin(room).finished(room.match.state)
+  }
+  function syncPresence(room:Room,time:number,recovering=false) {
     const state=room.match?.state
-    const game=plugin(room)
-    const policy=game.roomPolicy
-    if(!policy || !state || game.finished(state)) return false
+    if(!state || !isActive(room)) return false
+    const policy=plugin(room).roomPolicy
     const connected=room.members.filter(member=>present(room,member.id))
     let changed=false
-    if(policy.pauseWhenEmpty) {
-      if(!connected.length && state.deadline!==null) {
-        room.pausedMs=Math.max(0,state.deadline-(room.clockAt??time))
-        state.deadline=null
-        changed=true
-      } else if(connected.length && room.pausedMs!==undefined) {
-        state.deadline=time+room.pausedMs
-        delete room.pausedMs
+    if(!connected.length) {
+      if(room.emptySince===undefined) {
+        room.emptySince=time
         changed=true
       }
-      if(connected.length && (room.clockAt===undefined || time-room.clockAt>=1000)) {
+      if(state.deadline!==null) {
+        const pausedAt=recovering ? Math.max(room.clockAt??0,room.updated) : time
+        room.pausedMs=Math.max(0,state.deadline-pausedAt)
+        state.deadline=null
+        changed=true
+      }
+    } else {
+      if(room.emptySince!==undefined) {
+        delete room.emptySince
+        changed=true
+      }
+      if(room.pausedMs!==undefined) {
+        state.deadline=time+room.pausedMs
+        delete room.pausedMs
+        room.clockAt=time
+        changed=true
+      }
+      if(room.clockAt===undefined || time-room.clockAt>=1000) {
         room.clockAt=time
         changed=true
       }
     }
-    if(policy.hostTransferMs) {
-      if(!present(room,room.host)) {
+    if(policy?.hostTransferMs) {
+      if(!present(room,room.host) && connected.length) {
         if(room.hostOfflineAt===undefined) {room.hostOfflineAt=time;changed=true}
-        if(connected.length && (room.departed?.includes(room.host)||time-room.hostOfflineAt>=policy.hostTransferMs)) {
+        if(room.departed?.includes(room.host)||time-room.hostOfflineAt>=policy.hostTransferMs) {
           room.host=connected[0].id
           delete room.hostOfflineAt
           changed=true
@@ -98,13 +114,26 @@ export function createPlatform(options: {
     }
     return changed
   }
+  function removeExpired(room:Room,time:number) {
+    const active=isActive(room)
+    const since=active ? room.emptySince : room.lastMemberActivityAt
+    if(since===undefined || time-since < (active ? emptyMatchMs : idleRoomMs)) return false
+    db.prepare('DELETE FROM rooms WHERE code=?').run(room.code)
+    for(const member of room.members) io.to(member.id).emit('left',room.code)
+    io.to('watch:'+room.code).emit('left',room.code)
+    io.in('watch:'+room.code).socketsLeave('watch:'+room.code)
+    return true
+  }
+  function live(room:Room|undefined,time:number) {
+    return room && !removeExpired(room,time) ? room : undefined
+  }
   function snapshot(room: Room, id: string, spectator=false): Snapshot {
     const state = room.match?.state
     const game = plugin(room)
     return { code: room.code, host: room.host, gameId: room.gameId, config: room.config, lobby: room.lobby,
       members: room.members.map(member => ({...member, online: present(room,member.id)})),
       chat: spectator ? [] : room.chat, pausedMs:room.pausedMs,
-      ...(spectator?{spectator:true}:game.roomPolicy?.pauseWhenEmpty?{canLeaveActive:true}:{}),
+      ...(spectator?{spectator:true}:game.roomPolicy?.allowActiveLeave?{canLeaveActive:true}:{}),
       match: room.match && state ? {id: room.match.id, phase: state.phase, deadline: state.deadline,
         finished: game.finished(state), public: game.public(state), ...(spectator?{}:{private:game.private(state,id)})} : undefined }
   }
@@ -116,7 +145,9 @@ export function createPlatform(options: {
   }
   function changedPresence(id: string) {
     for(const room of rooms()) if(room.members.some(member=>member.id===id)) {
-      if(syncPresence(room,now())) save(room)
+      const time=now()
+      if(removeExpired(room,time)) continue
+      if(syncPresence(room,time)) save(room)
       broadcast(room)
     }
   }
@@ -131,31 +162,36 @@ export function createPlatform(options: {
       if (state.phase === phase) throw new Error('插件没有推进到期阶段')
       changed = true
     }
-    if (changed && game.finished(state)) room.members.forEach(member => { member.ready = false })
+    if (changed && game.finished(state)) {
+      room.lastMemberActivityAt=time
+      room.members.forEach(member => { member.ready = false })
+    }
     return changed
   }
   function tick() {
     const time = now()
     for (const room of rooms()) {
+      if(removeExpired(room,time)) continue
       const presenceChanged=syncPresence(room,time)
-      if (advance(room,time)) {
-        room.updated = time
+      const advanced=advance(room,time)
+      if(advanced) room.updated=time
+      if(advanced || presenceChanged) {
         save(room)
         broadcast(room)
-      } else if (presenceChanged) {
-        save(room)
-        broadcast(room)
-      } else if (!(room.match && plugin(room).roomPolicy?.pauseWhenEmpty && !plugin(room).finished(room.match.state)) && room.updated < time - day) {
-        db.prepare('DELETE FROM rooms WHERE code=?').run(room.code)
-        for (const member of room.members) io.to(member.id).emit('left', room.code)
-        io.to('watch:'+room.code).emit('left',room.code)
-        io.in('watch:'+room.code).socketsLeave('watch:'+room.code)
       }
     }
     db.prepare('DELETE FROM receipts WHERE created<?').run(time - day)
     db.prepare('DELETE FROM sessions WHERE expires<=?').run(time)
   }
   tick()
+  // Initialize legacy rooms before accepting connections so a reconnect cannot erase expiry.
+  const startedAt=now()
+  for(const room of rooms()) {
+    if(removeExpired(room,startedAt)) continue
+    room.lastMemberActivityAt??=startedAt
+    syncPresence(room,startedAt,true)
+    save(room)
+  }
   const timer = setInterval(tick, 500)
   timer.unref()
   app.use(express.json({limit:'8kb'}))
@@ -179,7 +215,7 @@ export function createPlatform(options: {
     res.set('Cache-Control','no-store')
     const current=session(req.headers.cookie)
     if(!current) return res.status(401).json({error:'请先登录'})
-    return res.json(rooms().filter(room=>canResume(room,current.profile.id)).sort((a,b)=>b.updated-a.updated)
+    return res.json(rooms().filter(room=>canResume(room,current.profile.id) && live(room,now())).sort((a,b)=>b.updated-a.updated)
       .map(room=>({gameId:room.gameId,name:plugin(room).name,code:room.code})))
   })
   app.get('/api/me', (req,res) => res.json(session(req.headers.cookie)?.profile ?? null))
@@ -201,8 +237,8 @@ export function createPlatform(options: {
       res.status(400).json({error:'昵称或头像无效'}); return
     }
     const profile = {id:current.profile.id,name,avatar}
+    const affected = rooms().filter(room => room.members.some(member => member.id === profile.id) && live(room,now()))
     db.exec('BEGIN IMMEDIATE')
-    const affected = rooms().filter(room => room.members.some(member => member.id === profile.id))
     try {
       db.prepare('UPDATE sessions SET profile=? WHERE secret=?').run(JSON.stringify(profile),current.secret)
       for (const room of affected) {
@@ -219,7 +255,12 @@ export function createPlatform(options: {
     const id = profile.id
     const key = id + ':' + cmd.id
     const receipt = db.prepare('SELECT body FROM receipts WHERE key=?').get(key)
-    if (receipt) return JSON.parse(String(receipt.body)) as Reply
+    if (receipt) {
+      const reply=JSON.parse(String(receipt.body)) as Reply
+      const code=reply.ok?reply.room:undefined
+      if(code && !live(load(code),time)) throw new Error('房间不存在或已过期')
+      return reply
+    }
     let room: Room | undefined
     let removed: string[] = []
     let dissolved = false
@@ -234,8 +275,8 @@ export function createPlatform(options: {
         updated:time,chat:[]}
     } else {
       if (typeof cmd.room !== 'string' || !/^\d{6}$/.test(cmd.room)) throw new Error('请输入六位房间码')
-      room = load(cmd.room)
-      if (!room) throw new Error('房间不存在')
+      room = live(load(cmd.room),time)
+      if (!room) throw new Error('房间不存在或已过期')
       if (cmd.type==='join' && cmd.data && typeof cmd.data==='object' && Object.hasOwn(cmd.data,'waitingMembers')) {
         const {gameId,waitingMembers}=record(cmd.data)
         if (gameId!==room.gameId || room.match || waitingMembers!==room.members.length)
@@ -309,7 +350,7 @@ export function createPlatform(options: {
             break
           case 'kick':
           case 'leave': {
-            if(active && cmd.type==='leave' && game.roomPolicy?.pauseWhenEmpty) {
+            if(active && cmd.type==='leave' && game.roomPolicy?.allowActiveLeave) {
               ;(room.departed??=[]).push(id)
               removed=[id]
               syncPresence(room,time)
@@ -352,6 +393,7 @@ export function createPlatform(options: {
     db.exec('BEGIN IMMEDIATE')
     try {
       room.updated = time
+      room.lastMemberActivityAt=time
       if (dissolved) db.prepare('DELETE FROM rooms WHERE code=?').run(room.code)
       else save(room)
       db.prepare('INSERT INTO receipts VALUES (?,?,?)').run(key,JSON.stringify(reply),time)
@@ -375,6 +417,10 @@ export function createPlatform(options: {
     const id = socket.data.user as string
     socket.join(id)
     const sockets = online.get(id) ?? new Set<string>()
+    if(!sockets.size) {
+      const time=now()
+      for(const room of rooms()) if(room.members.some(member=>member.id===id)) removeExpired(room,time)
+    }
     sockets.add(socket.id)
     online.set(id,sockets)
     changedPresence(id)
@@ -392,7 +438,7 @@ export function createPlatform(options: {
         if (!rate || time-rate.at >= 1000) rates.set(id,{at:time,count:1})
         else if (++rate.count > 20) throw new Error('操作太快')
         if(data.type==='watch') {
-          const room=typeof data.room==='string'?load(data.room):undefined
+          const room=typeof data.room==='string'?live(load(data.room),time):undefined
           if(!room?.match || !plugin(room).roomPolicy?.spectators || room.members.some(member=>member.id===id)) throw new Error('此房间不能旁观')
           for(const channel of socket.rooms) if(channel.startsWith('watch:')) socket.leave(channel)
           socket.join('watch:'+room.code)
@@ -408,8 +454,8 @@ export function createPlatform(options: {
         reply = execute(current.profile,data as Command)
         if (reply.ok && reply.room) {
           if(data.type==='join'||data.type==='create') for(const channel of socket.rooms) if(channel.startsWith('watch:')) socket.leave(channel)
-          const room = load(reply.room)
-          if (room?.members.some(value => value.id === id)) socket.emit('room',snapshot(room,id))
+          const room = live(load(reply.room),time)
+          if (room?.members.some(value => value.id === id) && !room.departed?.includes(id)) socket.emit('room',snapshot(room,id))
         }
       } catch (error) {
         reply = {ok:false,error:error instanceof Error ? error.message : '服务器错误'}
@@ -425,7 +471,7 @@ export function createPlatform(options: {
   return { server, tick, async close() {
     clearInterval(timer)
     for(const room of rooms()) {
-      if(plugin(room).roomPolicy?.pauseWhenEmpty && room.match && !plugin(room).finished(room.match.state)) {
+      if(isActive(room) && room.members.some(member=>present(room,member.id))) {
         room.clockAt=now()
         save(room)
       }

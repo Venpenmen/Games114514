@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import PlayerAvatar from './components/PlayerAvatar.vue'
 import { io } from 'socket.io-client'
 import { avatars, protocolVersion, type Profile, type Snapshot, type Reply } from '../../packages/protocol/index.ts'
 import { gameArtwork, gameLobbies, gameRules, gameViews } from './games.ts'
@@ -54,6 +55,7 @@ socket.on('connect', () => {
   connected.value = true
   nextSnapshotIsSync = true
   if (activeCode.value && profile.value?.name) void send(watching.value?'watch':'join', undefined, activeCode.value)
+  else void refreshResumable()
 })
 socket.on('disconnect', () => { connected.value = false })
 socket.on('connect_error', () => { restoring.value = false; error.value = '连接失败，请刷新页面恢复会话' })
@@ -65,6 +67,7 @@ socket.on('room', (value: Snapshot) => {
   }
 })
 socket.on('left', (value: string) => {
+  resumable.value = resumable.value.filter(item => item.code !== value)
   if (value === activeCode.value) { room.value = undefined; setCode(''); void refreshResumable() }
 })
 async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -104,7 +107,18 @@ async function send(type: string, data?: unknown, target = room.value?.code) {
     const reply: Reply = await socket.timeout(5000).emitWithAck('command',{
       v:protocolVersion,id:crypto.randomUUID(),type,data,room:target,match:match?.id,phase:match?.phase,
     })
-    if (!reply.ok) { error.value = reply.error; return false }
+    if (!reply.ok) {
+      error.value = reply.error
+      if (target===activeCode.value && (type==='join' || type==='watch') &&
+          ['房间不存在或已过期','此房间不能旁观'].includes(reply.error)) {
+        room.value = undefined
+        watching.value = false
+        restoring.value = false
+        setCode('')
+        void refreshResumable()
+      }
+      return false
+    }
     if ((type === 'join' || type === 'create') && reply.room) {
       watching.value=false
       setCode(reply.room)
@@ -187,7 +201,7 @@ async function share() {
           </div>
         </div>
         <ul v-if="!lobby || !playing" class="members"><li v-for="member in room.members" :key="member.id">
-          <span class="member-avatar" aria-hidden="true">{{ avatars[member.avatar] }}</span>
+          <PlayerAvatar class="member-avatar" :name="member.name" :glyph="avatars[member.avatar]" :online="member.online"/>
           <span class="member-name">{{ member.name }}</span>
           <small>{{ member.id===room.host?'房主 · ':'' }}{{ member.online?'在线':'离线' }} · {{ member.ready?'已准备':'未准备' }}</small>
           <button v-if="host && !playing && member.id!==room.host" @click="send('kick',{id:member.id})">移出</button>

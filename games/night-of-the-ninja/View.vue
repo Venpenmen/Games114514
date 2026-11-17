@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PlayerAvatar from "../../apps/web/components/PlayerAvatar.vue"
 import {computed,onMounted,onUnmounted,ref,watch} from 'vue'
 import type {Snapshot} from '../../packages/protocol/index.ts'
 import RoomChat from '../../apps/web/components/RoomChat.vue'
@@ -189,7 +190,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         :aria-pressed="targetOptions.has(p.id)?selection?.target===p.id:undefined"
         :disabled="locked || !targetOptions.has(p.id)" @click="select(targetOptions.get(p.id)!)"
         :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id,'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id)}">
-        <img :src="asset('portrait-'+p.portrait)" alt="" :class="{'nn-death-flash':shown?.kind==='death' && shown.actors.includes(p.id),'nn-attack-target':shown?.kind==='attack' && shown.actors[1]===p.id}">
+        <PlayerAvatar :src="asset('portrait-'+p.portrait)" :name="name(p.id)" :online="room.members.some(member=>member.id===p.id && member.online)" compact :image-class="{'nn-death-flash':shown?.kind==='death' && shown.actors.includes(p.id),'nn-attack-target':shown?.kind==='attack' && shown.actors[1]===p.id}"/>
         <span class="nn-seat-info"><strong>{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</strong>
         <small class="nn-seat-status" :title="(p.alive?'存活':'已死亡')+' · '+(room.members.find(member=>member.id===p.id)?.online?'在线':'离线')">
           <span :aria-label="p.alive?'存活':'已死亡'">{{ p.alive?'♥':'×' }}</span>

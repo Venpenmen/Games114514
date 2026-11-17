@@ -542,7 +542,7 @@ export function privateView(s:NinjaState,id:string) {
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
   id:'night-of-the-ninja',version:1,name:'忍者之夜',minPlayers:4,maxPlayers:11,defaults,settings,
-  roomPolicy:{capacity:config=>config.playerCount, spectators:true, resumeFromLobby:true, pauseWhenEmpty:true, hostTransferMs:120_000},
+  roomPolicy:{capacity:config=>config.playerCount, spectators:true, resumeFromLobby:true, allowActiveLeave:true, hostTransferMs:120_000},
   config(input) {
     const config=record(input)
     const result={...defaults}

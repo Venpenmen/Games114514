@@ -58,10 +58,12 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await a.screenshot({path:'work/logs/'+evidence+'-desktop.png',fullPage:true})
     await b.screenshot({path:'work/logs/'+evidence+'-mobile.png',fullPage:true})
     await button(b,'离开对局（保留席位）').click()
+    await expect(a.locator('.nn-seat').getByRole('img',{name:'乙，离线'})).toHaveCount(1)
     await expect(button(b,'继续对局')).toBeVisible()
     await b.reload()
     await button(b,'继续对局').click()
     await expect(b.locator('.nn-seat[data-self=true]')).toContainText('乙')
+    await expect(a.locator('.nn-seat').getByRole('img',{name:'乙，在线'})).toHaveCount(1)
     await expect(banner(b)).toHaveText('第一步轮抽')
     for(let round=1;round<=5;round++) {
       for(const label of ['第一步轮抽','第二步轮抽','秘密出牌','秘密出牌','秘密出牌','秘密出牌','秘密出牌']) {

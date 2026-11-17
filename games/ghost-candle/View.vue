@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { avatars } from "../../packages/protocol/index.ts"
+import PlayerAvatar from "../../apps/web/components/PlayerAvatar.vue"
 import GameResultDialog from '../../apps/web/components/GameResultDialog.vue'
 import GameHistory from '../../apps/web/components/GameHistory.vue'
 import RoomChat from '../../apps/web/components/RoomChat.vue'
@@ -82,10 +84,19 @@ const command = (data:unknown) => props.send('game',data)
     </GameResultDialog>
     <header class="ghost-header">
       <div><h2>{{ labels[state.stage] }}</h2>
-      <p v-if="state.stage!=='FINISHED'">
+      <p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p>
+      <p v-else-if="state.stage!=='FINISHED'">
       {{ state.stage==='NIGHT' ? '第 '+state.night+' 夜' : '第 '+(state.night+1)+' 天' }} · 剩余 {{ seconds }} 秒
       </p></div>
       <div class="ghost-tools"><p class="role-label">你的身份是 <strong>{{ role(secret.role) }}</strong></p><Rules/><button @click="toggleAudio">{{ muted?'开启音效':'静音' }}</button></div>
+    <ul class="ghost-seats" aria-label="玩家状态">
+      <li v-for="member in room.members" :key="member.id">
+        <PlayerAvatar :name="member.name" :glyph="avatars[member.avatar]" :online="member.online"/>
+        <div><strong :title="member.name">{{ member.name }}</strong>
+          <small>{{ member.online?'在线':'离线' }}<template v-if="['NIGHT','DAY_DECISION','ACCUSATION','REVOTE'].includes(state.stage)"> · {{ state.submitted.includes(member.id)?'已提交':'未提交' }}</template></small>
+        </div>
+      </li>
+    </ul>
     </header>
     <div class="ghost-layout">
     <section class="ghost-board">
@@ -139,3 +150,17 @@ const command = (data:unknown) => props.send('game',data)
     </div>
   </article>
 </template>
+
+<style scoped>
+.ghost-seats {flex:1 0 100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.35rem;padding:0;margin:.45rem 0;list-style:none}
+.ghost-seats li {display:flex;align-items:center;gap:.4rem;padding:.35rem;border:1px solid #58604a;border-radius:.35rem;min-width:0}
+.ghost-seats li > div {min-width:0}
+.ghost-seats strong,.ghost-seats small {display:block;overflow-wrap:anywhere}
+.ghost-seats small {font-size:.72rem}
+@media(min-width:1000px){
+  .ghost-header {display:grid;grid-template-columns:auto minmax(0,1fr) auto}
+  .ghost-seats {grid-column:2;grid-row:1;margin:0}
+  .ghost-tools {grid-column:3;grid-row:1}
+}
+@media(max-width:420px){.ghost-seats li {flex-direction:column;text-align:center}}
+</style>

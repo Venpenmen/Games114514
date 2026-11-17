@@ -65,6 +65,11 @@ test('three guests play a complete match, sustained overtime and champion',async
       await expect(page.getByTestId('own-identity')).toHaveText('身份 '+(i+1)+' 点')
       await expect(page.getByTestId('own-identity')).toHaveCount(1)
     }
+    const thirdUrl=c.url()
+    await c.goto('about:blank')
+    await expect(b.locator('.dw-seat').getByRole('img',{name:'克莱，离线'})).toBeVisible()
+    await c.goto(thirdUrl)
+    await expect(b.locator('.dw-seat').getByRole('img',{name:'克莱，在线'})).toBeVisible()
     await expect(a.locator('.dw-private .dw-roll')).toHaveCSS('animation-name','dw-roll')
     await b.emulateMedia({reducedMotion:'reduce'})
     await expect(b.locator('.dw-private .dw-roll')).toHaveCSS('animation-name','none')

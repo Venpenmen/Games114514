@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PlayerAvatar from "../../apps/web/components/PlayerAvatar.vue"
 import GameResultDialog from '../../apps/web/components/GameResultDialog.vue'
 import GameHistory from '../../apps/web/components/GameHistory.vue'
 import RoomChat from '../../apps/web/components/RoomChat.vue'
@@ -106,14 +107,15 @@ watch(()=>[state.value.game,state.value.executions.length].join(':'),()=>{
         <p>第 {{ state.game }} 局 · 第 {{ state.round }} 轮 · {{ state.overtime?'加赛':'普通赛' }} · 目标 {{ state.target }} 分</p>
         <h2>{{ labels[state.stage] }}</h2>
         <p v-if="summary?.champion && showSummary">冠军 · {{ name(summary.champion) }}</p>
-        <p v-if="match.deadline" class="dw-time" :class="{'dw-urgent':clock<=5}">{{ state.stage==='SUMMARY'?clock+' 秒后续局':'剩余 '+clock+' 秒' }}</p>
+        <p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p>
+        <p v-else-if="match.deadline" class="dw-time" :class="{'dw-urgent':clock<=5}">{{ state.stage==='SUMMARY'?clock+' 秒后续局':'剩余 '+clock+' 秒' }}</p>
       </div>
       <div class="actions"><Rules/><button @click="toggleSound">{{ muted?'开启音效':'静音' }}</button></div>
     </header>
 
     <div class="dw-seats">
       <section v-for="member in room.members" :key="member.id" class="dw-seat">
-        <img :src="portraits[state.portraits[member.id]]?.image" alt="">
+        <PlayerAvatar class="dw-portrait" :src="portraits[state.portraits[member.id]]?.image" :name="member.name" :online="member.online"/>
         <div><h3>{{ member.name }}</h3><p>{{ state.scores[member.id] }} 分 · {{ member.online?'在线':'离线' }}<span v-if="state.submitted.includes(member.id)"> · 已提交</span></p></div>
         <div v-if="member.id===player" class="dw-private">
           <Die :key="state.game" :face="identity" rolling/><span data-testid="own-identity">身份 {{ identity }} 点</span>

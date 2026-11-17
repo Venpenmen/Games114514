@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { DatabaseSync } from 'node:sqlite'
 import { io, type Socket } from 'socket.io-client'
 import { createPlatform } from './service.ts'
 import { ghostCandle } from '../../games/ghost-candle/engine.ts'
@@ -81,6 +82,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   assert.equal((await send(a,'chat',code,'夜间消息')).ok,false)
   assert.equal((await send(a,'game',code,{kind:'night',candle:2,action:'DESTROY'},{id:'night-retry-1'})).ok,true)
   const original=a.rooms.get(code)!.match!
+  const remaining=original.deadline!-clock
   sockets.forEach(socket=>socket.disconnect())
   await service.close()
   clock=original.deadline!+5_000
@@ -88,10 +90,17 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   url=await listen()
   ;[a,b,c,d]=await Promise.all(cookies.map(connect))
   for (const client of [a,b,c]) assert.equal((await send(client,'sync',code)).ok,true)
+  const paused=a.rooms.get(code)!.match!
+  assert.equal(paused.phase,original.phase)
+  assert.equal(paused.deadline,clock+remaining)
+  assert.deepEqual(paused.private,original.private)
+  clock=paused.deadline!
+  service.tick()
+  await send(a,'sync',code)
   const restored=a.rooms.get(code)!.match!
   assert.equal(restored.id,original.id)
   assert.equal(restored.phase,original.phase+1)
-  assert.equal(restored.deadline,original.deadline!+120_000)
+  assert.equal(restored.deadline,clock+120_000)
   assert.equal((await send(a,'game',code,{}, {id:'night-retry-1',phase:original.phase})).ok,true)
   assert.equal((await send(a,'game',code,{}, {phase:original.phase})).ok,false)
   assert.equal((await send(b,'chat',code,'你好')).ok,true)
@@ -157,6 +166,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   const result=a.rooms.get(dice)!.match!
   assert.equal((result.public as DicePublic).stage,'SUMMARY')
   const score=(result.public as DicePublic).scores
+  const summaryRemaining=result.deadline!-clock
   assert.deepEqual(Object.values(score),[1,1,0])
   sockets.forEach(socket=>socket.disconnect())
   await service.close()
@@ -165,10 +175,17 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   url=await listen()
   ;[a,b,c,d]=await Promise.all(cookies.map(connect))
   assert((await send(a,'sync',dice)).ok)
+  const stillSummary=a.rooms.get(dice)!.match!
+  assert.equal(stillSummary.phase,result.phase)
+  assert.equal(stillSummary.deadline,clock+summaryRemaining)
+  assert.deepEqual((stillSummary.public as DicePublic).scores,score)
+  clock=stillSummary.deadline!
+  service.tick()
+  await send(a,'sync',dice)
   const resumed=a.rooms.get(dice)!.match!
   assert.equal(resumed.id,result.id)
   assert.equal(resumed.phase,result.phase+1)
-  assert.equal(resumed.deadline,result.deadline!+30_000)
+  assert.equal(resumed.deadline,clock+30_000)
   assert.equal((resumed.public as DicePublic).game,2)
   assert.deepEqual((resumed.public as DicePublic).summary?.scores,score)
   assert((await send(a,'game',dice,{kind:'vote',value:3},{id:'dice-ballot-0',phase:ballot.phase})).ok)
@@ -176,4 +193,36 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   await send(a,'sync',dice)
   assert.deepEqual((a.rooms.get(dice)!.match!.public as DicePublic).scores,score)
 
+  const waiting=await send(a,'create',undefined,{gameId:'ghost-candle'})
+  assert(waiting.ok && waiting.room)
+  clock+=30*60_000-1
+  assert((await send(a,'sync',waiting.room)).ok)
+  clock++
+  assert(!(await send(a,'sync',waiting.room)).ok)
+  assert(!(await send(b,'join',waiting.room)).ok)
+
+  // A legacy active room without timestamps gets a fresh offline interval on startup.
+  await service.close()
+  const db=new DatabaseSync(resolve(folder,'test.db'))
+  db.prepare("UPDATE rooms SET body=json_remove(body,'$.emptySince','$.lastMemberActivityAt') WHERE code=?").run(second.room)
+  db.close()
+  clock+=24*60*60_000
+  service=open()
+  url=await listen()
+  ;[a,b,c,d]=await Promise.all(cookies.map(connect))
+  const activeCode=second.room
+  assert((await send(d,'sync',activeCode)).ok)
+  d.socket.disconnect()
+  await new Promise<void>(done=>setImmediate(done))
+  clock+=59*60_000
+  d=await connect(cookies[3])
+  assert((await send(d,'sync',activeCode)).ok)
+  d.socket.disconnect()
+  await new Promise<void>(done=>setImmediate(done))
+  await service.close()
+  clock+=60*60_000
+  service=open()
+  url=await listen()
+  ;[a,b,c,d]=await Promise.all(cookies.map(connect))
+  assert(!(await send(d,'sync',activeCode)).ok)
 })

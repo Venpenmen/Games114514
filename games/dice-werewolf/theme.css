@@ -22,7 +22,7 @@
 .dw-selections {display:flex;flex-wrap:wrap;gap:.35rem .9rem;padding:0;list-style:none;margin:.6rem 0 0;color:#e5c6a0;font-size:.86rem}
 .dw-seats {padding:.65rem;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem;background:#2b201a;border-block:1px solid #775635}
 .dw-seat {position:relative;display:flex;align-items:center;gap:.6rem;min-width:0;padding:.45rem;background:linear-gradient(140deg,#593e28,#312219 74%);border:1px solid #987347;border-radius:.45rem}
-.dw-seat img {width:clamp(38px,6vw,67px);aspect-ratio:1;object-fit:cover;border-radius:.25rem}
+.dw-seat .dw-portrait {width:clamp(38px,6vw,67px);aspect-ratio:1;object-fit:cover;border-radius:.25rem}
 .dw-seat h3 {font-size:1rem;overflow-wrap:anywhere}
 .dw-seat p {font-size:.82rem;color:#ead1ac}
 .dw-private {margin-left:auto;display:grid;justify-items:center;gap:.25rem;font-size:.73rem;text-align:center;white-space:nowrap;color:#ffdfa2;--dw-size:24px}
@@ -115,7 +115,7 @@
   .dw-banner p { font-size:.86rem; }
   .dw-seats { padding:.3rem; gap:.26rem; }
   .dw-seat { display:grid; justify-items:center; text-align:center; align-content:start; gap:.12rem; padding:.25rem .15rem; }
-  .dw-seat img { width:30px; }
+  .dw-seat .dw-portrait { width:30px; }
   .dw-seat h3 { font-size:.84rem; }
   .dw-seat p { font-size:.72rem; }
   .dw-private { grid-auto-flow:column; align-items:center; margin:0; --dw-size:17px; }

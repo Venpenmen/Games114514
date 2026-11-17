@@ -88,7 +88,7 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
     for (const guest of guests.slice(0,count)) guest.socket.disconnect()
     await new Promise<void>(done=>setImmediate(done))
     await platform.close()
-    time+=48*60*60*1000
+    time+=59*60*1000
     allSockets=[]
     platform=open()
     await listen()
@@ -101,12 +101,13 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
     assert.equal(resumed.phase,original.phase)
     assert.equal(resumed.deadline,time+45_000)
     assert.equal((resumed.private as ReturnType<typeof privateView>)?.submitted,true)
-    // Receipts age out after 24h. A replay with the stale phase must still be rejected.
+    // Cached receipts remain idempotent, while a fresh command with a stale phase is rejected.
     time=resumed.deadline!+800
     platform.tick()
     await syncPlayers()
     assert.equal(guests[0].snapshot?.match?.phase,original.phase+1)
-    assert.equal((await send(guests[0],'game',{value:choice},{id:replayId,phase:original.phase})).ok,false)
+    assert((await send(guests[0],'game',{value:choice},{id:replayId,phase:original.phase})).ok)
+    assert.equal((await send(guests[0],'game',{value:choice},{phase:original.phase})).ok,false)
     assert((await send(guests[0],'leave')).ok)
     await syncAfterHostLeaves()
     const oldHost=guests[1].snapshot!.host
@@ -168,7 +169,7 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
       guests.forEach(guest=>guest.socket.disconnect())
       await new Promise<void>(done=>setImmediate(done))
       await platform.close()
-      time+=86_400_000
+      time+=30*60_000
       allSockets=[]
       platform=open()
       await listen()
@@ -219,4 +220,46 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
   }
   if(count===4) assert(pausedPresentation)
   assert(steps<650,'must reach a champion through real socket commands')
+  if(count===4) {
+    const finishedRoom=room
+    assert((await send(guests[0],'join')).ok)
+    time+=30*60_000-1
+    assert((await send(guests[0],'sync')).ok)
+    time++
+    platform.tick()
+    assert(!(await send(guests[0],'sync',undefined,{room:finishedRoom})).ok)
+
+    const next=await send(guests[0],'create',{gameId:'night-of-the-ninja'})
+    assert(next.ok && next.room)
+    room=next.room
+    assert((await send(guests[0],'config',{playerCount:count})).ok)
+    for(const [i,player] of guests.slice(0,count).entries()) {
+      if(i) assert((await send(player,'join')).ok)
+      assert((await send(player,'lobby',{portrait:i})).ok)
+      assert((await send(player,'ready',true)).ok)
+    }
+    assert((await send(guests[0],'start')).ok)
+    const observer=guests[count]
+    assert((await send(observer,'watch')).ok)
+    for(const player of guests.slice(0,count)) player.socket.disconnect()
+    const paused=await new Promise<Snapshot>((done,reject)=>{
+      const timeout=setTimeout(()=>reject(new Error('Paused snapshot was not received')),2000)
+      const listener=(snapshot:Snapshot)=>{
+        if(snapshot.code!==room || snapshot.pausedMs===undefined) return
+        clearTimeout(timeout)
+        observer.socket.off('room',listener)
+        done(snapshot)
+      }
+      if(observer.snapshot?.pausedMs!==undefined) listener(observer.snapshot)
+      else observer.socket.on('room',listener)
+    })
+    assert.equal(paused.match?.deadline,null)
+    time+=60*60_000-1
+    assert((await send(observer,'watch')).ok)
+    time++
+    assert.deepEqual(await (await listing(cookies[0])).json(),[])
+    assert(!(await send(observer,'watch')).ok)
+    const returning=await connect(cookies[0])
+    assert(!(await send(returning,'join',{resume:true})).ok)
+  }
 })
