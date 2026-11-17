@@ -26,8 +26,23 @@ const inspected=ref<string>()
 const subject=computed(()=>state.value.seats.find(seat=>seat.id===inspected.value))
 const exposure={unseen:'未暴露',partial:'部分暴露',full:'完全暴露',pending:'待确认'}
 const historyViews=computed(()=>state.value.events.filter(event=>event.round===state.value.round && event.kind==='identity-view' && event.actors[1]===inspected.value))
-const lastHidden=computed(()=>state.value.events.findLast(event=>event.round===state.value.round &&
-  event.kind==='shift-result' && event.text==='变形者隐藏了结果，身份可能变化。' && event.actors.includes(inspected.value??''))?.seq??0)
+const historyGroups=computed(()=>{
+  const id=inspected.value
+  if(!id) return []
+  const groups:{label:string;events:PublicEvent[]}[]=[{label:'首次秘密决定前',events:[]}]
+  let hiddenCount=0
+  for(const event of state.value.events) {
+    if(event.round!==state.value.round) continue
+    if(event.kind==='shift-result' && event.text==='变形者隐藏了结果，身份可能变化。' && event.actors.includes(id)) {
+      hiddenCount++
+      groups.push({label:`第 ${hiddenCount} 次秘密决定后`,events:[]})
+    } else if(event.kind==='identity-view' && event.actors[1]===id) {
+      groups.at(-1)!.events.push(event)
+    }
+  }
+  if(!hiddenCount) groups[0].label='本轮查看记录'
+  return groups.filter(group=>group.events.length)
+})
 const sources={hand:'手牌',discard:'掘墓回收',reaction:'反应牌',master:'轮末揭示'}
 const statuses={queued:'等待结算',resolving:'结算中',resolved:'已结算',skipped:'未发动'}
 function inspectIdentity(id:string) {
@@ -300,7 +315,10 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           <p>{{ exposure[privateState?.exposures?.[subject.id]??subject.exposure] }}</p>
           <h3>公开查看记录</h3>
           <p v-if="!historyViews.length">本轮暂无公开查看记录</p>
-          <ul><li v-for="event in historyViews" :key="event.seq">{{ name(event.actors[0]) }} · {{ event.card?cardName(event.card):'技能' }}{{ event.seq<lastHidden?' · 秘密决定前记录':'' }}</li></ul>
+          <section v-for="group in historyGroups" :key="group.label">
+            <h4>{{ group.label }}</h4>
+            <ul><li v-for="event in group.events" :key="event.seq">{{ name(event.actors[0]) }} · {{ event.card?cardName(event.card):'技能' }}</li></ul>
+          </section>
         </template>
       </dialog>
       <MatchReplay v-if="match.finished" :state="state" :name="name"/>

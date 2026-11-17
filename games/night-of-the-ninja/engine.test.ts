@@ -487,6 +487,35 @@ test('possible original holder inspecting after hidden shift does not disclose t
   assert.equal(publicView(branches[0]).seats[1].exposure,'pending')
 })
 
+
+test('chained hidden shapeshifter decisions preserve nonparticipants public and private parity',()=>{
+  const begin=start()
+  stage('trickster-1',begin);expire(begin)
+  click(begin,'a','a');click(begin,'a','b')
+  const initial=['pass','yes'].map(answer=>{
+    const s=structuredClone(begin)
+    click(s,'a',answer);click(s,'a','hide');expire(s)
+    return s
+  })
+  for(const actor of ['a','b','c','d']) {
+    for(const [left,right] of [['a','b'],['a','c'],['b','c'],['c','d']]) {
+      for(const outcome of ['pass','yes']) {
+        const results=initial.map(source=>{
+          const s=structuredClone(source)
+          stage('trickster-1',s,'play',actor);expire(s)
+          click(s,actor,left);click(s,actor,right)
+          click(s,actor,outcome);click(s,actor,'hide');expire(s)
+          return JSON.parse(JSON.stringify(s)) as NinjaState
+        })
+        assert.deepEqual(publicView(results[0]),publicView(results[1]))
+        for(const id of ids.filter(id=>id!=='a' && id!==actor)) {
+          assert.deepEqual(privateView(results[0],id),privateView(results[1],id))
+        }
+      }
+    }
+  }
+})
+
 test('round reveal restores actual grades without formally revealing dead players',()=>{
   const s=start()
   stage('trickster-1',s);expire(s)
