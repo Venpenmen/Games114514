@@ -587,5 +587,9 @@ export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
   },
   public:publicView,private:privateView,
   finished:s=>s.mode==='champion',
+  finalResult(s) {
+    if(s.mode==='champion' && s.finalScores && s.champions.length)
+      return {winners:s.champions,scores:s.finalScores,details:{rounds:s.round}}
+  },
   canChat:s=>s.mode!=='champion',
 }

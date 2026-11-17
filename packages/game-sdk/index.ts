@@ -1,6 +1,11 @@
 export type Random = (limit: number) => number
 export type Context = { now: number; random: Random }
 export type Turn = { phase: number; deadline: number | null }
+export type FinalResult = {
+  winners:string[]
+  scores?:Record<string,number>
+  details?:Record<string,unknown>
+}
 export interface GamePlugin<C, S extends Turn> {
   id: string
   version: number
@@ -20,6 +25,7 @@ export interface GamePlugin<C, S extends Turn> {
   private(state: S, player: string): unknown
   finished(state: S): boolean
   canChat(state: S): boolean
+  finalResult?(state:S):FinalResult | undefined
 }
 export function registry<T extends {id:string; version:number}>(plugins: T[]) {
   const entries = new Map<string, T>()

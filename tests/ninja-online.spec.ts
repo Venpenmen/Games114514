@@ -1,3 +1,4 @@
+import {registerPlayer} from './account-fixtures.ts'
 import {expect,test,type Page} from '@playwright/test'
 const evidence=process.env.NINJA_TEST_ASSETS?'ninja-p20':'ninja'
 
@@ -15,8 +16,7 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     const banner=(page:Page)=>page.locator('.nn-header > div:first-child > h2')
     async function login(page:Page,name:string,url=baseURL) {
       await page.goto(url)
-      await page.getByRole('textbox',{name:'昵称'}).fill(name)
-      await button(page,'保存资料').click()
+      await registerPlayer(page,name)
       await expect(page.getByRole('button',{name:new RegExp(name)})).toBeVisible()
     }
     await login(a,'甲')
@@ -111,8 +111,7 @@ for(const count of [6,8,11]) test(count+' real seats fit the desktop ring and mo
     const [a,b]=pages
     async function login(page:Page,i:number,url=baseURL){
       await page.goto(url)
-      await page.getByRole('textbox',{name:'昵称'}).fill('练习机器人第'+(i+1)+'号')
-      await page.getByRole('button',{name:'保存资料',exact:true}).click()
+      await registerPlayer(page,'练习机器人第'+(i+1)+'号')
     }
     await login(a,0)
     await a.locator('.game-card').filter({has:a.getByRole('heading',{name:'忍者之夜',exact:true})}).getByRole('button',{name:'创建房间'}).click()
@@ -149,11 +148,10 @@ for(const count of [6,8,11]) test(count+' real seats fit the desktop ring and mo
       await expect(a.getByRole('button',{name:'确认提交'})).toBeInViewport({ratio:1})
       await expect(a.locator('.nn-seat[data-self=true]')).toBeInViewport({ratio:1})
       await expect(a.locator('.nn-seat-info')).toHaveCount(count)
-      const overlap=await a.locator('.nn-seat').evaluateAll(nodes=>{
+      await expect.poll(()=>a.locator('.nn-seat').evaluateAll(nodes=>{
         const seats=nodes.map(node=>node.getBoundingClientRect())
         return seats.some((a,i)=>seats.slice(i+1).some(b=>a.left<b.right && b.left<a.right && a.top<b.bottom && b.top<a.bottom))
-      })
-      expect(overlap,`${width}×${height} 席位相交`).toBe(false)
+      }),{message:`${width}×${height} 席位相交`}).toBe(false)
       const clipped=await a.locator('.nn-seat-info').evaluateAll(nodes=>nodes.some(node=>{
         const seat=node.closest('button')!.getBoundingClientRect()
         return Array.from(node.children).some(child=>{

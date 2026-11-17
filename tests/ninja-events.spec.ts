@@ -1,3 +1,4 @@
+import {registerPlayer} from './account-fixtures.ts'
 import {expect,test,type Page} from '@playwright/test'
 
 test('real exchange and mirror reaction gate their corresponding animations',async({browser})=>{
@@ -11,8 +12,7 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     const stage=(page:Page)=>page.locator('.nn-header > div:first-child > h2')
     async function login(page:Page,name:string,url=baseURL){
       await page.goto(url)
-      await page.getByRole('textbox',{name:'昵称'}).fill(name)
-      await btn(page,'保存资料').click()
+      await registerPlayer(page,name)
     }
     async function select(page:Page,choice?:string){
       const controls=page.locator('.nn-options')

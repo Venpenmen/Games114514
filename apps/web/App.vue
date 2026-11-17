@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import AccountCenter from './components/AccountCenter.vue'
 import PlayerAvatar from './components/PlayerAvatar.vue'
 import { io } from 'socket.io-client'
 import { avatars, protocolVersion, type Profile, type Snapshot, type Reply } from '../../packages/protocol/index.ts'
 import { gameArtwork, gameLobbies, gameRules, gameViews } from './games.ts'
 type Game = {spectators?:boolean;id:string;name:string;min:number;max:number;settings:{key:string;label:string;options:number[]}[]}
-type Resumable={gameId:string;name:string;code:string}
+type Resumable={gameId:string;name:string;code:string;matchId:string;takeover:boolean}
 const resumable=ref<Resumable[]>([])
 const resuming=ref(false)
 let resumableRequest=0
@@ -15,11 +16,12 @@ async function refreshResumable() {
   const matches=await api<Resumable[]>('resumable-matches').catch(()=>[])
   if(request===resumableRequest) resumable.value=matches
 }
-async function resumeMatch(code:string) {
+async function resumeMatch(item:Resumable) {
   if(resuming.value || room.value || activeCode.value) return
   resuming.value=true
-  try {if(!await send('join',{resume:true},code)) await refreshResumable()}
-  finally {resuming.value=false}
+  try {
+    if(!await send(item.takeover?'takeover':'join',{resume:true},item.code,item.matchId)) await refreshResumable()
+  } finally {resuming.value=false}
 }
 const catalog = ref<Game[]>([])
 const profile = ref<Profile>()
@@ -33,6 +35,9 @@ const restoring = ref(Boolean(code.value))
 const connected = ref(false)
 const editing = ref(false)
 const name = ref('')
+const username=ref(''), password=ref('')
+const registering=ref(false), loading=ref(true), authenticating=ref(false)
+const legacy=ref<Profile|null>(null)
 const avatar = ref(0)
 const error = ref('')
 const copied = ref(false)
@@ -60,6 +65,14 @@ socket.on('connect', () => {
   else void refreshResumable()
 })
 socket.on('disconnect', () => { connected.value = false })
+socket.on('session-revoked',()=>{returnToLogin();error.value='当前设备会话已失效'})
+socket.on('control-lost',(value:{code:string})=>{
+  if(value.code!==activeCode.value) return
+  room.value=undefined
+  setCode('')
+  error.value='对局已切换到其他设备'
+  void refreshResumable()
+})
 socket.on('connect_error', () => { restoring.value = false; error.value = '连接失败，请刷新页面恢复会话' })
 socket.on('room', (value: Snapshot) => {
   if (value.code === activeCode.value) {
@@ -81,34 +94,52 @@ async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> 
 }
 onMounted(async () => {
   try {
-    catalog.value = await api<Game[]>('catalog')
-    profile.value = (await api<Profile | null>('me')) ?? await api<Profile>('session','POST')
-    edit()
-    editing.value = !profile.value.name
-    socket.connect()
-    void refreshResumable()
+    const [games,current]=await Promise.all([api<Game[]>('catalog'),api<Profile|null>('me')])
+    catalog.value=games
+    if(current) connect(current)
+    else {
+      legacy.value=await api<Profile|null>('legacy')
+      registering.value=!!legacy.value
+      restoring.value=false
+    }
   } catch (err) { restoring.value = false; error.value = (err as Error).message }
+  finally {loading.value=false}
 })
-function edit() {
-  name.value = profile.value?.name ?? ''
-  avatar.value = profile.value?.avatar ?? 0
-  editing.value = true
+function connect(current:Profile) {
+  profile.value=current
+  password.value=''
+  socket.connect()
+  void refreshResumable()
 }
-async function save() {
-  error.value = ''
+function returnToLogin() {
+  socket.disconnect()
+  profile.value=undefined
+  room.value=undefined
+  resumable.value=[]
+  resumableRequest++
+  editing.value=restoring.value=watching.value=registering.value=false
+  setCode('')
+  error.value=''
+}
+async function authenticate() {
+  if(authenticating.value) return
+  authenticating.value=true
+  error.value=''
   try {
-    profile.value = await api<Profile>('profile','PUT',{name:name.value,avatar:avatar.value})
-    editing.value = false
-    if (activeCode.value && !room.value && connected.value) await send('join',undefined,activeCode.value)
-  } catch (err) { error.value = (err as Error).message }
+    const details={username:username.value,password:password.value,name:name.value,avatar:avatar.value,claim:!!legacy.value && registering.value}
+    const current=await api<Profile>('auth/'+(registering.value?'register':'login'),'POST',details)
+    legacy.value=null
+    connect(current)
+  } catch(err) {error.value=(err as Error).message}
+  finally {authenticating.value=false}
 }
-async function send(type: string, data?: unknown, target = room.value?.code) {
+async function send(type: string, data?: unknown, target = room.value?.code, matchId?:string) {
   error.value = ''
   if (!socket.connected) { error.value = '连接中，请稍后重试'; return false }
   try {
     const match = room.value?.match
     const reply: Reply = await socket.timeout(5000).emitWithAck('command',{
-      v:protocolVersion,id:crypto.randomUUID(),type,data,room:target,match:match?.id,phase:match?.phase,
+      v:protocolVersion,id:crypto.randomUUID(),type,data,room:target,match:matchId??match?.id,phase:match?.phase,controlVersion:match?.controlVersion,
     })
     if (!reply.ok) {
       error.value = reply.error
@@ -120,9 +151,14 @@ async function send(type: string, data?: unknown, target = room.value?.code) {
         setCode('')
         void refreshResumable()
       }
+      if(type==='join' && target===activeCode.value && reply.error.includes('本设备没有操作权')) {
+        room.value=undefined
+        setCode('')
+        void refreshResumable()
+      }
       return false
     }
-    if ((type === 'join' || type === 'create') && reply.room) {
+    if ((type === 'join' || type === 'create' || type==='takeover') && reply.room) {
       watching.value=false
       setCode(reply.room)
       await socket.timeout(5000).emitWithAck('command',{v:protocolVersion,id:crypto.randomUUID(),type:'sync',room:reply.room})
@@ -156,23 +192,31 @@ async function share() {
 <template>
   <header v-if="!room?.match && (!restoring || !!room || (editing && !profile?.name))" class="bar"><div class="bar-inner">
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>多人联机小游戏合集</a>
-    <button v-if="profile?.name" class="profile" @click="edit">{{ avatars[profile.avatar] }} {{ profile.name }}</button>
+    <button v-if="profile?.name" class="profile" @click="editing=true"><PlayerAvatar :name="profile.name" :glyph="avatars[profile.avatar]" online/> {{ profile.name }}</button>
   </div></header>
   <main :class="{'game-page':room?.match}">
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="profile && !connected" role="status">正在连接服务器…</p>
-    <form v-if="editing && !room?.match" class="panel stack" @submit.prevent="save">
-      <h1>个人资料</h1>
-      <label>昵称 <input v-model="name" required maxlength="40" placeholder="输入昵称"></label>
-      <label>头像 <select v-model="avatar"><option v-for="(icon,i) in avatars" :key="icon" :value="i">{{ icon }}</option></select></label>
-      <div class="actions"><button class="primary">保存资料</button><button v-if="profile?.name" type="button" @click="editing=false">取消</button></div>
+    <form v-if="!profile && !loading" class="panel stack auth-form" @submit.prevent="authenticate">
+      <h1>{{ registering?'注册账户':'登录' }}</h1>
+      <p v-if="registering && legacy">注册后将保留旧游客的玩家身份与原有席位。</p>
+      <label>用户名 <input v-model="username" required maxlength="24" autocomplete="username"></label>
+      <label>密码 <input v-model="password" type="password" required minlength="10" :autocomplete="registering?'new-password':'current-password'"></label>
+      <label v-if="registering && !legacy?.name">昵称 <input v-model="name" required maxlength="40" placeholder="输入昵称"></label>
+      <label v-if="registering && !legacy?.name">账户头像 <select v-model="avatar"><option v-for="(icon,i) in avatars" :key="icon" :value="i">{{ icon }}</option></select></label>
+      <div class="actions">
+        <button class="primary" :disabled="authenticating">{{ registering?'注册并登录':'登录' }}</button>
+        <button type="button" :disabled="authenticating" @click="registering=!registering">{{ registering?'已有账户，去登录':'创建账户' }}</button>
+      </div>
     </form>
+    <AccountCenter v-else-if="profile && editing && !room?.match" :api="api" :games="catalog"
+      @close="editing=false" @profile="profile=$event" @logout="returnToLogin"/>
     <template v-else-if="profile && !room">
       <section v-if="resumable.length && !activeCode" class="panel">
         <h2>你有一场正在进行的对局</h2>
         <div v-for="item in resumable" :key="item.code" class="actions">
           <span>{{ item.name }} · {{ item.code }}</span>
-          <button :disabled="resuming || !connected" @click="resumeMatch(item.code)">继续对局</button>
+          <button :disabled="resuming || !connected" @click="resumeMatch(item)">{{ item.takeover?'切换到当前设备操作':'继续对局' }}</button>
         </div>
       </section>
       <div class="lobby-heading">
@@ -231,3 +275,8 @@ async function share() {
     </template>
   </main>
 </template>
+
+<style scoped>
+.auth-form {max-width:28rem;margin-inline:auto}
+.auth-form input,.auth-form select {width:100%}
+</style>

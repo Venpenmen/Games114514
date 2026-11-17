@@ -1,3 +1,4 @@
+import {registerPlayer} from './account-fixtures.ts'
 import {checkGameLayout} from './game-layout.ts'
 import {checkRoomChat, openChat, closeChat} from './room-chat.ts'
 import {expect,test,type Page} from '@playwright/test'
@@ -30,8 +31,7 @@ test('three guests play a complete match, sustained overtime and champion',async
     const all=(name:string)=>Promise.all(pages.map(page=>button(page,name).click()))
     async function login(page:Page,name:string,path='/') {
       await page.goto(path)
-      await page.getByRole('textbox',{name:'昵称'}).fill(name)
-      await button(page,'保存资料').click()
+      await registerPlayer(page,name)
     }
     await login(a,names[0])
     const card=a.locator('.game-card').filter({has:a.getByRole('heading',{name:'骰子狼人杀',exact:true})})
@@ -150,6 +150,8 @@ test('three guests play a complete match, sustained overtime and champion',async
         await a.keyboard.press('Escape')
       } else await all('投 '+target+' 点')
       if(game<5) {
+        const history=await (await a.request.get(baseURL+'/api/history')).json()
+        expect(history.matches).toHaveLength(0)
         await expect(a.getByRole('heading',{name:'本局结算',exact:true})).toBeVisible()
         const result=a.getByRole('dialog',{name:'胜利 · 第 '+game+' 局'})
         await expect(result).toContainText('本局获胜：安妮、比利')
@@ -187,6 +189,10 @@ test('three guests play a complete match, sustained overtime and champion',async
     await expect(c.getByRole('heading',{name:'冠军 · 安妮'})).toBeVisible()
     await expect(c.locator('.dw-results')).toContainText('共 5 分')
     await expect(c.getByRole('textbox',{name:'聊天消息'})).toHaveCount(0)
+    const archived=await (await a.request.get(baseURL+'/api/history')).json()
+    expect(archived.matches).toHaveLength(1)
+    expect(archived.matches[0].game_id).toBe('dice-werewolf')
+    expect(archived.matches[0].players).toHaveLength(3)
     await c.reload()
     await expect(c.getByRole('heading',{name:'冠军 · 安妮'})).toBeVisible()
     await expect(c.locator('.game-result[open]')).toHaveCount(0)
@@ -210,8 +216,7 @@ test('simultaneous execution of every identity shows no winners',async({browser}
     const all=(name:string)=>Promise.all(pages.map(page=>button(page,name).click()))
     async function login(page:Page,name:string,url=baseURL) {
       await page.goto(url)
-      await page.getByRole('textbox',{name:'昵称'}).fill(name)
-      await button(page,'保存资料').click()
+      await registerPlayer(page,name)
     }
     await login(a,'甲')
     await a.locator('.game-card').filter({has:a.getByRole('heading',{name:'骰子狼人杀',exact:true})}).getByRole('button',{name:'创建房间'}).click()

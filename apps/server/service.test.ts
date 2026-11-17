@@ -38,12 +38,10 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   }
   let url=await listen()
   async function guest(name:string) {
-    const response=await fetch(url+'/api/session',{method:'POST',headers:{origin}})
-    assert.equal(response.status,200)
+    const response=await fetch(url+'/api/auth/register',{method:'POST',headers:{origin,'content-type':'application/json'},
+      body:JSON.stringify({username:'player_'+randomUUID().slice(0,12).replace('-','_'),password:'classic test phrase',name,avatar:0})})
+    assert.equal(response.status,201)
     const cookie=response.headers.get('set-cookie')!.split(';')[0]
-    const update=await fetch(url+'/api/profile',{method:'PUT',headers:{origin,cookie,'content-type':'application/json'},
-      body:JSON.stringify({name,avatar:0})})
-    assert.equal(update.status,200)
     return cookie
   }
   async function connect(cookie:string) {
@@ -58,7 +56,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   let [a,b,c,d]=await Promise.all(cookies.map(connect))
   function send(client:typeof a,type:string,room?:string,data?:unknown,extra:object={}):Promise<Reply> {
     const match=room ? client.rooms.get(room)?.match : undefined
-    return client.socket.timeout(2000).emitWithAck('command',{v:1,id:randomUUID(),type,room,data,match:match?.id,phase:match?.phase,...extra})
+    return client.socket.timeout(2000).emitWithAck('command',{v:1,id:randomUUID(),type,room,data,match:match?.id,phase:match?.phase,controlVersion:match?.controlVersion,...extra})
   }
   async function resumable(cookie:string) {
     const response=await fetch(url+'/api/resumable-matches',{headers:{cookie}})
@@ -94,7 +92,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   assert.equal((await send(d,'join',code)).ok,false)
   assert.equal((await send(d,'sync',code)).ok,false)
   assert.equal((await send(b,'dissolve',code)).ok,false)
-  assert.equal((await fetch(url+'/api/session',{method:'POST',headers:{origin:'http://wrong.local'}})).status,403)
+  assert.equal((await fetch(url+'/api/auth/register',{method:'POST',headers:{origin:'http://wrong.local'}})).status,403)
   const second=await send(d,'create',undefined,{gameId:'fixture'})
   assert(second.ok && second.room)
   await send(d,'ready',second.room,true)
@@ -116,7 +114,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   service=open()
   url=await listen()
   ;[a,b,c,d]=await Promise.all(cookies.map(connect))
-  for (const client of [a,b,c]) assert.equal((await send(client,'sync',code)).ok,true)
+  for (const client of [a,b,c]) assert.equal((await send(client,'join',code)).ok,true)
   const paused=a.rooms.get(code)!.match!
   assert.equal(paused.phase,original.phase)
   assert.equal(paused.deadline,clock+remaining)
@@ -208,7 +206,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   service=open()
   url=await listen()
   ;[a,b,c,d]=await Promise.all(cookies.map(connect))
-  assert((await send(a,'sync',dice)).ok)
+  for(const client of [a,b,c]) assert((await send(client,'join',dice)).ok)
   const stillSummary=a.rooms.get(dice)!.match!
   assert.equal(stillSummary.phase,result.phase)
   assert.equal(stillSummary.deadline,clock+summaryRemaining)
@@ -241,6 +239,7 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   assert(!(await resumable(cookies[0])).includes(disposable.room))
   assert(!(await send(a,'join',disposable.room,{resume:true})).ok)
 
+  assert((await send(a,'join',dice)).ok)
   for(const client of [a,b,c]) assert((await send(client,'leave',dice)).ok)
   clock+=60*60_000
   assert(!(await send(a,'join',dice,{resume:true})).ok)
@@ -256,12 +255,12 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   url=await listen()
   ;[a,b,c,d]=await Promise.all(cookies.map(connect))
   const activeCode=second.room
-  assert((await send(d,'sync',activeCode)).ok)
+  assert((await send(d,'join',activeCode)).ok)
   d.socket.disconnect()
   await new Promise<void>(done=>setImmediate(done))
   clock+=59*60_000
   d=await connect(cookies[3])
-  assert((await send(d,'sync',activeCode)).ok)
+  assert((await send(d,'join',activeCode)).ok)
   d.socket.disconnect()
   await new Promise<void>(done=>setImmediate(done))
   await service.close()
@@ -269,5 +268,5 @@ test('persistent authenticated rooms, isolated plugins, deadlines, receipts and 
   service=open()
   url=await listen()
   ;[a,b,c,d]=await Promise.all(cookies.map(connect))
-  assert(!(await send(d,'sync',activeCode)).ok)
+  assert(!(await send(d,'join',activeCode)).ok)
 })

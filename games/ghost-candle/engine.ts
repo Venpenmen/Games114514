@@ -141,5 +141,10 @@ export const ghostCandle: GamePlugin<Config, State> = {
   },
   private(s, player) { return { role: s.roles[player], confirmed: s.inputs[player] } },
   finished(s) { return s.stage === 'FINISHED' },
+  finalResult(s) {
+    if(s.stage==='FINISHED' && s.winner) return {
+      winners:Object.keys(s.roles).filter(id=>s.roles[id]===s.winner),details:{winner:s.winner,roles:s.roles},
+    }
+  },
   canChat(s) { return ['DAY_DISCUSSION','DAY_DECISION','ACCUSATION','REVOTE'].includes(s.stage) },
 }

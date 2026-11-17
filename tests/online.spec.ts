@@ -1,3 +1,4 @@
+import {registerPlayer} from './account-fixtures.ts'
 import {checkGameLayout} from './game-layout.ts'
 import {checkRoomChat} from './room-chat.ts'
 import { expect,test,type Page } from '@playwright/test'
@@ -15,8 +16,7 @@ for (const correct of [true,false]) test('three guests, '+(correct?'human':'ghos
     const button=(page:Page,name:string)=>page.getByRole('button',{name,exact:true})
     async function login(page:Page,name:string,path='/') {
       await page.goto(path)
-      await page.getByRole('textbox',{name:'昵称'}).fill(name)
-      await button(page,'保存资料').click()
+      await registerPlayer(page,name)
       await expect(page.getByRole('button',{name:new RegExp(name)})).toBeVisible()
     }
     await login(a,names[0])
@@ -133,6 +133,11 @@ for (const correct of [true,false]) test('three guests, '+(correct?'human':'ghos
       await expect(page.locator('header.bar')).toHaveCount(0)
       await expect(button(page,'复制邀请链接')).toHaveCount(0)
     }
+    const archived=await (await a.request.get('/api/history')).json()
+    expect(archived.matches).toHaveLength(1)
+    expect(archived.matches[0].game_id).toBe('ghost-candle')
+    expect(archived.matches[0].result.details.winner).toBe(correct?'HUMAN':'GHOST')
+    expect(archived.matches[0].players).toHaveLength(3)
     expect(await history.evaluate(el=>el.scrollTop)).toBe(0)
     await expect(history.locator('li')).toHaveCount(8)
     await c.reload()

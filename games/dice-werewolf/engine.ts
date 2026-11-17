@@ -189,6 +189,10 @@ export const diceWerewolf: GamePlugin<Config,DiceState> = {
   },
   private(s,player) { return {identity:s.identities[player]} },
   finished(s) { return s.stage==='CHAMPION' },
+  finalResult(s) {
+    if(s.stage==='CHAMPION' && s.summary?.champion)
+      return {winners:[s.summary.champion],scores:s.scores,details:{games:s.game}}
+  },
   canChat(s) { return s.stage!=='CHAMPION' },
 }
 export type DicePublic = ReturnType<typeof diceWerewolf.public> & Pick<DiceState,'stage'|'game'|'round'|'target'|'portraits'|'scores'|'overtime'|'points'|'face'|'last'|'ballots'|'executions'|'dryRounds'|'summary'> & {submitted:string[]}

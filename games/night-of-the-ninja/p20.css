@@ -349,3 +349,9 @@
 .nn-timeline-detail {display:grid;gap:.15rem;margin-left:.3rem}
 .nn-timeline-detail .nn-timeline-chip {justify-self:start}
 .nn-timeline-icon {width:1.45rem;height:1.45rem;vertical-align:middle;object-fit:cover}
+
+@media (min-width: 801px) and (max-width: 1350px) {
+  .nn-p20 .nn-ring[data-dense=true] .nn-seat {width:5.25rem;gap:.18rem;padding-inline:.2rem}
+  .nn-p20 .nn-ring[data-dense=true] .nn-seat > .player-avatar {width:1.35rem}
+  .nn-p20 .nn-ring[data-dense=true] .nn-seat-info strong {font-size:.78rem}
+}

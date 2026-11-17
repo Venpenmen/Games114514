@@ -30,12 +30,11 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
   t.after(async()=>{allSockets.forEach(socket=>socket.disconnect());await platform.close();rmSync(folder,{recursive:true,force:true})})
   await listen()
   async function register(name:string) {
-    const reply=await fetch(url+'/api/session',{method:'POST',headers:{origin}})
-    assert.equal(reply.status,200)
+    const reply=await fetch(url+'/api/auth/register',{method:'POST',headers:{origin,'content-type':'application/json'},
+      body:JSON.stringify({username:'ninja_'+randomUUID().slice(0,12).replace('-','_'),password:'ninja test phrase',name,avatar:0})})
+    assert.equal(reply.status,201)
     const cookie=reply.headers.get('set-cookie')!.split(';')[0]
-    assert(cookie.startsWith('ninja_test='))
-    const profile=await fetch(url+'/api/profile',{method:'PUT',headers:{origin,cookie,'content-type':'application/json'},body:JSON.stringify({name,avatar:0})})
-    assert.equal(profile.status,200)
+    assert(cookie.startsWith('ninja_test_account='))
     return cookie
   }
   async function connect(cookie:string) {
@@ -51,7 +50,7 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
   let room:string|undefined
   async function send(client:typeof guests[number],type:string,data?:unknown,more:object={}):Promise<Reply>{
     const match=client.snapshot?.match
-    return client.socket.timeout(4000).emitWithAck('command',{v:1,id:randomUUID(),type,data,room,match:match?.id,phase:match?.phase,...more})
+    return client.socket.timeout(4000).emitWithAck('command',{v:1,id:randomUUID(),type,data,room,match:match?.id,phase:match?.phase,controlVersion:match?.controlVersion,...more})
   }
   const created=await send(guests[0],'create',{gameId:'night-of-the-ninja'})
   assert(created.ok&&created.room);room=created.room
@@ -65,13 +64,13 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
   }
   assert((await send(guests[0],'start')).ok)
   const syncPlayers=async()=>{
-    for(const player of guests.slice(0,count)) assert((await send(player,'sync')).ok)
+    for(const player of guests.slice(0,count)) if(!(await send(player,'sync')).ok) assert((await send(player,'join')).ok)
   }
   await syncPlayers()
   const listing=async(cookie:string)=>await fetch(url+'/api/resumable-matches',{headers:{cookie}})
   assert.equal((await fetch(url+'/api/resumable-matches')).status,401)
   assert.deepEqual(await (await listing(cookies[count])).json(),[])
-  assert.deepEqual(await (await listing(cookies[0])).json(),[{gameId:'night-of-the-ninja',name:'忍者之夜',code:room}])
+  assert.deepEqual(await (await listing(cookies[0])).json(),[{gameId:'night-of-the-ninja',name:'忍者之夜',code:room,matchId:guests[0].snapshot!.match!.id,takeover:false}])
   assert.equal((await send(guests[count],'join',{resume:true})).ok,false)
   assert((await send(guests[count],'watch')).ok)
   assert.equal(guests[count].snapshot?.spectator,true)
@@ -228,6 +227,13 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
     time++
     platform.tick()
     assert(!(await send(guests[0],'sync',undefined,{room:finishedRoom})).ok)
+    const history=await (await fetch(url+'/api/history',{headers:{cookie:cookies[0]}})).json()
+    assert.equal(history.matches.length,1)
+    assert.equal(history.matches[0].room_code,finishedRoom)
+    assert.equal(history.matches[0].players.length,count)
+    assert.equal(history.matches[0].game_id,'night-of-the-ninja')
+    const outsider=await (await fetch(url+'/api/history',{headers:{cookie:cookies[count]}})).json()
+    assert.equal(outsider.matches.length,0)
 
     const next=await send(guests[0],'create',{gameId:'night-of-the-ninja'})
     assert(next.ok && next.room)
