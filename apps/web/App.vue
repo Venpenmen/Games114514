@@ -8,13 +8,15 @@ import { gameArtwork, gameLobbies, gameRules, gameViews } from './games.ts'
 type Game = {spectators?:boolean;id:string;name:string;min:number;max:number;settings:{key:string;label:string;options:number[]}[]}
 type Resumable={gameId:string;name:string;code:string;matchId:string;takeover:boolean}
 const resumable=ref<Resumable[]>([])
+const occupied=ref<{code:string;name?:string}|null>(null)
 const resuming=ref(false)
 let resumableRequest=0
 async function refreshResumable() {
   if(!profile.value || room.value || activeCode.value) return
   const request=++resumableRequest
-  const matches=await api<Resumable[]>('resumable-matches').catch(()=>[])
-  if(request===resumableRequest) resumable.value=matches
+  const [matches,seat]=await Promise.all([api<Resumable[]>('resumable-matches').catch(()=>[]),
+    api<{code:string;name:string}|null>('occupied-room').catch(()=>null)])
+  if(request===resumableRequest) {resumable.value=matches;occupied.value=seat}
 }
 async function resumeMatch(item:Resumable) {
   if(resuming.value || room.value || activeCode.value) return
@@ -33,7 +35,7 @@ const connectionEpoch = ref(0)
 let nextSnapshotIsSync = true
 const restoring = ref(Boolean(code.value))
 const connected = ref(false)
-const editing = ref(false)
+const editing = ref(new URLSearchParams(location.search).get('page')==='account')
 const name = ref('')
 const username=ref(''), password=ref('')
 const registering=ref(false), loading=ref(true), authenticating=ref(false)
@@ -41,7 +43,17 @@ const legacy=ref<Profile|null>(null)
 const avatar = ref(0)
 const error = ref('')
 const copied = ref(false)
-const socket = io({autoConnect:false})
+const tabId=sessionStorage.getItem('games.tab')??crypto.randomUUID()
+sessionStorage.setItem('games.tab',tabId)
+const socket = io({autoConnect:false,auth:{tab:tabId}})
+let routeEpoch=0
+if(!history.state?.gamesRoute && (activeCode.value || editing.value)) {
+  const deepLink=location.href
+  const lobbyUrl=new URL(deepLink)
+  for(const key of ['room','watch','page']) lobbyUrl.searchParams.delete(key)
+  history.replaceState({gamesRoute:true},'',lobbyUrl)
+  history.pushState({gamesRoute:true},'',deepLink)
+}
 const game = computed(() => catalog.value.find(item => item.id === room.value?.gameId))
 const view = computed(() => gameViews.get(room.value?.gameId ?? ''))
 const lobby = computed(() => gameLobbies.get(room.value?.gameId ?? ''))
@@ -49,15 +61,55 @@ const rules = computed(() => gameRules.get(room.value?.gameId ?? ''))
 const me = computed(() => room.value?.members.find(item => item.id === profile.value?.id))
 const host = computed(() => room.value?.host === profile.value?.id)
 const playing = computed(() => room.value?.match && !room.value.match.finished)
-function setCode(value: string) {
+function setCode(value: string,replace=false) {
   activeCode.value = value
   const url = new URL(location.href)
   if (value) url.searchParams.set('room', value)
   else url.searchParams.delete('room')
   if (value && watching.value) url.searchParams.set('watch','1')
   else url.searchParams.delete('watch')
-  history.replaceState(null,'',url)
+  if(editing.value) url.searchParams.set('page','account')
+  else url.searchParams.delete('page')
+  if(url.href!==location.href) history[replace?'replaceState':'pushState']({gamesRoute:true},'',url)
 }
+function detach() {
+  if(socket.connected) socket.emit('command',{v:protocolVersion,id:crypto.randomUUID(),type:'detach'},()=>{})
+}
+function goLobby(account=false) {
+  routeEpoch++
+  detach()
+  room.value=undefined
+  editing.value=account
+  watching.value=false
+  setCode('')
+  void refreshResumable()
+}
+window.addEventListener('popstate',()=>{
+  const open=document.activeElement?.closest<HTMLDialogElement>('dialog[open]')??Array.from(document.querySelectorAll<HTMLDialogElement>('dialog[open]')).at(-1)
+  const chat=document.querySelector<HTMLButtonElement>('.room-chat.is-open .room-chat-heading button')
+  if(open || chat) {
+    if(open) open.close()
+    else chat?.click()
+    const destination=new URL(location.href)
+    if(activeCode.value) destination.searchParams.set('room',activeCode.value)
+    else destination.searchParams.delete('room')
+    if(watching.value) destination.searchParams.set('watch','1')
+    else destination.searchParams.delete('watch')
+    if(editing.value) destination.searchParams.set('page','account')
+    else destination.searchParams.delete('page')
+    history.pushState({gamesRoute:true},'',destination)
+    return
+  }
+  routeEpoch++
+  detach()
+  const params=new URLSearchParams(location.search)
+  room.value=undefined
+  watching.value=params.get('watch')==='1'
+  editing.value=params.get('page')==='account'
+  activeCode.value=params.get('room')??''
+  if(activeCode.value && connected.value) void send(watching.value?'watch':'join',undefined,activeCode.value)
+  else void refreshResumable()
+})
 socket.on('connect', () => {
   connected.value = true
   nextSnapshotIsSync = true
@@ -75,7 +127,7 @@ socket.on('control-lost',(value:{code:string})=>{
 })
 socket.on('connect_error', () => { restoring.value = false; error.value = '连接失败，请刷新页面恢复会话' })
 socket.on('room', (value: Snapshot) => {
-  if (value.code === activeCode.value) {
+  if (value.code === activeCode.value && Boolean(value.spectator)===watching.value) {
     if(nextSnapshotIsSync) { connectionEpoch.value++; nextSnapshotIsSync=false }
     room.value = value
     if (value.match) editing.value = false
@@ -134,6 +186,7 @@ async function authenticate() {
   finally {authenticating.value=false}
 }
 async function send(type: string, data?: unknown, target = room.value?.code, matchId?:string) {
+  const epoch=routeEpoch
   error.value = ''
   if (!socket.connected) { error.value = '连接中，请稍后重试'; return false }
   try {
@@ -141,7 +194,9 @@ async function send(type: string, data?: unknown, target = room.value?.code, mat
     const reply: Reply = await socket.timeout(5000).emitWithAck('command',{
       v:protocolVersion,id:crypto.randomUUID(),type,data,room:target,match:matchId??match?.id,phase:match?.phase,controlVersion:match?.controlVersion,
     })
+    if(epoch!==routeEpoch) return false
     if (!reply.ok) {
+      if(reply.occupiedRoom) occupied.value={code:reply.occupiedRoom}
       error.value = reply.error
       if (target===activeCode.value && (type==='join' || type==='watch') &&
           ['房间不存在或已过期','此房间不能旁观'].includes(reply.error)) {
@@ -160,12 +215,13 @@ async function send(type: string, data?: unknown, target = room.value?.code, mat
     }
     if ((type === 'join' || type === 'create' || type==='takeover') && reply.room) {
       watching.value=false
+      editing.value=false
       setCode(reply.room)
       await socket.timeout(5000).emitWithAck('command',{v:protocolVersion,id:crypto.randomUUID(),type:'sync',room:reply.room})
     }
     return true
-  } catch { error.value = '服务器响应超时'; return false }
-  finally { if (type === 'join') restoring.value = false }
+  } catch {if(epoch===routeEpoch) error.value = '服务器响应超时';return false}
+  finally {if(epoch===routeEpoch && type==='join') restoring.value=false}
 }
 async function watchRoom() {
   if (!/^\d{6}$/.test(code.value)) {error.value='请输入六位房间码'; return}
@@ -192,7 +248,7 @@ async function share() {
 <template>
   <header v-if="!(profile && editing) && !room?.match && (!restoring || !!room || (editing && !profile?.name))" class="bar"><div class="bar-inner">
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>多人联机小游戏合集</a>
-    <button v-if="profile?.name" class="profile" @click="editing=true"><PlayerAvatar :name="profile.name" :glyph="avatars[profile.avatar]" online/> {{ profile.name }}</button>
+    <button v-if="profile?.name" class="profile" @click="goLobby(true)"><PlayerAvatar :name="profile.name" :glyph="avatars[profile.avatar]" online/> {{ profile.name }}</button>
   </div></header>
   <main :class="{'game-page':room?.match}">
     <p v-if="error" role="alert" class="error">{{ error }}</p>
@@ -210,7 +266,7 @@ async function share() {
       </div>
     </form>
     <AccountCenter v-else-if="profile && editing && !room?.match" :api="api" :games="catalog"
-      @close="editing=false" @profile="profile=$event" @logout="returnToLogin"/>
+      @close="goLobby()" @profile="profile=$event" @logout="returnToLogin"/>
     <template v-else-if="profile && !room">
       <section v-if="resumable.length && !activeCode" class="panel">
         <h2>你有一场正在进行的对局</h2>
@@ -218,6 +274,9 @@ async function share() {
           <span>{{ item.name }} · {{ item.code }}</span>
           <button :disabled="resuming || !connected" @click="resumeMatch(item)">{{ item.takeover?'切换到当前设备操作':'继续对局' }}</button>
         </div>
+      </section>
+      <section v-if="occupied && !resumable.some(item=>item.code===occupied?.code)" class="panel actions">
+        <span>{{ occupied.name??'已占席' }} · {{ occupied.code }}</span><button @click="send('join',undefined,occupied.code)">返回已占席房间</button>
       </section>
       <div class="lobby-heading">
         <h1>游戏大厅</h1>
@@ -239,7 +298,14 @@ async function share() {
       </div>
     </template>
     <template v-else-if="room">
-      <section v-if="!playing && !room.spectator" class="panel room-panel" :class="{'room-panel-finished':room.match}">
+      <section v-if="room.readOnly" class="panel stack">
+        <h1>{{ game?.name }} · {{ room.code }}</h1>
+        <p role="status">本标签页正在只读查看</p>
+        <ul><li v-for="member in room.members" :key="member.id">{{ member.name }} · {{ member.online?'在线':'离线' }}{{ !playing && member.ready?' · 已准备':'' }}</li></ul>
+        <p v-if="room.match">{{ room.match.finished?'比赛已结束':'比赛进行中' }}</p>
+        <div class="actions"><button @click="send('takeover',undefined)">接管操作</button><button @click="goLobby()">返回大厅</button></div>
+      </section>
+      <section v-else-if="!playing && !room.spectator" class="panel room-panel" :class="{'room-panel-finished':room.match}">
         <div v-if="!room.match" class="actions room-heading">
           <h1>{{ game?.name }} · {{ room.code }}</h1>
           <div class="actions">
@@ -267,11 +333,11 @@ async function share() {
           </div>
         </template>
       </section>
-      <div v-if="room.spectator || (playing && room.canLeaveActive)" class="actions">
+      <div v-if="!room.readOnly && (room.spectator || (playing && room.canLeaveActive))" class="actions">
         <button v-if="room.spectator" @click="leaveWatch">退出旁观</button>
-        <button v-else @click="send('leave',undefined)">离开对局（保留席位）</button>
+        <template v-else><button @click="send('leave',undefined)">离开对局（保留席位）</button><button @click="goLobby()">返回大厅</button></template>
       </div>
-      <component v-if="view && room.match && (me || room.spectator)" :is="view" :key="room.match.id" :room="room" :player="profile?.id ?? ''" :connection-epoch="connectionEpoch" :send="send"/>
+      <component v-if="view && room.match && (!room.readOnly || room.gameId==='night-of-the-ninja') && (me || room.spectator)" :is="view" :key="room.match.id" :room="room.readOnly?{...room,spectator:true}:room" :player="profile?.id ?? ''" :connection-epoch="connectionEpoch" :send="send"/>
     </template>
   </main>
 </template>
