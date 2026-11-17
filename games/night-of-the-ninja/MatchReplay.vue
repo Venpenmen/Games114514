@@ -35,6 +35,12 @@ const rounds=computed(()=>{
   return rounds
 })
 const rankings=computed(()=>Object.entries(props.state.finalScores??{}).sort((a,b)=>b[1]-a[1]))
+function transfers(entry:ReplayEntry) {
+  return (entry.honorChanges??[]).flatMap(to=>to.gained.flatMap(token=>{
+    const from=entry.honorChanges?.find(change=>change.lost.some(item=>item.id===token.id))
+    return from?[{from:from.id,to:to.id,token}]:[]
+  }))
+}
 const choiceCards=(entry:ReplayEntry)=>entry.choice?.split(',').filter(id=>Object.hasOwn(cards,id))??[]
 function choiceText(entry:ReplayEntry) {
   const value=entry.choice
@@ -88,6 +94,13 @@ function choiceText(entry:ReplayEntry) {
               <div v-if="item.received" class="nn-replay-cards">← 收到 <CardFace v-for="id in item.received" :key="id" :id="id" compact/></div>
               <div v-if="item.discarded" class="nn-replay-cards">弃牌 <CardFace :id="item.discarded" compact/></div>
             </div>
+            <p v-for="transfer in transfers(entry)" :key="transfer.token.id">{{ name(transfer.from) }} → {{ name(transfer.to) }} · {{ transfer.token.value }} 分荣誉</p>
+            <div v-for="change in entry.honorChanges" :key="change.id" class="nn-replay-cards">
+              <strong>{{ name(change.id) }} · {{ change.before }} → {{ change.after }} 分</strong>
+              <span v-for="token in change.gained" :key="'gain-'+token.id" class="nn-honor"><img :src="asset('honor-front')" alt=""><b>+{{ token.value }}</b></span>
+              <span v-for="token in change.lost" :key="'loss-'+token.id" class="nn-honor"><img :src="asset('honor-front')" alt=""><b>−{{ token.value }}</b></span>
+            </div>
+            <small v-if="entry.step==='honor' && !entry.honorChanges && !roundOnly">旧记录仅保留荣誉快照。</small>
             <div v-for="seat in entry.seats" :key="seat.id">
               <strong>{{ name(seat.id) }}</strong>
               <IdentityCard v-if="seat.identity" :identity="seat.identity" :caption="seat.alive ? '当时身份 · 存活' : '当时身份 · 已死亡'"/>

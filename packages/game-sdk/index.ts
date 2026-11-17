@@ -10,7 +10,7 @@ export interface GamePlugin<C, S extends Turn> {
   defaults: C
   settings: { key: string; label: string; options: number[] }[]
   config(input: unknown): C
-  roomPolicy?: { capacity(config:C):number; spectators?:boolean; pauseWhenEmpty?:boolean; hostTransferMs?:number }
+  roomPolicy?: { capacity(config:C):number; spectators?:boolean; resumeFromLobby?:boolean; pauseWhenEmpty?:boolean; hostTransferMs?:number }
   canStart?(players: string[], config: C): boolean
   lobby?: { select(input: unknown): unknown; ready(selection: unknown): boolean }
   start(players: string[], config: C, ctx: Context, selections?: Record<string, unknown>): S

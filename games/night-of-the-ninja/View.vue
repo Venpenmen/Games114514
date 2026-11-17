@@ -66,7 +66,7 @@ const shown=computed(()=>presented.value.at(-1))
 const roundEvents=computed(()=>timelineRows(state.value.events,privateState.value?.tableTargets??[],state.value.round))
 const batchTitle=(event:PublicEvent)=>event.card && cards[event.card].phase!=='special'
   ? phaseNames[cards[event.card].phase as keyof typeof phaseNames]+'阶段 · 同时亮牌' : '同时亮牌'
-const major=computed(()=>presented.value.some(event=>!['play','attack'].includes(event.kind)))
+const major=(event:PublicEvent)=>['identity','houses','mirror','martyr','death','swap','honor','reveal','champion'].includes(event.kind)
 const ring=ref<HTMLElement>()
 const passing=ref(false)
 let passTimer:number|undefined
@@ -173,7 +173,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         <template v-if="privateState.known">
           <img :src="asset(privateState.known.house)" alt="">
           {{ labels[privateState.known.house] }}
-          <span v-if="privateState.known.rank" class="nn-rank" :aria-label="'等级 '+privateState.known.rank+'，1 最高'">
+          <span v-if="privateState.known.rank" class="nn-rank" :aria-label="'等级 '+privateState.known.rank">
             <strong>{{ privateState.known.rank }}</strong><span aria-hidden="true">{{ '◆'.repeat(privateState.known.rank) }}</span>
           </span>
         </template>
@@ -210,7 +210,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
             <p class="nn-active-effect">{{ skills[cards[state.current.card].skill][1] }}</p>
             <p v-if="attack">{{ attack.actors.map(name).join(' → ') }} · 攻击尚未裁决</p></div>
         </div>
-        <div v-for="item in presented" :key="item.seq" class="nn-event" :class="{'nn-major-event':major}" :data-event="item.kind" aria-live="polite">
+        <div v-for="item in presented" :key="item.seq" class="nn-event" :class="{'nn-major-event':major(item)}" :data-event="item.kind" aria-live="polite">
           <img v-if="item.card" :src="asset(cards[item.card].skill)" alt="">
           <div>
             <p>{{ item.text }}</p>

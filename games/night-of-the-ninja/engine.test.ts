@@ -168,6 +168,9 @@ test('merchant may exchange an unseen token and thief compares counts',()=>{
   assert.equal(s.seats[0].intel[0].honor,2)
   stage('trickster-5',s);expire(s);expire(s);click(s,'a','b')
   assert.deepEqual(s.seats[0].honor.map(x=>x.id),[103,102])
+  const changes=s.replay!.filter(entry=>entry.step==='honor').map(entry=>entry.honorChanges)
+  assert.deepEqual(changes[0]?.map(change=>[change.id,change.before,change.after]),[['a',4,3],['b',5,6]])
+  assert.deepEqual(changes[1]?.map(change=>[change.id,change.before,change.after]),[['a',3,5],['b',6,4]])
 })
 for(const card of ['blind-1','shinobi-1','trickster-6']) for(const response of ['mirror','martyr','pass']) {
   test('attack '+card+' / '+response,()=>{
@@ -185,6 +188,8 @@ for(const card of ['blind-1','shinobi-1','trickster-6']) for(const response of [
     assert.equal(s.seats[0].alive,response!=='mirror')
     assert.equal(s.seats[1].honor.length,response==='martyr'?1:0)
     if(response==='mirror') {
+      assert(publicView(s).seats.find(p=>p.id==='a')?.alive)
+      expire(s)
       assert.equal(privateView(s,'a')?.intel.at(-1)?.actingCard,'mirror')
       assert.equal(privateView(s,'a')?.intel.at(-1)?.actor,'b')
     }
@@ -205,7 +210,7 @@ test('mastermind, dead teammates and finishing only after the award batch',()=>{
   expire(s)
   assert.deepEqual(s.awardees,['a','b'])
   assert(!publicView(s).finalScores)
-  expire(s);expire(s)
+  expire(s);expire(s);expire(s)
   assert.deepEqual(s.champions,['a','b'])
   assert.equal(s.pool.length,33)
   assert.equal(s.events.filter(e=>e.kind==='pool').length,1)
@@ -219,7 +224,7 @@ test('ronin mastermind receives only the survival award; no survivors receive no
   s.night=4;s.mode='commit'
   expire(s)
   assert.deepEqual(s.awardees,[ronin.id])
-  expire(s);expire(s)
+  expire(s);expire(s);expire(s)
   assert.equal(ronin.honor.length,1)
   assert.equal(s.seats.filter(p=>p.honor.length).length,1)
   s.seats.forEach(p=>{p.alive=false})
@@ -238,10 +243,12 @@ test('authoritative presentation preserves reaction and the next full operation 
   click(s,'b','mirror')
   assert.equal(s.mode,'presentation')
   const projected=publicView(s).presentation!
-  assert.equal(projected.duration,4000)
+  assert.equal(projected.duration,3500)
   assert.equal(projected.startedAt,reactionDeadline-1)
-  assert.deepEqual(projected.events.map(e=>e.kind),['mirror','death'])
-  assert.deepEqual(projected.events[1].actors,['a'])
+  assert.deepEqual(projected.events.map(e=>e.kind),['mirror'])
+  assert(!publicView(s).events.some(event=>event.kind==='death'))
+  assert(publicView(s).seats[0].alive)
+  assert(!privateView(s,'a')?.intel.some(entry=>entry.actingCard==='mirror'))
   assert.deepEqual(privateView(s,'b')?.options,[])
   assert.throws(()=>click(s,'b','pass'))
   assert(!Object.hasOwn(publicView(s),'replay'))
@@ -252,8 +259,11 @@ test('authoritative presentation preserves reaction and the next full operation 
   game.advance(restored,{now:end-1,random:()=>0})
   assert.equal(restored.mode,'presentation')
   expire(restored)
+  assert.equal(publicView(restored).presentation?.events[0].kind,'death')
+  assert(!publicView(restored).seats[0].alive)
+  expire(restored)
   assert.equal(restored.mode,'commit')
-  assert.equal(restored.deadline,end+defaults.play*1000)
+  assert.equal(restored.deadline,end+4000+defaults.play*1000)
   assert.equal(restored.events.filter(e=>e.kind==='death').length,1)
 })
 
@@ -269,7 +279,7 @@ test('complete replay is captured by round and exposed only after the final barr
   expire(s)
   assert.equal(s.round,2)
   s.seats.forEach(p=>p.honor=[{id:300,value:12}])
-  for(let i=0;i<10 && publicView(s).mode!=='champion';i++) {
+  for(let i=0;i<15 && publicView(s).mode!=='champion';i++) {
     assert(!Object.hasOwn(publicView(s),'replay'))
     expire(s)
   }
@@ -283,3 +293,56 @@ test('complete replay is captured by round and exposed only after the final barr
   assert.deepEqual(publicView(s).replay,[])
   assert.equal(publicView(s).replayComplete,false)
 })
+
+test('legacy single-batch award resumes from its existing deadline without awarding twice',()=>{
+  const s=start()
+  s.seats[0].honor=[{id:100,value:3}]
+  s.mode='presentation'
+  s.deadline=5000
+  s.presentation={events:[],duration:5000,next:{mode:'ready',seconds:30}}
+  delete s.replay
+  delete s.tableTargets
+  game.advance(s,{now:4999,random:()=>0})
+  assert.equal(publicView(s).mode,'presentation')
+  expire(s)
+  assert.equal(publicView(s).mode,'ready')
+  assert.equal(s.deadline,35000)
+  assert.equal(privateView(s,'a')!.score,3)
+})
+
+test('martyr award and death are published on distinct steps',()=>{
+  const s=start()
+  s.seats[1].hand=['martyr']
+  stage('blind-1',s); expire(s); click(s,'a','b'); click(s,'b','martyr')
+  assert.equal(publicView(s).presentation?.events[0].kind,'martyr')
+  assert.equal(privateView(s,'b')?.score,0)
+  assert(publicView(s).seats[1].alive)
+  expire(s)
+  assert.equal(publicView(s).presentation?.events[0].kind,'honor')
+  assert(privateView(s,'b')!.score>=2)
+  assert(publicView(s).seats[1].alive)
+  expire(s)
+  assert.equal(publicView(s).presentation?.events[0].kind,'death')
+  assert(!publicView(s).seats[1].alive)
+})
+
+for(const card of ['spy-1','mystic-1','trickster-1','trickster-3','trickster-4','trickster-5','trickster-6','blind-1','shinobi-1']) {
+  test('target visibility '+card,()=>{
+    const s=start()
+    s.seats[1].hand=['mirror']
+    s.seats[1].honor=[{id:100,value:3}]
+    stage(card,s)
+    expire(s)
+    if(publicView(s).mode==='presentation') expire(s)
+    click(s,'a','b')
+    assert(!Object.hasOwn(publicView(s),'tableTargets'))
+    for(const id of ids) assert.equal(privateView(s,id)?.tableTargets[0]?.target,'b')
+    const outside=privateView(s,'c')!
+    assert.deepEqual(outside.intel,[])
+    const recipient=privateView(s,'b')!.intel.at(-1)!
+    assert.equal(recipient.actingCard,card)
+    assert.equal(recipient.identity,undefined)
+    assert.equal(recipient.honor,undefined)
+    assert.equal(recipient.card,card==='mystic-1'?'mirror':undefined)
+  })
+}

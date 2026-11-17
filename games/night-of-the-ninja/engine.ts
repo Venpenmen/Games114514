@@ -20,9 +20,19 @@ export type ReplayEntry = {
   round:number; phase:Phase|null; step:string; player?:string; card?:string;
   choice?:string; affected?:string; intel?:IntelEvent; result?:PublicEvent;
   seats?:{id:string; identity?:Identity; hand?:string[]; honor?:Honor[]; score?:number; alive?:boolean}[];
+  honorChanges?:{id:string;before:number;after:number;gained:Honor[];lost:Honor[]}[];
   draft?:{id:string; kept:string; received?:string[]; passed?:string[]; discarded?:string}[];
 }
-type Presentation = {events:number[]; duration:number; next:'card'|{mode:Mode;seconds:number}}
+type Observation = {seats:Seat[]; tableTargets:TableTarget[]}
+type PresentationStep = {events:number[];duration:number;visible:Observation}
+type Presentation = {events:number[]; duration:number; next:'card'|{mode:Mode;seconds:number};steps?:PresentationStep[];cursor?:number}
+const observations=new WeakMap<NinjaState,Map<number,Observation>>()
+function observe(s:NinjaState):Observation {
+  return structuredClone({seats:s.seats,tableTargets:s.tableTargets??[]})
+}
+function visibleStep(s:NinjaState) {
+  return s.mode==='presentation'?s.presentation?.steps?.[s.presentation.cursor??0]:undefined
+}
 export type NinjaState = Turn & {
   config:Config; round:number; mode:Mode; night:number; seats:Seat[]; discard:string[];
   pool:Honor[]; nextHonor:number; events:PublicEvent[]; seq:number; submissions:Record<string,string>;
@@ -40,7 +50,7 @@ const settings = [
 export const defaults: Config = {playerCount:4,draft:45,play:30,target:30,reaction:15}
 const opt = (value:string,label:string,target?:string,card?:string):Option => ({value,label,target,card})
 const pass = opt('pass','跳过')
-const durations:Record<string,number>={play:1500,identity:4000,swap:4000,death:4000,mirror:3500,martyr:3500,reveal:5000,honor:5000,champion:6000}
+const durations:Record<string,number>={play:1500,identity:4000,swap:4000,death:4000,mirror:3500,martyr:3500,houses:2800,reveal:2600,honor:5000,champion:6000}
 const seat = (s:NinjaState,id:string) => s.seats.find(value=>value.id===id)!
 const skill = (s:NinjaState) => cards[s.current!.card].skill
 const sum = (p:Seat) => p.honor.reduce((n,h)=>n+h.value,0)
@@ -69,7 +79,15 @@ function event(s:NinjaState,ctx:Context,kind:string,text:string,actors:string[]=
   const executionId=['identity','swap','attack','death','mirror','martyr','honor'].includes(kind)?s.current?.executionId:undefined
   const result={seq:++s.seq,at:ctx.now,round:s.round,kind,text,actors,...extra,...(executionId===undefined?{}:{executionId})}
   s.events.push(result)
-  recordReplay(s,{step:kind,result,
+  observations.get(s)?.set(result.seq,observe(s))
+  const before=observations.get(s)?.get(0)
+  const honorChanges=kind==='honor'&&before?s.seats.flatMap(p=>{
+    const old=before.seats.find(seat=>seat.id===p.id)!
+    const gained=p.honor.filter(token=>!old.honor.some(item=>item.id===token.id))
+    const lost=old.honor.filter(token=>!p.honor.some(item=>item.id===token.id))
+    return gained.length||lost.length?[{id:p.id,before:sum(old),after:sum(p),gained,lost}]:[]
+  }):undefined
+  recordReplay(s,{step:kind,result,honorChanges,
     ...(['honor','champion'].includes(kind)?{seats:replaySeats(s,'score')}:{}),
     ...(['swap','reveal'].includes(kind)?{seats:replaySeats(s,'identity')}:{}),
   })
@@ -105,8 +123,14 @@ function hold(s:NinjaState,ctx:Context,next:Presentation['next']) {
   if(!events.length) return false
   const duration=Math.max(...events.map(item=>durations[item.kind]))
   const context=s.events.filter(item=>item.seq>after&&item.at===ctx.now&&(durations[item.kind]||item.kind==='attack'||item.kind==='pool'))
-  s.presentation={events:context.map(item=>item.seq),duration,next}
-  changeMode(s,ctx,'presentation',duration/1000)
+  const frames=observations.get(s)
+  if(frames) {
+    const steps:PresentationStep[]=context.map(item=>({
+      events:[item.seq],duration:durations[item.kind]??1100,visible:frames.get(item.seq)!,
+    }))
+    s.presentation={events:context.map(item=>item.seq),duration:steps[0].duration,next,steps,cursor:0}
+  } else s.presentation={events:context.map(item=>item.seq),duration,next}
+  changeMode(s,ctx,'presentation',s.presentation.duration/1000)
   return true
 }
 function enter(s:NinjaState,ctx:Context,mode:Mode,seconds:number) {
@@ -308,8 +332,8 @@ function choice(s:NinjaState,ctx:Context,value:string) {
       ;[a.identity,b.identity]=[b.identity,a.identity]
       a.known=null
       b.known=null
-      event(s,ctx,'swap','两名玩家的流派符印发生互换。',[a.id,b.id])
       for(const p of [a,b]) intel(s,ctx,p.id,{text:'你的流派卡可能发生变化。'})
+      event(s,ctx,'swap','两名玩家的流派符印发生互换。',[a.id,b.id])
       break
     }
     case 'trouble': showIdentity(s,ctx,s.target!); break
@@ -357,7 +381,6 @@ function reveal(s:NinjaState,ctx:Context) {
   let winner: House|null=null
   if(mastermind) {
     winner=mastermind.identity.house
-    event(s,ctx,'master','首脑改变了流派结算。',[mastermind.id],{card:'master'})
   } else {
     for(let i=0;i<Math.max(crane.length,lotus.length);i++) {
       const a=crane[i]??Infinity,b=lotus[i]??Infinity
@@ -365,6 +388,9 @@ function reveal(s:NinjaState,ctx:Context) {
     }
   }
   s.awardees=(winner?s.seats.filter(p=>p.identity.house===winner && winner!=='ronin'||p.alive&&p.identity.house==='ronin'):alive).map(p=>p.id)
+  event(s,ctx,'houses','存活者公开流派。',alive.map(p=>p.id),
+    {identities:Object.fromEntries(alive.map(p=>[p.id,{...p.identity}]))})
+  if(mastermind) event(s,ctx,'master','首脑改变了流派结算。',[mastermind.id],{card:'master'})
   event(s,ctx,'reveal',winner==='crane'?'鹤派胜出。':winner==='lotus'?'莲派胜出。':winner==='ronin'?'浪人首脑阻止流派奖励。':alive.length?'双方未分胜负，存活者获奖。':'无人存活。',alive.map(p=>p.id),
     {identities:Object.fromEntries(alive.map(p=>[p.id,{...p.identity}]))})
   enter(s,ctx,'reveal',0.001)
@@ -381,6 +407,11 @@ function finishAwards(s:NinjaState,ctx:Context) {
   } else enter(s,ctx,'ready',30)
 }
 function settle(s:NinjaState,ctx:Context) {
+  observations.set(s,new Map([[0,observe(s)]]))
+  try { settleStep(s,ctx) }
+  finally { observations.delete(s) }
+}
+function settleStep(s:NinjaState,ctx:Context) {
   const required=requiredPlayers(s)
   const read=(id:string,random=false)=> {
     const legal=options(s,id)
@@ -394,7 +425,16 @@ function settle(s:NinjaState,ctx:Context) {
   }
   switch(s.mode) {
     case 'presentation': {
-      const next=s.presentation?.next
+      const presentation=s.presentation
+      const index=(presentation?.cursor??0)+1
+      const step=presentation?.steps?.[index]
+      if(presentation && step) {
+        presentation.cursor=index
+        presentation.duration=step.duration
+        changeMode(s,ctx,'presentation',step.duration/1000)
+        return
+      }
+      const next=presentation?.next
       delete s.presentation
       if(next==='card') nextCard(s,ctx)
       else if(next?.mode==='play') beginCard(s,ctx)
@@ -471,13 +511,15 @@ function requiredPlayers(s:NinjaState):string[] {
   return s.current && ['target','second','choice','recover'].includes(s.mode) ? [s.current.player] : []
 }
 export function publicView(s:NinjaState) {
+  const step=visibleStep(s)
+  const through=step?.events.at(-1)
   return {
     round:s.round, mode:['target','second','choice','recover'].includes(s.mode)?'resolve':s.mode,
     night:['commit','play','target','second','choice','recover','reaction'].includes(s.mode)?phases[s.night]:null, submitted:Object.keys(s.submissions).length,
-    seats:s.seats.map(({id,portrait,alive,honor,hand})=>({id,portrait,alive,honorCount:honor.length,handCount:hand.length})),
-    current:s.current, events:s.events,
+    seats:(step?.visible.seats??s.seats).map(({id,portrait,alive,honor,hand})=>({id,portrait,alive,honorCount:honor.length,handCount:hand.length})),
+    current:s.current, events:through===undefined?s.events:s.events.filter(item=>item.seq<=through),
     ...(s.mode==='presentation' && s.presentation ? {presentation:{
-      id:s.presentation.events[0],events:s.events.filter(item=>s.presentation!.events.includes(item.seq)),
+      id:(step?.events??s.presentation.events)[0],events:s.events.filter(item=>(step?.events??s.presentation!.events).includes(item.seq)),
       startedAt:s.deadline===null?null:s.deadline-s.presentation.duration,endsAt:s.deadline,duration:s.presentation.duration,
     }}:{}),
     champions:s.mode==='champion'?s.champions:[], finalScores:s.mode==='champion'?s.finalScores:undefined,
@@ -485,7 +527,8 @@ export function publicView(s:NinjaState) {
   }
 }
 export function privateView(s:NinjaState,id:string) {
-  const p=seat(s,id)
+  const visible=visibleStep(s)?.visible
+  const p=visible?.seats.find(seat=>seat.id===id)??seat(s,id)
   if(!p) return undefined
   const legal=s.mode==='draft2'?options(s,id).filter(choice=>choice.value!==p.hand[0]):options(s,id)
   const action=legal.length?{
@@ -495,11 +538,11 @@ export function privateView(s:NinjaState,id:string) {
       : [],
   }:undefined
   return {hand:p.hand, known:p.known, honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
-    options:legal,action,tableTargets:(s.tableTargets??[]).filter(entry=>entry.round===s.round)}
+    options:legal,action,tableTargets:(visible?.tableTargets??s.tableTargets??[]).filter(entry=>entry.round===s.round)}
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
   id:'night-of-the-ninja',version:1,name:'忍者之夜',minPlayers:4,maxPlayers:11,defaults,settings,
-  roomPolicy:{capacity:config=>config.playerCount, spectators:true, pauseWhenEmpty:true, hostTransferMs:120_000},
+  roomPolicy:{capacity:config=>config.playerCount, spectators:true, resumeFromLobby:true, pauseWhenEmpty:true, hostTransferMs:120_000},
   config(input) {
     const config=record(input)
     const result={...defaults}

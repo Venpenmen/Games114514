@@ -170,6 +170,18 @@ export function createPlatform(options: {
   app.get('/api/catalog', (_req,res) => res.json([...games.values()].map(game => ({
     id:game.id, name:game.name, spectators:game.roomPolicy?.spectators, min:game.minPlayers, max:game.maxPlayers, settings:game.settings, defaults:game.defaults,
   }))))
+  function canResume(room:Room,id:string) {
+    const game=games.get(room.gameId)
+    return !!(game?.roomPolicy?.resumeFromLobby && game.version===room.version && room.match &&
+      !game.finished(room.match.state) && room.members.some(member=>member.id===id))
+  }
+  app.get('/api/resumable-matches',(req,res)=>{
+    res.set('Cache-Control','no-store')
+    const current=session(req.headers.cookie)
+    if(!current) return res.status(401).json({error:'请先登录'})
+    return res.json(rooms().filter(room=>canResume(room,current.profile.id)).sort((a,b)=>b.updated-a.updated)
+      .map(room=>({gameId:room.gameId,name:plugin(room).name,code:room.code})))
+  })
   app.get('/api/me', (req,res) => res.json(session(req.headers.cookie)?.profile ?? null))
   app.post('/api/session', (req,res) => {
     const current = session(req.headers.cookie)
@@ -239,6 +251,9 @@ export function createPlatform(options: {
       const state = room.match?.state
       const active = !!state && !game.finished(state)
       if (cmd.type === 'join') {
+        if (cmd.data && typeof cmd.data==='object' && 'resume' in cmd.data && cmd.data.resume===true && !canResume(room,id))
+          throw new Error('对局无法恢复')
+
         if (!member) {
           if (active) throw new Error('对局已开始')
           if (room.members.length >= (game.roomPolicy?.capacity(room.config) ?? game.maxPlayers)) throw new Error('房间已满')

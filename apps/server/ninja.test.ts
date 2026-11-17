@@ -68,6 +68,11 @@ for(const count of [4,5,7,11]) test('ninja real socket tournament '+count+' play
     for(const player of guests.slice(0,count)) assert((await send(player,'sync')).ok)
   }
   await syncPlayers()
+  const listing=async(cookie:string)=>await fetch(url+'/api/resumable-matches',{headers:{cookie}})
+  assert.equal((await fetch(url+'/api/resumable-matches')).status,401)
+  assert.deepEqual(await (await listing(cookies[count])).json(),[])
+  assert.deepEqual(await (await listing(cookies[0])).json(),[{gameId:'night-of-the-ninja',name:'忍者之夜',code:room}])
+  assert.equal((await send(guests[count],'join',{resume:true})).ok,false)
   assert((await send(guests[count],'watch')).ok)
   assert.equal(guests[count].snapshot?.spectator,true)
   assert(!Object.hasOwn(guests[count].snapshot!.match!,'private'))

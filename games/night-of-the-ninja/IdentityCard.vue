@@ -10,7 +10,7 @@ defineProps<{identity:Identity|null;caption:string}>()
     <div>
       <small>{{ caption }}</small>
       <strong>{{ identity ? labels[identity.house] : '身份可能变化' }}</strong>
-      <span v-if="identity?.rank">等级 {{ identity.rank }} · 1 最高</span>
+      <span v-if="identity?.rank">等级 {{ identity.rank }}</span>
       <span v-else-if="!identity">当前流派不可查看</span>
     </div>
   </div>

@@ -43,6 +43,12 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await expect(observer.locator('.nn-private-toast')).toHaveCount(0)
     await expect(observer.locator('.nn-hand')).toHaveCount(0)
     await expect(b.locator('.nn-seat')).toHaveCount(4)
+    await button(b,'游戏规则').click()
+    await button(b,'完整玩法指南').click()
+    const mobileGuide=b.getByRole('dialog',{name:/游戏规则/})
+    await expect(mobileGuide).toContainText('超时与重连')
+    expect(await mobileGuide.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true)
+    await b.keyboard.press('Escape')
     expect(await b.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
     for(const page of [a,b]) {
       await expect(page.locator('.nn-options button img').first()).toBeVisible()
@@ -51,7 +57,11 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await a.emulateMedia({reducedMotion:'reduce'})
     await a.screenshot({path:'work/logs/'+evidence+'-desktop.png',fullPage:true})
     await b.screenshot({path:'work/logs/'+evidence+'-mobile.png',fullPage:true})
+    await button(b,'离开对局（保留席位）').click()
+    await expect(button(b,'继续对局')).toBeVisible()
     await b.reload()
+    await button(b,'继续对局').click()
+    await expect(b.locator('.nn-seat[data-self=true]')).toContainText('乙')
     await expect(banner(b)).toHaveText('第一步轮抽')
     for(let round=1;round<=5;round++) {
       for(const label of ['第一步轮抽','第二步轮抽','秘密出牌','秘密出牌','秘密出牌','秘密出牌','秘密出牌']) {
@@ -142,6 +152,14 @@ for(const count of [6,8,11]) test(count+' real seats fit the desktop ring and mo
         return seats.some((a,i)=>seats.slice(i+1).some(b=>a.left<b.right && b.left<a.right && a.top<b.bottom && b.top<a.bottom))
       })
       expect(overlap,`${width}×${height} 席位相交`).toBe(false)
+      const clipped=await a.locator('.nn-seat-info').evaluateAll(nodes=>nodes.some(node=>{
+        const seat=node.closest('button')!.getBoundingClientRect()
+        return Array.from(node.children).some(child=>{
+          const box=child.getBoundingClientRect()
+          return child.scrollWidth>child.clientWidth+1 || box.left<seat.left-1 || box.right>seat.right+1 || box.bottom>seat.bottom+1
+        })
+      }))
+      expect(clipped,`${width}×${height} 名片文字裁切`).toBe(false)
     }
     for (const page of [a,b]) {
       const images=page.locator('.nn-game img')

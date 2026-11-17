@@ -4,6 +4,20 @@ import { io } from 'socket.io-client'
 import { avatars, protocolVersion, type Profile, type Snapshot, type Reply } from '../../packages/protocol/index.ts'
 import { gameArtwork, gameLobbies, gameRules, gameViews } from './games.ts'
 type Game = {spectators?:boolean;id:string;name:string;min:number;max:number;settings:{key:string;label:string;options:number[]}[]}
+type Resumable={gameId:string;name:string;code:string}
+const resumable=ref<Resumable[]>([])
+const resuming=ref(false)
+async function refreshResumable() {
+  if(!profile.value || room.value || activeCode.value) return
+  try {resumable.value=await api<Resumable[]>('resumable-matches')}
+  catch {resumable.value=[]}
+}
+async function resumeMatch(code:string) {
+  if(resuming.value || room.value || activeCode.value) return
+  resuming.value=true
+  try {if(!await send('join',{resume:true},code)) await refreshResumable()}
+  finally {resuming.value=false}
+}
 const catalog = ref<Game[]>([])
 const profile = ref<Profile>()
 const room = ref<Snapshot>()
@@ -51,7 +65,7 @@ socket.on('room', (value: Snapshot) => {
   }
 })
 socket.on('left', (value: string) => {
-  if (value === activeCode.value) { room.value = undefined; setCode('') }
+  if (value === activeCode.value) { room.value = undefined; setCode(''); void refreshResumable() }
 })
 async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch('/api/'+path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
@@ -66,6 +80,7 @@ onMounted(async () => {
     edit()
     editing.value = !profile.value.name
     socket.connect()
+    void refreshResumable()
   } catch (err) { restoring.value = false; error.value = (err as Error).message }
 })
 function edit() {
@@ -136,6 +151,13 @@ async function share() {
       <div class="actions"><button class="primary">保存资料</button><button v-if="profile?.name" type="button" @click="editing=false">取消</button></div>
     </form>
     <template v-else-if="profile && !room">
+      <section v-if="resumable.length && !activeCode" class="panel">
+        <h2>你有一场正在进行的对局</h2>
+        <div v-for="item in resumable" :key="item.code" class="actions">
+          <span>{{ item.name }} · {{ item.code }}</span>
+          <button :disabled="resuming || !connected" @click="resumeMatch(item.code)">继续对局</button>
+        </div>
+      </section>
       <div class="lobby-heading">
         <h1>游戏大厅</h1>
         <form class="join-form" @submit.prevent="send('join',undefined,code)">
