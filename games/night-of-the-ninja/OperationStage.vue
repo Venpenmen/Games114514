@@ -17,7 +17,7 @@ const targets=computed(()=>props.own?.action?.targets??[])
 const aiming=computed(()=>options.value.some(option=>option.target))
 const current=computed(()=>props.state.current && cards[props.state.current.card])
 const ownIntel=computed(()=>{
-  if(step.value!=='choice' || !current.value) return []
+  if(!['choice','shift-disclosure'].includes(step.value) || !current.value) return []
   return targets.value.flatMap(id=>{
     const entry=props.own?.intel.findLast(item=>item.round===props.state.round && item.target===id && item.source===current.value?.skill)
     return entry?[entry]:[]
@@ -36,6 +36,7 @@ const prompt=computed(()=>{
     case 'recover': return '从查到的弃牌中取得一张'
     case 'reaction': return '你受到攻击，选择一张反应牌或不反应'
     case 'ready': return '查看本轮结果，然后准备下一轮'
+    case 'shift-disclosure': return '决定全场能否得知是否交换'
     case 'choice':
       if(options.value.some(option=>option.value.startsWith('give:'))) return '选择要交出的一枚本人荣誉，或放弃交换'
       if(options.value.some(option=>option.value.startsWith('take:'))) return '从对方的荣誉背面选一枚，或放弃交换'

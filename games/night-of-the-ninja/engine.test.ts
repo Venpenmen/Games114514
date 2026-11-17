@@ -136,6 +136,7 @@ test('shapeshifter truth, memory and public swap only on confirmation',()=>{
     assert.deepEqual(privateView(s,'a')?.action,{step:'choice',targets:['b','c']})
     assert.equal(privateView(s,'a')?.intel[0].source,'shift')
     click(s,'a',answer)
+    click(s,'a','reveal')
     assert.deepEqual(s.seats[1].identity,answer==='yes'?other:before)
     assert.equal(s.events.some(e=>e.kind==='swap'),answer==='yes')
     assert.deepEqual(s.seats[0].intel[0].identity,before)
@@ -346,3 +347,75 @@ for(const card of ['spy-1','mystic-1','trickster-1','trickster-3','trickster-4',
     assert.equal(recipient.card,card==='mystic-1'?'mirror':undefined)
   })
 }
+
+test('hidden exchange and no exchange have identical observer snapshots and survive storage',()=>{
+  const initial=start()
+  stage('trickster-1',initial);expire(initial)
+  click(initial,'a','b');click(initial,'a','c')
+  const outcomes=['pass','yes'].map(value=>{
+    const state=structuredClone(initial)
+    click(state,'a',value)
+    assert.equal(publicView(state).seats.find(p=>p.id==='b')!.exposure,'partial')
+    click(state,'a','hide')
+    return JSON.parse(JSON.stringify(state)) as NinjaState
+  })
+  assert.deepEqual(publicView(outcomes[0]),publicView(outcomes[1]))
+  for(const player of ['b','c','d']) assert.deepEqual(privateView(outcomes[0],player),privateView(outcomes[1],player))
+  assert.notDeepEqual(privateView(outcomes[0],'a')!.identities,privateView(outcomes[1],'a')!.identities)
+  assert.equal(publicView(outcomes[1]).roundShifts,undefined)
+  assert.equal(publicView(outcomes[1]).events.filter(event=>event.kind==='identity-view').length,2)
+})
+test('configured or already exposed identity forces public result',()=>{
+  for(const force of [true,false]) {
+    const state=start()
+    if(force) state.config={...state.config,forceShiftReveal:1}
+    else state.seats[1].exposed='full'
+    stage('trickster-1',state);expire(state)
+    click(state,'a','b');click(state,'a','c');click(state,'a','yes')
+    assert.equal(state.mode,'presentation')
+    assert.equal(publicView(state).events.at(-1)?.kind,'swap')
+    if(!force) {
+      assert.equal(publicView(state).seats.find(seat=>seat.id==='b')?.identity,null)
+      assert.deepEqual(publicView(state).seats.find(seat=>seat.id==='c')?.identity,state.seats[2].identity)
+    }
+  }
+})
+test('all 33 cards stay in exactly one zone for four, six, eight and eleven players',()=>{
+  for(const count of [4,6,8,11]) {
+    const s=game.start(Array.from({length:count},(_,i)=>String(i)),{...defaults,playerCount:count},{now:0,random:n=>n-1})
+    for(let step=0;step<250;step++) {
+      const cards=[...s.seats.flatMap(p=>p.hand),...s.undealt!,...s.discard,...s.tableCards!.map(card=>card.card)]
+      assert.equal(cards.length,33)
+      assert.equal(new Set(cards).size,33)
+      const view=publicView(s)
+      assert.equal(view.seats.reduce((sum,p)=>sum+p.handCount,0)+view.cardArea.discard+view.cardArea.undealt+view.cardArea.played.length,33)
+      if(s.mode==='ready'||s.mode==='champion') break
+      const player=s.seats.find(p=>privateView(s,p.id)?.options.some(option=>option.value!=='pass'))
+      const option=player && privateView(s,player.id)?.options.find(option=>option.value!=='pass')
+      if(player && option) click(s,player.id,option.value)
+      else expire(s)
+    }
+  }
+})
+
+test('later views refresh current identity without changing earlier observations',()=>{
+  const s=start()
+  stage('trickster-1',s);expire(s)
+  click(s,'a','b');click(s,'a','c')
+  const old=structuredClone(privateView(s,'a')!.intel[0].identity)
+  click(s,'a','yes');click(s,'a','hide')
+  assert.equal(privateView(s,'b')!.identities.b,null)
+  expire(s)
+  stage('spy-1',s,'play','b');expire(s);click(s,'b','c')
+  assert.deepEqual(privateView(s,'b')!.identities.c,old)
+  assert.deepEqual(privateView(s,'a')!.intel[0].identity,old)
+  assert.equal(publicView(s).seats.find(p=>p.id==='c')!.identity,null)
+})
+test('round replay publishes the actual hidden decision only at the round boundary',()=>{
+  const s=start()
+  stage('trickster-1',s);expire(s)
+  click(s,'a','b');click(s,'a','c');click(s,'a','pass');click(s,'a','hide')
+  assert.equal(publicView(s).roundShifts,undefined)
+  while(s.mode!=='ready'&&s.mode!=='champion') expire(s)
+  assert.deepEqual(publicView(s).roundShifts,[{actors:['b','c'],exchanged:false,disclosed:false}])
+})

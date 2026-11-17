@@ -14,7 +14,7 @@ const labels:Record<string,string>={deal:'初始身份与发牌',draft1:'第一�
 const entries=computed<ReplayEntry[]>(()=>{
   if(!props.roundOnly) return props.state.replay??[]
   const rows=timelineRows(props.state.events,props.targets??[],props.state.round)
-  return rows.flatMap(row=>{
+  const ordinary=rows.flatMap(row=>{
     const events=row.kind==='batch'?row.events:row.kind==='execution'?[row.play,...row.details]:[row.event]
     return events.map(event=>{
       const id=event.card??(row.kind==='execution'?row.play.card:undefined)
@@ -22,6 +22,11 @@ const entries=computed<ReplayEntry[]>(()=>{
       return {round:event.round,step:event.kind,result:event,phase:phase && phase!=='special'?phase:null}
     })
   })
+  return [...ordinary,...(props.state.roundShifts??[]).map((item,i)=>({
+    round:props.state.round,step:'变形者实际结果',phase:null,
+    result:{seq:-1-i,round:props.state.round,at:0,kind:'shift-result',actors:item.actors,
+      text:item.exchanged?'实际发生交换。':'实际没有交换。'},
+  }))]
 })
 const rounds=computed(()=>{
   const rounds: {round:number; groups:{name:string;entries:ReplayEntry[]}[]}[]=[]

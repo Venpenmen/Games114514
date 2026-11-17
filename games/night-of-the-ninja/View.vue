@@ -21,6 +21,19 @@ const props=defineProps<{room:Snapshot;player:string;connectionEpoch?:number;sen
 const match=computed(()=>props.room.match!)
 const state=computed(()=>match.value.public as ReturnType<typeof publicView>)
 const privateState=computed(()=>props.room.spectator?undefined:match.value.private as ReturnType<typeof privateView>)
+const identityDialog=ref<HTMLDialogElement>(), playDrawer=ref<HTMLDialogElement>()
+const inspected=ref<string>()
+const subject=computed(()=>state.value.seats.find(seat=>seat.id===inspected.value))
+const exposure={unseen:'未暴露',partial:'部分暴露',full:'完全暴露'}
+const historyViews=computed(()=>state.value.events.filter(event=>event.round===state.value.round && event.kind==='identity-view' && event.actors[1]===inspected.value))
+const lastHidden=computed(()=>state.value.events.findLast(event=>event.round===state.value.round &&
+  event.kind==='shift-result' && event.text==='变形者隐藏了结果，身份可能变化。' && event.actors.includes(inspected.value??''))?.seq??0)
+const sources={hand:'手牌',discard:'掘墓回收',reaction:'反应牌',master:'轮末揭示'}
+const statuses={queued:'等待结算',resolving:'结算中',resolved:'已结算',skipped:'未发动'}
+function inspectIdentity(id:string) {
+  inspected.value=id
+  identityDialog.value?.showModal()
+}
 const name=(id:string)=>props.room.members.find(p=>p.id===id)?.name??'玩家'
 const selected=ref('')
 const pending=ref(false)
@@ -155,7 +168,7 @@ const cardName=(id:string)=>skills[cards[id].skill][0]
 const eventLabels:Record<string,[string,string]> = {
   target:['→','技能选定目标'],
   round:['◈','新一轮'], 'reveal-card':['◇','亮牌'], play:['▷','执行'],
-  identity:['◉','公开身份'], swap:['⇄','交换身份'], attack:['→','指定攻击目标'],
+  'identity-view':['◉','查看身份'],'shift-result':['⇄','变形者结果'], identity:['◉','公开身份'], swap:['⇄','交换身份'], attack:['→','指定攻击目标'],
   mirror:['↶','镜僧反应'], martyr:['✦','殉道者反应'], death:['×','死亡'],
   honor:['◈','荣誉变动'], pool:['＋','荣誉池'], master:['✦','首脑'],
   reveal:['⚑','轮末揭示'], champion:['★','比赛结算'],
@@ -194,11 +207,14 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         <span class="nn-seat-info"><strong>{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</strong>
         <small class="nn-seat-status" :title="(p.alive?'存活':'已死亡')+' · '+(room.members.find(member=>member.id===p.id)?.online?'在线':'离线')">
           <span :aria-label="p.alive?'存活':'已死亡'">{{ p.alive?'♥':'×' }}</span>
-          <span aria-hidden="true">{{ room.members.find(member=>member.id===p.id)?.online?'●':'○' }}</span>
           <span class="nn-status-label">{{ room.members.find(member=>member.id===p.id)?.online?'在线':'离线' }}</span>
-          <img :src="asset('honor-back')" alt="荣誉"> {{ p.honorCount }}
+          <img :src="asset('honor-back')" alt="荣誉"> {{ p.honorCount }} <span :title="'手牌 '+p.handCount+' 张'" :aria-label="'手牌 '+p.handCount+' 张'">▤{{ p.handCount }}</span>
         </small>
         <small v-if="targetOptions.size">{{ privateState?.action?.targets.includes(p.id) ? '目标 '+(privateState.action.targets.indexOf(p.id)+1) : targetOptions.has(p.id)?'可选':'不可选' }}</small></span>
+      </button>
+      <button v-for="(p,i) in state.seats" :key="'identity-'+p.id" type="button" class="nn-identity-trigger" :style="polar(i)"
+        :aria-label="'查看 '+name(p.id)+' 的身份牌'" @click="inspectIdentity(p.id)">
+        <img :src="asset((privateState?.identities?.[p.id]??p.identity)?.house??'card-back')" alt="">
       </button>
       </div>
       <section class="nn-stage">
@@ -263,6 +279,30 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
     <OperationStage v-if="!match.finished" :state="state" :own="privateState" :selected="selection?.value??''"
           :locked="locked" :name="name" @select="select" @confirm="confirm"/>
     <aside class="nn-journal">
+      <button @click="playDrawer?.showModal()">出牌区</button>
+      <dialog ref="playDrawer" class="nn-board-dialog nn-play-drawer" aria-label="出牌区">
+        <header><h2>第 {{ state.round }} 轮 · 出牌区</h2><form method="dialog"><button autofocus>关闭</button></form></header>
+        <div class="nn-piles">
+          <span><img :src="asset('card-back')" alt=""> 未发牌堆 {{ state.cardArea.undealt }} 张</span>
+          <span><img :src="asset('card-back')" alt=""> 轮抽弃牌堆 {{ state.cardArea.discard }} 张</span>
+        </div>
+        <p v-if="!state.cardArea.played.length">暂无已公开牌</p>
+        <article v-for="item in state.cardArea.played" :key="item.card">
+          <CardFace :id="item.card"/>
+          <p>{{ name(item.player) }} · {{ sources[item.source] }} · {{ statuses[item.status] }}</p>
+          <p v-if="item.targets.length">目标：{{ item.targets.map(name).join('、') }}</p>
+        </article>
+      </dialog>
+      <dialog ref="identityDialog" class="nn-board-dialog" aria-label="身份牌详情">
+        <header><h2>{{ subject ? name(subject.id) : '' }} · 身份牌</h2><form method="dialog"><button autofocus>关闭</button></form></header>
+        <template v-if="subject">
+          <IdentityCard :identity="privateState?.identities?.[subject.id]??subject.identity" caption="当前可确认身份"/>
+          <p>{{ exposure[subject.exposure] }}</p>
+          <h3>公开查看记录</h3>
+          <p v-if="!historyViews.length">本轮暂无公开查看记录</p>
+          <ul><li v-for="event in historyViews" :key="event.seq">{{ name(event.actors[0]) }} · {{ event.card?cardName(event.card):'技能' }}{{ event.seq<lastHidden?' · 秘密决定前记录':'' }}</li></ul>
+        </template>
+      </dialog>
       <MatchReplay v-if="match.finished" :state="state" :name="name"/>
       <MatchReplay v-else-if="state.mode==='ready'" :key="state.round" :state="state" :name="name"
         round-only :targets="privateState?.tableTargets"/>

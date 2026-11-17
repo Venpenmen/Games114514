@@ -4,9 +4,13 @@ import { cards, deck, phases, type Phase, type Skill } from './cards.ts'
 type House = 'crane'|'lotus'|'ronin'
 export type Identity = {house:House; rank:number}
 type Honor = {id:number; value:number}
-type Config = {playerCount:number; draft:number; play:number; target:number; reaction:number}
-type Mode = 'draft1'|'draft2'|'commit'|'play'|'target'|'second'|'choice'|'recover'|'reaction'|'reveal'|'awards'|'ready'|'champion'|'presentation'
+type Config = {playerCount:number; draft:number; play:number; target:number; reaction:number; forceShiftReveal?:number}
+type Mode = 'draft1'|'draft2'|'commit'|'play'|'target'|'second'|'choice'|'recover'|'shift-disclosure'|'reaction'|'reveal'|'awards'|'ready'|'champion'|'presentation'
 type Play = {player:string; card:string; executionId?:number}
+type TableCard = Play & {targets?:string[]; source:'hand'|'discard'|'reaction'|'master'; status:'queued'|'resolving'|'resolved'|'skipped'}
+type ShiftResult = {actors:string[]; exchanged:boolean; disclosed:boolean}
+const sameIdentity=(a:Identity,b:Identity)=>a.house===b.house && a.rank===b.rank
+function exact(values?:Identity[]) {return values?.length && values.every(value=>sameIdentity(value,values[0]))?values[0]:null}
 type TableTarget = {round:number; after:number; executionId?:number; player:string; card:string; target:string; ordinal:1|2}
 type Option = {value:string; label:string; target?:string; card?:string}
 export type PublicEvent = {
@@ -15,7 +19,7 @@ export type PublicEvent = {
   executionId?:number;
 }
 type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; viewedBy?:string; actor?:string; actingCard?:string; text:string; identity?:Identity; card?:string; honor?:number}
-export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
+export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; exposed?:'partial'|'full'; knowledge?:Record<string,Identity[]>; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
 export type ReplayEntry = {
   round:number; phase:Phase|null; step:string; player?:string; card?:string;
   choice?:string; affected?:string; intel?:IntelEvent; result?:PublicEvent;
@@ -23,12 +27,12 @@ export type ReplayEntry = {
   honorChanges?:{id:string;before:number;after:number;gained:Honor[];lost:Honor[]}[];
   draft?:{id:string; kept:string; received?:string[]; passed?:string[]; discarded?:string}[];
 }
-type Observation = {seats:Seat[]; tableTargets:TableTarget[]}
+type Observation = {seats:Seat[]; tableTargets:TableTarget[]; tableCards?:TableCard[]; discardCount?:number}
 type PresentationStep = {events:number[];duration:number;visible:Observation}
 type Presentation = {events:number[]; duration:number; next:'card'|{mode:Mode;seconds:number};steps?:PresentationStep[];cursor?:number}
 const observations=new WeakMap<NinjaState,Map<number,Observation>>()
 function observe(s:NinjaState):Observation {
-  return structuredClone({seats:s.seats,tableTargets:s.tableTargets??[]})
+  return structuredClone({seats:s.seats,tableTargets:s.tableTargets??[],tableCards:s.tableCards,discardCount:s.discard.length})
 }
 function visibleStep(s:NinjaState) {
   return s.mode==='presentation'?s.presentation?.steps?.[s.presentation.cursor??0]:undefined
@@ -38,6 +42,7 @@ export type NinjaState = Turn & {
   pool:Honor[]; nextHonor:number; events:PublicEvent[]; seq:number; submissions:Record<string,string>;
   queue:Play[]; current?:Play; target?:string; second?:string; offered:string[];
   presentation?:Presentation; presentedThrough?:number; replay?:ReplayEntry[]; replayFrom?:number; tableTargets?:TableTarget[];
+  tableCards?:TableCard[]; undealt?:string[]; recovered?:string[]; shiftChoice?:boolean; roundShifts?:ShiftResult[];
   awardees:string[]; champions:string[]; finalScores?:Record<string,number>;
 }
 const settings = [
@@ -46,11 +51,12 @@ const settings = [
   {key:'play',label:'出牌秒数',options:[20,30,45,60]},
   {key:'target',label:'技能目标秒数',options:[15,30,45,60]},
   {key:'reaction',label:'刺杀反应秒数',options:[10,15,20,30]},
+  {key:'forceShiftReveal',label:'变形者强制公开结果（0 关闭 / 1 开启）',options:[0,1]},
 ]
-export const defaults: Config = {playerCount:4,draft:45,play:30,target:30,reaction:15}
+export const defaults: Config = {playerCount:4,draft:45,play:30,target:30,reaction:15,forceShiftReveal:0}
 const opt = (value:string,label:string,target?:string,card?:string):Option => ({value,label,target,card})
 const pass = opt('pass','跳过')
-const durations:Record<string,number>={play:1500,identity:4000,swap:4000,death:4000,mirror:3500,martyr:3500,houses:2800,reveal:2600,honor:5000,champion:6000}
+const durations:Record<string,number>={play:1500,identity:4000,swap:4000,'shift-result':4000,death:4000,mirror:3500,martyr:3500,houses:2800,reveal:2600,honor:5000,champion:6000}
 const seat = (s:NinjaState,id:string) => s.seats.find(value=>value.id===id)!
 const skill = (s:NinjaState) => cards[s.current!.card].skill
 const sum = (p:Seat) => p.honor.reduce((n,h)=>n+h.value,0)
@@ -166,11 +172,18 @@ function newRound(s:NinjaState,ctx:Context) {
   s.offered=[]
   const hands=shuffle(deck.map(card=>card.id),ctx.random)
   s.tableTargets=[]
+  s.tableCards=[]
+  s.undealt=hands.slice(s.seats.length*3)
+  s.recovered=[]
+  s.roundShifts=[]
+  delete s.shiftChoice
   const deals=shuffle(identities(s.seats.length),ctx.random)
   s.seats.forEach((p,i)=>{
     p.alive=true
     p.identity=deals[i]
     p.known={...p.identity}
+    p.knowledge={[p.id]:[{...p.identity}]}
+    delete p.exposed
     p.hand=hands.slice(i*3,i*3+3)
     p.intel=[]
   })
@@ -203,6 +216,7 @@ export function options(s:NinjaState,id:string):Option[] {
   if(s.current?.player!==id) return []
   if(s.mode==='target'||s.mode==='second') return targets(s).map(target=>opt(target.id,'选择目标',target.id))
   if(s.mode==='recover') return s.offered.map(card=>opt(card,'取得',undefined,card))
+  if(s.mode==='shift-disclosure') return [opt('hide','隐藏结果'),opt('reveal','揭示结果')]
   if(s.mode!=='choice') return []
   switch(skill(s)) {
     case 'shift': return [pass,opt('yes','交换')]
@@ -219,24 +233,38 @@ export function options(s:NinjaState,id:string):Option[] {
 function canPlayImmediately(card:string) { return !!card && cards[card].phase!=='special' }
 function removeHand(p:Seat,card:string) { p.hand=p.hand.filter(value=>value!==card) }
 function showIdentity(s:NinjaState,ctx:Context,id:string) {
+  seat(s,id).exposed='full'
   event(s,ctx,'identity','公开了当时的流派。',[id],{identities:{[id]:{...seat(s,id).identity}}})
 }
 function inspect(s:NinjaState,ctx:Context,id:string,target:string,withCard=false) {
   const p=seat(s,target)
   const card=withCard && p.hand.length ? p.hand[ctx.random(p.hand.length)] : undefined
   intel(s,ctx,id,{text:'查阅了目标的当时身份。',target,identity:{...p.identity},card})
+  const viewer=seat(s,id)
+  ;(viewer.knowledge??={})[target]=[{...p.identity}]
+  if(viewer.id===target) viewer.known={...p.identity}
+  p.exposed??='partial'
+  event(s,ctx,'identity-view','查看了目标身份。',[id,target],{card:s.current?.card})
   if(withCard) notifyTarget(s,ctx,target,id,s.current!.card,card)
 }
 function nextCard(s:NinjaState,ctx:Context) {
   if(hold(s,ctx,'card')) return
+  const finished=s.tableCards?.find(item=>item.card===s.current?.card && item.status==='resolving')
+  if(finished) finished.status='resolved'
   s.target=undefined
   s.second=undefined
   s.offered=[]
   while(s.queue.length) {
     s.current=s.queue.shift()!
-    if(!seat(s,s.current.player).alive) continue
+    const item=s.tableCards?.find(item=>item.card===s.current!.card)
+    if(!seat(s,s.current.player).alive) {
+      if(item) item.status='skipped'
+      continue
+    }
+    if(item) item.status='resolving'
+    s.current.executionId=s.seq+1
+    if(item) item.executionId=s.current.executionId
     event(s,ctx,'play','开始结算公开牌。',[s.current.player],{card:s.current.card})
-    s.current.executionId=s.seq
     enter(s,ctx,'play',0.001)
     return
   }
@@ -252,6 +280,7 @@ function commit(s:NinjaState,ctx:Context) {
     for(const card of choice.split(',')) {
       removeHand(seat(s,player),card)
       s.queue.push({player,card})
+      s.tableCards?.push({player,card,source:s.recovered?.includes(card)?'discard':'hand',status:'queued'})
     }
   }
   s.queue.sort((a,b)=>cards[a.card].number-cards[b.card].number)
@@ -323,25 +352,60 @@ function onTarget(s:NinjaState,ctx:Context,value:string) {
   }
   nextCard(s,ctx)
 }
+function resolveShift(s:NinjaState,ctx:Context,disclosed:boolean) {
+  const id=s.current!.player
+  const a=seat(s,s.target!), b=seat(s,s.second!)
+  const exchanged=s.shiftChoice===true
+  delete s.shiftChoice
+  if(exchanged) {
+    ;[a.identity,b.identity]=[b.identity,a.identity]
+    ;[a.exposed,b.exposed]=[b.exposed,a.exposed]
+  }
+  for(const observer of s.seats) {
+    const knowledge=observer.knowledge??=(observer.known?{[observer.id]:[observer.known]}:{})
+    const left=knowledge[a.id],right=knowledge[b.id]
+    if(observer.id===id) {
+      knowledge[a.id]=[{...a.identity}]
+      knowledge[b.id]=[{...b.identity}]
+      for(const target of [a,b]) intel(s,ctx,id,{text:'变形者确认了目标当前身份。',target:target.id,identity:{...target.identity}})
+    } else if(disclosed && exchanged) {
+      delete knowledge[a.id];delete knowledge[b.id]
+      if(right) knowledge[a.id]=right
+      if(left) knowledge[b.id]=left
+    } else if(!disclosed) {
+      delete knowledge[a.id];delete knowledge[b.id]
+      if(left && right) {
+        const possible=[...left,...right].filter((identity,i,all)=>all.findIndex(other=>sameIdentity(identity,other))===i)
+        knowledge[a.id]=knowledge[b.id]=possible
+      }
+    }
+    if(observer===a || observer===b) observer.known=exact(knowledge[observer.id])
+  }
+  if(!disclosed || exchanged) for(const p of [a,b]) intel(s,ctx,p.id,{text:'你的流派卡可能发生变化。'})
+  const actors=[a.id,b.id]
+  ;(s.roundShifts??=[]).push({actors,exchanged,disclosed})
+  recordReplay(s,{step:'变形者实际结果',player:id,choice:exchanged?'交换':'未交换',seats:replaySeats(s,'identity')})
+  event(s,ctx,disclosed && exchanged?'swap':'shift-result',
+    disclosed?(exchanged?'两名玩家的流派符印发生互换。':'变形者公开结果：没有交换。'):'变形者隐藏了结果，身份可能变化。',actors,{card:s.current!.card})
+  nextCard(s,ctx)
+}
 function choice(s:NinjaState,ctx:Context,value:string) {
   const id=s.current!.player
+  if(skill(s)==='shift') {
+    s.shiftChoice=value==='yes'
+    if(!s.tableCards || s.config.forceShiftReveal || [s.target!,s.second!].some(target=>seat(s,target).exposed==='full')) resolveShift(s,ctx,true)
+    else enter(s,ctx,'shift-disclosure',s.config.target)
+    return
+  }
   if(value==='pass') { nextCard(s,ctx); return }
   switch(skill(s)) {
-    case 'shift': {
-      const a=seat(s,s.target!), b=seat(s,s.second!)
-      ;[a.identity,b.identity]=[b.identity,a.identity]
-      a.known=null
-      b.known=null
-      for(const p of [a,b]) intel(s,ctx,p.id,{text:'你的流派卡可能发生变化。'})
-      event(s,ctx,'swap','两名玩家的流派符印发生互换。',[a.id,b.id])
-      break
-    }
     case 'trouble': showIdentity(s,ctx,s.target!); break
     case 'shinobi': attack(s,ctx); return
     case 'dig': {
       const card=s.offered[0]
       removeHand(seat(s,id),card)
       s.queue.unshift({player:id,card})
+      s.tableCards?.push({player:id,card,source:'discard',status:'queued'})
       event(s,ctx,'reveal-card','掘墓人亮出取得的牌。',[id],{card})
       break
     }
@@ -388,9 +452,16 @@ function reveal(s:NinjaState,ctx:Context) {
     }
   }
   s.awardees=(winner?s.seats.filter(p=>p.identity.house===winner && winner!=='ronin'||p.alive&&p.identity.house==='ronin'):alive).map(p=>p.id)
+  for(const p of alive) p.exposed='full'
   event(s,ctx,'houses','存活者公开流派。',alive.map(p=>p.id),
     {identities:Object.fromEntries(alive.map(p=>[p.id,{...p.identity}]))})
-  if(mastermind) event(s,ctx,'master','首脑改变了流派结算。',[mastermind.id],{card:'master'})
+  if(mastermind) {
+    if(s.tableCards) {
+      removeHand(mastermind,'master')
+      s.tableCards.push({player:mastermind.id,card:'master',source:'master',status:'resolved'})
+    }
+    event(s,ctx,'master','首脑改变了流派结算。',[mastermind.id],{card:'master'})
+  }
   event(s,ctx,'reveal',winner==='crane'?'鹤派胜出。':winner==='lotus'?'莲派胜出。':winner==='ronin'?'浪人首脑阻止流派奖励。':alive.length?'双方未分胜负，存活者获奖。':'无人存活。',alive.map(p=>p.id),
     {identities:Object.fromEntries(alive.map(p=>[p.id,{...p.identity}]))})
   enter(s,ctx,'reveal',0.001)
@@ -420,7 +491,7 @@ function settleStep(s:NinjaState,ctx:Context) {
   const value=required.length===1 ? read(required[0],['target','second','recover'].includes(s.mode)) : ''
   if(s.mode==='commit') {
     for(const player of required) if(!Object.hasOwn(s.submissions,player)) recordReplay(s,{step:'commit',player,choice:'pass'})
-  } else if(['target','second','choice','recover','reaction'].includes(s.mode)&&required.length===1) {
+  } else if(['target','second','choice','recover','shift-disclosure','reaction'].includes(s.mode)&&required.length===1) {
     recordReplay(s,{step:s.mode,player:required[0],card:s.current?.card,choice:value,affected:s.target})
   }
   switch(s.mode) {
@@ -477,16 +548,19 @@ function settleStep(s:NinjaState,ctx:Context) {
       enter(s,ctx,'choice',s.config.target)
       return
     case 'choice': choice(s,ctx,value);return
+    case 'shift-disclosure': resolveShift(s,ctx,value==='reveal');return
     case 'recover':
       if(value==='pass') {nextCard(s,ctx);return}
       s.discard=s.discard.filter(card=>card!==value)
       seat(s,s.current!.player).hand.push(value)
+      s.recovered?.push(value)
       s.offered=[value]
       enter(s,ctx,'choice',s.config.target)
       return
     case 'reaction':
       if(value==='mirror'||value==='martyr') {
         removeHand(seat(s,s.target!),value)
+        s.tableCards?.push({player:s.target!,card:value,source:'reaction',status:'resolved',targets:value==='mirror'?[s.current!.player]:[]})
         event(s,ctx,value,'反应牌已发动。',[s.target!],{card:value})
       }
       if(value==='mirror') {
@@ -508,15 +582,25 @@ function requiredPlayers(s:NinjaState):string[] {
   if(['draft1','draft2','ready'].includes(s.mode)) return s.seats.map(p=>p.id)
   if(s.mode==='commit') return s.seats.filter(p=>p.alive).map(p=>p.id)
   if(s.mode==='reaction') return [s.target!]
-  return s.current && ['target','second','choice','recover'].includes(s.mode) ? [s.current.player] : []
+  return s.current && ['target','second','choice','recover','shift-disclosure'].includes(s.mode) ? [s.current.player] : []
 }
 export function publicView(s:NinjaState) {
   const step=visibleStep(s)
   const through=step?.events.at(-1)
   return {
-    round:s.round, mode:['target','second','choice','recover'].includes(s.mode)?'resolve':s.mode,
-    night:['commit','play','target','second','choice','recover','reaction'].includes(s.mode)?phases[s.night]:null, submitted:Object.keys(s.submissions).length,
-    seats:(step?.visible.seats??s.seats).map(({id,portrait,alive,honor,hand})=>({id,portrait,alive,honorCount:honor.length,handCount:hand.length})),
+    round:s.round, mode:['target','second','choice','recover','shift-disclosure'].includes(s.mode)?'resolve':s.mode,
+    night:['commit','play','target','second','choice','recover','shift-disclosure','reaction'].includes(s.mode)?phases[s.night]:null, submitted:Object.keys(s.submissions).length,
+    seats:(step?.visible.seats??s.seats).map(({id,portrait,alive,honor,hand,exposed,identity})=>({
+      id,portrait,alive,honorCount:honor.length,handCount:hand.length,
+      exposure:exposed??('unseen' as const),identity:exposed==='full'?identity:null,
+    })),
+    cardArea:{undealt:s.undealt?.length??33-s.seats.length*3,discard:step?.visible.discardCount??s.discard.length,
+      played:(step?.visible.tableCards??s.tableCards??[]).map(item=>({
+        ...item,targets:item.targets??(step?.visible.tableTargets??s.tableTargets??[])
+          .filter(target=>target.round===s.round && target.player===item.player && target.card===item.card)
+          .map(target=>target.target),
+      }))},
+    roundShifts:['ready','champion'].includes(s.mode)?s.roundShifts:undefined,
     current:s.current, events:through===undefined?s.events:s.events.filter(item=>item.seq<=through),
     ...(s.mode==='presentation' && s.presentation ? {presentation:{
       id:(step?.events??s.presentation.events)[0],events:s.events.filter(item=>(step?.events??s.presentation!.events).includes(item.seq)),
@@ -537,7 +621,10 @@ export function privateView(s:NinjaState,id:string) {
       ? [s.target,skill(s)==='shift'?s.second:undefined].filter((target):target is string=>!!target)
       : [],
   }:undefined
-  return {hand:p.hand, known:p.known, honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
+  const seats=visible?.seats??s.seats
+  const identities=Object.fromEntries(seats.map(target=>[target.id,
+    target.exposed==='full'?target.identity:exact(p.knowledge?.[target.id])??(target.id===id?p.known:null)]))
+  return {hand:p.hand, known:identities[id], identities, honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
     options:legal,action,tableTargets:(visible?.tableTargets??s.tableTargets??[]).filter(entry=>entry.round===s.round)}
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {

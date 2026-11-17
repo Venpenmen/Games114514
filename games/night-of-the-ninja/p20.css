@@ -355,3 +355,17 @@
   .nn-p20 .nn-ring[data-dense=true] .nn-seat > .player-avatar {width:1.35rem}
   .nn-p20 .nn-ring[data-dense=true] .nn-seat-info strong {font-size:.78rem}
 }
+
+.nn-identity-trigger {position:absolute;z-index:3;transform:translate(clamp(1.05rem,3vw,2.5rem),-1.45rem);width:1.2rem;min-width:0;min-height:0;padding:1px;border-radius:.2rem;line-height:1}
+.nn-identity-trigger img {display:block;width:100%;aspect-ratio:.72;object-fit:cover}
+.nn-board-dialog {width:min(32rem,calc(100% - 1rem));max-height:100dvh;overflow:auto;background:#191820;color:#f4e7ce;border:1px solid #987a52;padding:.8rem}
+.nn-board-dialog header {display:flex;justify-content:space-between;gap:.5rem;align-items:center}
+.nn-board-dialog::backdrop {background:#100b08bb}
+.nn-play-drawer {position:fixed;inset:0 0 0 auto;margin:0;height:100dvh}
+.nn-play-drawer article {border-top:1px solid #796448;margin-top:.5rem;padding-top:.5rem}
+.nn-piles {display:flex;gap:1rem;flex-wrap:wrap}
+.nn-piles img {width:1.45rem;vertical-align:middle}
+@media (max-width:800px) {.nn-identity-trigger {transform:translate(.95rem,-1.35rem)}}
+.nn-p20 .nn-seat-status {gap:.12rem}
+.nn-p20 .nn-seat-status img {width:.55rem}
+@media (max-width:800px) {.nn-identity-trigger {width:.9rem;transform:translate(.5rem,-1.35rem)}}
