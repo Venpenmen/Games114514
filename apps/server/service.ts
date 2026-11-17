@@ -1,4 +1,5 @@
 import express from 'express'
+import {openLocalAdmin, type AdminRequest, type AdminConfig} from './local-admin.ts'
 import { requestOriginAllowed, loopbackHttpOrigin } from './origin.ts'
 import { createServer } from 'node:http'
 import { randomInt, randomUUID } from 'node:crypto'
@@ -22,6 +23,7 @@ const emptyMatchMs = 60*60_000
 export function createPlatform(options: {
   database: string; origin?: string; secure: boolean; plugins: Plugin[];
   assets?: string; cookieName?: string; now?: () => number; random?: (limit: number) => number;
+  localAdmin?: AdminConfig;
 }) {
   const now = options.now ?? Date.now
   const random = options.random ?? randomInt
@@ -632,8 +634,62 @@ export function createPlatform(options: {
       if(socket.data.seated) changedPresence(id)
     })
   })
+  // Test-only administration is offered over a local named pipe, never an HTTP route.
+  function manageMatch(request:AdminRequest) {
+    if(request.action==='list') return rooms().map(room=>{
+      const game=plugin(room)
+      const state=room.match?.state as (Turn & {mode?:string;round?:number;night?:number})|undefined
+      return {code:room.code,gameId:room.gameId,game:game.name,players:room.members.length,
+        online:room.members.filter(member=>present(room,member.id)).length,
+        active:isActive(room),matchId:room.match?.id??null,
+        phase:state?.phase??null,mode:state?.mode??null,round:state?.round??null,
+        paused:room.pausedMs!==undefined,updated:room.updated}
+    })
+    if(!request.code || !/^\d{6}$/.test(request.code) || !Object.hasOwn(request,'matchId') ||
+       (request.matchId!==null && (typeof request.matchId!=='string'||!/^[a-f0-9-]{36}$/.test(request.matchId))))
+      throw new Error('Room code and expected match ID required')
+    const time=now()
+    let room:Room|undefined
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      room=load(request.code)
+      if(!room || room.match?.id!==undefined && room.match.id!==request.matchId ||
+         !room.match && request.matchId!==null) throw new Error('Room or match has changed; refresh first')
+      if(request.action==='stop') {
+        if(!room.match) throw new Error('No match to stop')
+        db.prepare('DELETE FROM match_control WHERE match_id=?').run(room.match.id)
+        delete room.match
+        delete room.pausedMs
+        delete room.emptySince
+        delete room.clockAt
+        room.members.forEach(member=>member.ready=false)
+        room.updated=time
+        room.lastMemberActivityAt=time
+        save(room)
+      } else if(request.action==='dissolve') {
+        if(room.match) db.prepare('DELETE FROM match_control WHERE match_id=?').run(room.match.id)
+        db.prepare('DELETE FROM rooms WHERE code=?').run(room.code)
+      } else throw new Error('Unknown action')
+      db.exec('COMMIT')
+    }catch(error){db.exec('ROLLBACK');throw error}
+    if(request.action==='stop') {
+      broadcast(room!)
+    } else {
+      for(const member of room!.members) {
+        tabOwners.delete(ownerKey(room!,member.id))
+        for(const peer of devices(member.id)) if(peer.data.seated===room!.code) delete peer.data.seated
+        io.to(member.id).emit('left',room!.code)
+      }
+      io.to('watch:'+room!.code).emit('left',room!.code)
+      io.in('watch:'+room!.code).socketsLeave('watch:'+room!.code)
+    }
+    console.log('[local-match-admin]',request.action,request.code,request.matchId??'waiting')
+    return {code:request.code,action:request.action}
+  }
+  const localAdmin=options.localAdmin?openLocalAdmin(options.localAdmin,manageMatch):undefined
   if (options.assets) app.use(express.static(options.assets))
-  return { server, tick, async close() {
+  return { server, tick, adminReady:localAdmin?.ready, async close() {
+    await localAdmin?.close()
     clearInterval(timer)
     for(const room of rooms()) {
       if(isActive(room) && room.members.some(member=>present(room,member.id))) {

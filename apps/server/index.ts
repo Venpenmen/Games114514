@@ -17,7 +17,9 @@ const platform = createPlatform({
   database: resolve(process.env.DATABASE_PATH ?? 'games.db'),
   origin, secure, cookieName:process.env.SESSION_COOKIE_NAME, plugins: [ghostCandle, diceWerewolf, nightOfTheNinja],
   assets:resolve(process.env.GAMES_WEB_ASSETS ?? 'dist'),
+  ...(process.env.GAMES_SERVICE_SCOPE==='ninja-p20' ? {localAdmin:{scope:'ninja-p20',directory:resolve('work/logs/ninja-p20')}} : {}),
 })
+void platform.adminReady?.catch(error=>console.error('Local match manager unavailable:',error))
 platform.server.listen(port,'127.0.0.1',() => console.log(`Games114514 http://127.0.0.1:${port}`))
 for (const signal of ['SIGINT','SIGTERM'] as const) process.once(signal, () => {
   void platform.close().then(() => { process.exitCode = 0 })
