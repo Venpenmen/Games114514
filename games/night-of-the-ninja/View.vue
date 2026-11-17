@@ -9,6 +9,7 @@ import type {publicView,privateView,PublicEvent} from './engine.ts'
 import {asset,labels} from './art.ts'
 import Rules from './Rules.vue'
 import MatchReplay from './MatchReplay.vue'
+import TablePlays from './TablePlays.vue'
 import CardFace from './CardFace.vue'
 import IntelPanel from './IntelPanel.vue'
 import IdentityCard from './IdentityCard.vue'
@@ -132,7 +133,7 @@ const paths=computed(()=>{
   }).flat()
   if(!event) return []
   const actors=event.actors.map(id=>center(seats[state.value.seats.findIndex(seat=>seat.id===id)]))
-  if(event.kind==='play'&&event.card) return route(actors[0],stage,asset(cards[event.card].skill))
+  if(event.kind==='play'&&event.card && innerWidth<=800) return route(actors[0],stage,asset(cards[event.card].skill))
   if(event.kind==='swap') return [...route(actors[0],actors[1]),...route(actors[1],actors[0])]
   if(event.kind==='honor'||event.kind==='martyr') return actors.flatMap(target=>route(stage,target,asset('honor-back')))
   return []
@@ -220,7 +221,8 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
     </header>
     <div ref="ring" class="nn-ring" :data-dense="state.seats.length>=9" :style="{'--nn-player-count':state.seats.length,'--nn-mobile-rows':Math.ceil((state.seats.length-1)/2)+1}">
       <div class="nn-seats" aria-label="玩家席位">
-      <button v-for="(p,i) in state.seats" :key="p.id" type="button" class="nn-seat" :style="polar(i)"
+      <div v-for="(p,i) in state.seats" :key="p.id" class="nn-seat-shell" :data-player="p.id" :style="polar(i)">
+      <button type="button" class="nn-seat"
         :data-self="p.id===player" :aria-label="name(p.id)+(p.id===player?'（本人）':'')"
         :aria-pressed="targetOptions.has(p.id)?selection?.target===p.id:undefined"
         :data-can-target="!locked && targetOptions.has(p.id)"
@@ -228,19 +230,21 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         @click="targetOptions.has(p.id)?select(targetOptions.get(p.id)!):inspectIdentity(p.id)"
         :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id,'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id)}">
         <PlayerAvatar :src="asset('portrait-'+p.portrait)" :name="name(p.id)" :online="room.members.some(member=>member.id===p.id && member.online)" compact :image-class="{'nn-death-flash':shown?.kind==='death' && shown.actors.includes(p.id),'nn-attack-target':shown?.kind==='attack' && shown.actors[1]===p.id}"/>
-        <span class="nn-seat-info"><strong>{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</strong>
+        <span class="nn-seat-info"><strong :title="name(p.id)"><span class="nn-seat-name-text">{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</span></strong>
         <small class="nn-seat-status" :title="(p.alive?'存活':'已死亡')+' · '+(room.members.find(member=>member.id===p.id)?.online?'在线':'离线')">
           <span :aria-label="p.alive?'存活':'已死亡'">{{ p.alive?'♥':'×' }}</span>
           <span class="nn-status-label">{{ room.members.find(member=>member.id===p.id)?.online?'在线':'离线' }}</span>
-          <img :src="asset('honor-back')" alt="荣誉"> {{ p.honorCount }} <span :title="'手牌 '+p.handCount+' 张'" :aria-label="'手牌 '+p.handCount+' 张'">▤{{ p.handCount }}</span>
+          <span class="nn-seat-honor" :aria-label="'荣誉 '+p.honorCount" :title="'荣誉 '+p.honorCount"><img :src="asset('honor-back')" alt=""> {{ p.honorCount }}</span> <span :title="'手牌 '+p.handCount+' 张'" :aria-label="'手牌 '+p.handCount+' 张'">▤{{ p.handCount }}</span>
         </small>
         <small v-if="targetOptions.size">{{ privateState?.action?.targets.includes(p.id) ? '目标 '+(privateState.action.targets.indexOf(p.id)+1) : targetOptions.has(p.id)?'可选':'不可选' }}</small></span>
       </button>
-      <button v-for="(p,i) in state.seats" :key="'identity-'+p.id" type="button" class="nn-identity-trigger" :style="polar(i)"
+      <button type="button" class="nn-identity-trigger"
         :aria-label="'查看 '+name(p.id)+' 的身份牌'" @click="inspectIdentity(p.id)">
         <img :src="asset((privateState?.identities?.[p.id]??p.identity)?.house??'card-back')" alt="">
       </button>
       </div>
+      </div>
+      <TablePlays :ring="ring" :state="state" :name="name" :effects="effects" :epoch="connectionEpoch"/>
       <section class="nn-stage">
         <p v-if="step==='draft1'">保留一张 · 两张传给左邻</p>
         <p v-else-if="step==='draft2'">收到右邻的两张牌</p>

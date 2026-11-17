@@ -72,6 +72,7 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await a.emulateMedia({reducedMotion:'reduce'})
     await a.screenshot({path:'work/logs/'+evidence+'-desktop.png',fullPage:true})
     await b.screenshot({path:'work/logs/'+evidence+'-mobile.png',fullPage:true})
+    await b.locator('.room-optional-actions summary').click()
     await button(b,'离开对局（保留席位）').click()
     await expect(a.locator('.nn-seat').getByRole('img',{name:'乙，离线'})).toHaveCount(1)
     await expect(button(b,'继续对局')).toBeVisible()
@@ -163,10 +164,16 @@ for(const count of [6,8,11]) test(count+' real seats fit the desktop ring and mo
       await expect(a.getByRole('button',{name:'确认提交'})).toBeInViewport({ratio:1})
       await expect(a.locator('.nn-seat[data-self=true]')).toBeInViewport({ratio:1})
       await expect(a.locator('.nn-seat-info')).toHaveCount(count)
-      await expect.poll(()=>a.locator('.nn-seat').evaluateAll(nodes=>{
+      await expect.poll(()=>a.locator('.nn-seat-shell').evaluateAll(nodes=>{
         const seats=nodes.map(node=>node.getBoundingClientRect())
         return seats.some((a,i)=>seats.slice(i+1).some(b=>a.left<b.right && b.left<a.right && a.top<b.bottom && b.top<a.bottom))
       }),{message:`${width}×${height} 席位相交`}).toBe(false)
+      const overlays=await a.locator('.nn-seat-shell').evaluateAll(nodes=>nodes.some(node=>{
+        const name=node.querySelector('strong')!.getBoundingClientRect()
+        const identity=node.querySelector('.nn-identity-trigger')!.getBoundingClientRect()
+        return name.right>identity.left && name.left<identity.right && name.top<identity.bottom && name.bottom>identity.top
+      }))
+      expect(overlays).toBe(false)
       const clipped=await a.locator('.nn-seat-info').evaluateAll(nodes=>nodes.some(node=>{
         const seat=node.closest('button')!.getBoundingClientRect()
         return Array.from(node.children).some(child=>{

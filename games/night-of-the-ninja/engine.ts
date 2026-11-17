@@ -56,7 +56,7 @@ const settings = [
 export const defaults: Config = {playerCount:4,draft:45,play:30,target:30,reaction:15,forceShiftReveal:0}
 const opt = (value:string,label:string,target?:string,card?:string):Option => ({value,label,target,card})
 const pass = opt('pass','跳过')
-const durations:Record<string,number>={play:1500,identity:4000,swap:4000,'shift-result':4000,death:4000,mirror:3500,martyr:3500,houses:2800,reveal:2600,honor:5000,champion:6000}
+const durations:Record<string,number>={play:1500,identity:4000,swap:4000,'shift-result':4000,death:4000,mirror:3500,martyr:3500,master:1300,houses:2800,reveal:2600,honor:5000,champion:6000}
 const seat = (s:NinjaState,id:string) => s.seats.find(value=>value.id===id)!
 const skill = (s:NinjaState) => cards[s.current!.card].skill
 const sum = (p:Seat) => p.honor.reduce((n,h)=>n+h.value,0)

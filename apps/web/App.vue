@@ -335,7 +335,13 @@ async function share() {
       </section>
       <div v-if="!room.readOnly && (room.spectator || (playing && room.canLeaveActive))" class="actions">
         <button v-if="room.spectator" @click="leaveWatch">退出旁观</button>
-        <template v-else><button @click="send('leave',undefined)">离开对局（保留席位）</button><button @click="goLobby()">返回大厅</button></template>
+        <template v-else>
+          <button v-if="room.gameId!=='night-of-the-ninja'" @click="send('leave',undefined)">离开对局（保留席位）</button>
+          <button @click="goLobby()">返回大厅</button>
+          <details v-if="room.gameId==='night-of-the-ninja'" class="room-optional-actions">
+            <summary>更多</summary><button @click="send('leave',undefined)">离开对局（保留席位）</button>
+          </details>
+        </template>
       </div>
       <component v-if="view && room.match && (!room.readOnly || room.gameId==='night-of-the-ninja') && (me || room.spectator)" :is="view" :key="room.match.id" :room="room.readOnly?{...room,spectator:true}:room" :player="profile?.id ?? ''" :connection-epoch="connectionEpoch" :send="send"/>
     </template>
