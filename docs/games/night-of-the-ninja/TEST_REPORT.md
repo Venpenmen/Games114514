@@ -115,3 +115,10 @@ Windows，Node.js 24.17.0，Playwright 使用 Microsoft Edge。所有服务经�
 - 身份详情的公开查看历史按每次涉及该席位的秘密决定分组，仅使用公开事件，不向其他玩家泄露实际交换结果；触屏尺寸和手机抽屉专项留至 P20.8。
 - `node --test games/night-of-the-ninja/engine.test.ts` 78/78 PASS；`npm.cmd test` 119/119 PASS；`npm.cmd run check` PASS；`npm.cmd run build -- --outDir work/logs/ninja-p20/dist-next` PASS。
 - 候选构建与原运行目录分离，正式 3216 部署及浏览器访问验收另行记录。
+
+## P20.7.2 合并升级 3216 验收（2026-11-17）
+
+- 测试服 http://127.0.0.1:3216 原控制脚本正常停止、启动；首页和 /api/catalog HTTP 200，目录仍含 night-of-the-ninja。Playwright Edge 无头首页冒烟 HTTP 200、页面脚本异常 0；尚未执行本轮多玩家浏览器完整对局。
+- 新静态构建由隔离目录 dist-next 切换，原静态构建保存于 work/logs/ninja-p20/dist-prev-20261117_201004；当前构建中已验证历史查看分组文案存在。
+- 旧 SQLite 在停服前使用 sqlite3.backup 在线保存至 work/logs/ninja-p20/backups/preview-20261117_200918.db，备份完整性 PRAGMA integrity_check=ok；原数据库保持原路径继续使用。
+- 本次测试服部署基线包含 53d2ca2（秘密交换后重新查看暴露等级）、915709e（连续秘密交换回归及历史查看分组）；P20.8 触屏入口与手机抽屉专项未执行。原 3199/3213、FRP、机器人脚本未执行启停。
