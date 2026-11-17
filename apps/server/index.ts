@@ -7,8 +7,11 @@ import { diceWerewolf } from '../../games/dice-werewolf/engine.ts'
 import { nightOfTheNinja } from '../../games/night-of-the-ninja/engine.ts'
 
 const port = Number(process.env.PORT ?? '3100')
-const origin = process.env.PUBLIC_ORIGIN ?? `http://127.0.0.1:${port}`
-const secure = new URL(origin).protocol === 'https:'
+// The loopback launcher address identifies the local health endpoint, not a public allowlist.
+const configuredOrigin = process.env.PUBLIC_ORIGIN?.trim()
+const origin = configuredOrigin && configuredOrigin !== 'auto' && configuredOrigin !== `http://127.0.0.1:${port}`
+  ? new URL(configuredOrigin).origin : undefined
+const secure = origin ? origin.startsWith('https:') : true
 if (process.env.NODE_ENV === 'production' && !secure) throw new Error('生产环境需要 HTTPS PUBLIC_ORIGIN')
 const platform = createPlatform({
   database: resolve(process.env.DATABASE_PATH ?? 'games.db'),

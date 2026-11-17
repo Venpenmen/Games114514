@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID, createHash, scrypt, timingSafeEqual } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import type { Express, Request, Response } from 'express'
+import type { IncomingHttpHeaders } from 'node:http'
 import { avatars, type Profile } from '../../packages/protocol/index.ts'
 
 const lifetime = 30*86_400_000
@@ -51,9 +52,10 @@ export function validProfile(name:unknown,avatar:unknown):name is string {
     Number.isInteger(avatar) && !!avatars[avatar as number]
 }
 
-export function accounts(db:DatabaseSync,app:Express,options:{cookieName:string;secure:boolean;now:()=>number;
+export function accounts(db:DatabaseSync,app:Express,options:{cookieName:string;secure:boolean;localHttp?:(headers:IncomingHttpHeaders)=>boolean;now:()=>number;
   revoked(ids:string[]):void}) {
   const {cookieName,secure,now}=options
+  const cookieSecure=(req:Request)=>secure && !options.localHttp?.(req.headers)
   const authCookie=cookieName+'_account'
   function secret(cookie:string|undefined,name:string) {
     const token=cookie?.match(new RegExp('(?:^|;\\s*)'+name+'=([a-f0-9]{64})(?:;|$)'))?.[1]
@@ -82,7 +84,7 @@ export function accounts(db:DatabaseSync,app:Express,options:{cookieName:string;
     const browser=/Edg\//.test(agent)?'Edge':/Firefox\//.test(agent)?'Firefox':/Chrome\//.test(agent)?'Chrome':/Safari\//.test(agent)?'Safari':'客户端'
     const device=/Mobile|Android|iPhone/.test(agent)?'移动设备':'桌面设备'
     db.prepare('INSERT INTO auth_sessions VALUES (?,?,?,?,?,?,?,NULL)').run(randomUUID(),accountId,hash(token),device+' · '+browser,time,time,time+lifetime)
-    res.cookie(authCookie,token,{...cookieOptions,secure,maxAge:lifetime})
+    res.cookie(authCookie,token,{...cookieOptions,secure:cookieSecure(req),maxAge:lifetime})
   }
   function revoke(accountId:string,condition:'session_id=?'|'session_id<>?',id:string) {
     const rows=db.prepare(`UPDATE auth_sessions SET revoked_at=? WHERE account_id=? AND ${condition} AND revoked_at IS NULL RETURNING session_id`)
@@ -145,7 +147,7 @@ export function accounts(db:DatabaseSync,app:Express,options:{cookieName:string;
       issue(accountId,req,res)
       db.exec('COMMIT')
     } catch(error) {db.exec('ROLLBACK');throw error}
-    if(initial) res.clearCookie(cookieName,{...cookieOptions,secure})
+    if(initial) res.clearCookie(cookieName,{...cookieOptions,secure:cookieSecure(req)})
     res.status(201).json({id:playerId,name,avatar})
   })
   app.post('/api/auth/login',async(req,res)=>{
@@ -174,7 +176,7 @@ export function accounts(db:DatabaseSync,app:Express,options:{cookieName:string;
   app.post('/api/auth/logout',(req,res)=>{
     const current=session(req.headers.cookie)
     if(current) revoke(current.accountId,'session_id=?',current.id)
-    res.clearCookie(authCookie,{...cookieOptions,secure}).json({ok:true})
+    res.clearCookie(authCookie,{...cookieOptions,secure:cookieSecure(req)}).json({ok:true})
   })
   app.post('/api/auth/revoke',(req,res)=>{
     const current=auth(req,res)

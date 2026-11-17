@@ -1,4 +1,5 @@
 import express from 'express'
+import { requestOriginAllowed, loopbackHttpOrigin } from './origin.ts'
 import { createServer } from 'node:http'
 import { randomInt, randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
@@ -19,7 +20,7 @@ const day = 86_400_000
 const idleRoomMs = 30*60_000
 const emptyMatchMs = 60*60_000
 export function createPlatform(options: {
-  database: string; origin: string; secure: boolean; plugins: Plugin[];
+  database: string; origin?: string; secure: boolean; plugins: Plugin[];
   assets?: string; cookieName?: string; now?: () => number; random?: (limit: number) => number;
 }) {
   const now = options.now ?? Date.now
@@ -37,7 +38,7 @@ export function createPlatform(options: {
   const server = createServer(app)
   const io = new Server(server, { maxHttpBufferSize: 8192, allowRequest(req, cb) {
     const origin = req.headers.origin
-    cb(null, !origin || origin === options.origin)
+    cb(null, !origin || requestOriginAllowed(req.headers,options.secure,options.origin))
   } })
   const online = new Map<string, Set<string>>()
   const rates = new Map<string, { at: number; count: number }>()
@@ -272,13 +273,13 @@ export function createPlatform(options: {
   app.use(express.json({limit:'8kb'}))
   app.use('/api', (req,res,next) => {
     res.set('Cache-Control','no-store')
-    if (req.method !== 'GET' && req.headers.origin !== options.origin) {
+    if (req.method !== 'GET' && !requestOriginAllowed(req.headers,options.secure,options.origin)) {
       res.status(403).json({error:'来源无效'})
       return
     }
     next()
   })
-  const auth=accounts(db,app,{cookieName,secure:options.secure,now,revoked(ids) {
+  const auth=accounts(db,app,{cookieName,secure:options.secure,localHttp:headers=>loopbackHttpOrigin(headers),now,revoked(ids) {
     for(const socket of io.sockets.sockets.values()) if(ids.includes(socket.data.session)) {
       socket.emit('session-revoked')
       socket.disconnect(true)
