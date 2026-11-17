@@ -93,3 +93,14 @@ button.primary:hover { background: #e8f8c7; }
 @media (max-width:800px), (max-height:520px) and (pointer:coarse) {
   .game-page { padding-inline:.45rem; padding-bottom:calc(4.25rem + env(safe-area-inset-bottom)); }
 }
+
+@media (max-width: 600px) {
+  dialog.history-dialog,dialog.rules,dialog.game-result {
+    max-width:calc(100% - 1rem);
+    max-height:calc(100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overscroll-behavior:contain
+  }
+  main:not(.game-page) .join-form {flex-wrap:wrap}
+  main:not(.game-page) .join-form input {width:100%;font-size:16px}
+  main:not(.game-page) .join-form label {min-width:0;flex:1 1 100%}
+}

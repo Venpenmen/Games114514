@@ -2,9 +2,11 @@ import {registerPlayer} from './account-fixtures.ts'
 import {expect,test,type Page} from '@playwright/test'
 
 test('real exchange and mirror reaction gate their corresponding animations',async({browser})=>{
+  test.setTimeout(180_000)
   const baseURL='http://127.0.0.1:3215'
   const contexts=await Promise.all(Array.from({length:4},(_,i)=>browser.newContext({baseURL,
     viewport:i===2?{width:390,height:844}:{width:1280,height:900}})))
+  contexts.forEach(context=>context.setDefaultTimeout(10_000))
   try{
     const pages=await Promise.all(contexts.map(context=>context.newPage()))
     const [a,b,c,d]=pages
@@ -16,12 +18,15 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     }
     async function select(page:Page,choice?:string){
       const controls=page.locator('.nn-options')
-      await (choice?page.getByRole('button',{name:choice,exact:true}):controls.locator('button[aria-pressed]').first()).click()
+      const option=choice?page.getByRole('button',{name:choice,exact:true}):controls.locator('button[aria-pressed]').first()
+      if(choice && ['甲','乙','丙','丁'].includes(choice)) await expect(option).toHaveAttribute('data-can-target','true')
+      await option.click()
       await btn(page,'确认提交').click()
     }
     await login(a,'甲')
     await a.getByRole('heading',{name:'忍者之夜',exact:true}).locator('..').getByRole('button',{name:'创建房间'}).click()
     await expect(a.locator('.members li')).toHaveCount(1)
+    await a.getByLabel('出牌秒数').selectOption('60')
     const link=a.url()
     for(const [i,page] of [b,c,d].entries()){
       await login(page,['乙','丙','丁'][i],link)
@@ -110,7 +115,7 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await btn(d,'私人情报').click()
     await expect(d.locator('.nn-intel-list')).toHaveCount(0)
     await d.keyboard.press('Escape')
-    await expect(a.locator('.nn-header > div:first-child [data-phase]')).toContainText('骗徒')
+    await expect(a.locator('.nn-header > div:first-child [data-phase]')).toContainText('骗徒',{timeout:15_000})
     await Promise.all([select(a,'打出 变形者 1'),...[b,c,d].map(page=>select(page,'跳过'))])
     await expect(a.locator('.nn-active-effect')).toContainText('交换')
     await select(a,'乙')

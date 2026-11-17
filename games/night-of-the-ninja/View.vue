@@ -59,8 +59,15 @@ const targetOptions=computed(()=>new Map(ownOptions.value.filter(option=>option.
 const select=(value:string)=>{if(!locked.value) selected.value=selected.value===value?'':value}
 const polar=(index:number)=>{
   const offset=Math.max(0,state.value.seats.findIndex(seat=>seat.id===props.player))
-  const angle=(index-offset)*2*Math.PI/state.value.seats.length
-  return {left:(50-42*Math.sin(angle))+'%',top:(50+40*Math.cos(angle))+'%'}
+  const count=state.value.seats.length
+  const relative=(index-offset+count)%count
+  const angle=relative*2*Math.PI/count
+  const rows=Math.ceil((count-1)/2)+1
+  const row=relative===0?rows-1:Math.floor((relative-1)/2)
+  return {left:(50-42*Math.sin(angle))+'%',top:(50+40*Math.cos(angle))+'%',
+    '--nn-mobile-x':relative===0?'12%':relative%2?'12%':'88%',
+    '--nn-mobile-y':(row+.5)*100/rows+'%'}
+
 }
 const selection=computed(()=>ownOptions.value.find(option=>option.value===selected.value))
 async function confirm() {
@@ -211,12 +218,14 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
       <div class="actions"><Rules :step="step"/><label>演出 <select v-model="effects"><option value="full">完整</option><option value="light">轻量</option><option value="reduced">减少动态</option></select></label></div>
       <p v-if="room.spectator">旁观中 · 仅公开信息</p>
     </header>
-    <div ref="ring" class="nn-ring" :data-dense="state.seats.length>=9" :style="{'--nn-player-count':state.seats.length}">
+    <div ref="ring" class="nn-ring" :data-dense="state.seats.length>=9" :style="{'--nn-player-count':state.seats.length,'--nn-mobile-rows':Math.ceil((state.seats.length-1)/2)+1}">
       <div class="nn-seats" aria-label="玩家席位">
       <button v-for="(p,i) in state.seats" :key="p.id" type="button" class="nn-seat" :style="polar(i)"
         :data-self="p.id===player" :aria-label="name(p.id)+(p.id===player?'（本人）':'')"
         :aria-pressed="targetOptions.has(p.id)?selection?.target===p.id:undefined"
-        :disabled="locked || !targetOptions.has(p.id)" @click="select(targetOptions.get(p.id)!)"
+        :data-can-target="!locked && targetOptions.has(p.id)"
+        :disabled="targetOptions.size>0 && (locked || !targetOptions.has(p.id))"
+        @click="targetOptions.has(p.id)?select(targetOptions.get(p.id)!):inspectIdentity(p.id)"
         :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id,'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id)}">
         <PlayerAvatar :src="asset('portrait-'+p.portrait)" :name="name(p.id)" :online="room.members.some(member=>member.id===p.id && member.online)" compact :image-class="{'nn-death-flash':shown?.kind==='death' && shown.actors.includes(p.id),'nn-attack-target':shown?.kind==='attack' && shown.actors[1]===p.id}"/>
         <span class="nn-seat-info"><strong>{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</strong>

@@ -28,7 +28,7 @@
   position:absolute;transform:translate(-50%,-50%);width:clamp(4.25rem,8.5vw,6.2rem);
   gap:.14rem;padding:.35rem .18rem;background:#1a2031;border:1px solid #73624a;border-radius:.45rem;
 }
-.nn-p20 .nn-seat:not(:disabled) {border-color:#e8c37e;cursor:pointer}
+.nn-p20 .nn-seat[data-can-target=true] {border-color:#e8c37e;cursor:pointer}
 .nn-p20 .nn-seat[data-self=true] {box-shadow:0 0 0 1px #cab080}
 .nn-p20 .nn-seat > .player-avatar {width:clamp(32px,4vw,48px);height:auto}
 .nn-p20 .nn-seat small {color:#ddd5cd;line-height:1.15}
@@ -369,3 +369,38 @@
 .nn-p20 .nn-seat-status {gap:.12rem}
 .nn-p20 .nn-seat-status img {width:.55rem}
 @media (max-width:800px) {.nn-identity-trigger {width:.9rem;transform:translate(.5rem,-1.35rem)}}
+
+/* Keep the same seat widgets and target actions across the table layouts. */
+.nn-p20 .nn-hand-toggle {display:none}
+@media (min-width:801px) {
+  .nn-ring[data-dense=false] .nn-seat {width:clamp(6.4rem,calc((100cqw - 3rem) / var(--nn-player-count)),9rem)}
+  .nn-ring[data-dense=false] .nn-seat > .player-avatar {width:clamp(1.85rem,3.9dvh,2.8rem)}
+  .nn-ring[data-dense=false] .nn-identity-trigger {width:1.65rem;transform:translate(1.75rem,-1.8rem)}
+  .nn-p20 .nn-board-dialog:not(.nn-play-drawer) {width:min(37rem,calc(100% - 1rem))}
+  .nn-p20 .nn-board-dialog:not(.nn-play-drawer) .nn-identity-card img {width:4.5rem}
+}
+@media (max-width:800px) {
+  .nn-p20 .nn-ring,.nn-p20 .nn-ring[data-dense=true] {
+    height:max(16rem,calc(var(--nn-mobile-rows) * 4.4rem));min-height:0;border-radius:.8rem;
+    background:linear-gradient(90deg,#161c2b 0 23%,#20283c 23% 77%,#161c2b 77%);
+  }
+  .nn-p20 :is(.nn-seat,.nn-identity-trigger) {left:var(--nn-mobile-x)!important;top:var(--nn-mobile-y)!important}
+  .nn-p20 .nn-seat {width:clamp(3.1rem,19%,5.25rem);height:3.95rem;padding:.12rem .18rem}
+  .nn-p20 .nn-seat > .player-avatar {width:1.65rem}
+  .nn-p20 .nn-stage {inset:.6rem 23%;border-radius:.65rem}
+  .nn-p20 .nn-identity-trigger {width:1.4rem;min-height:1.4rem;transform:translate(.42rem,-1.9rem)}
+  .nn-game.nn-p20:has(.nn-operation[data-has-hand=true]) {padding-bottom:calc(8rem + env(safe-area-inset-bottom))}
+  .nn-game.nn-p20:has(.nn-operation[data-has-hand=true][data-hand-open=true]) {padding-bottom:calc(7.5rem + 24dvh + env(safe-area-inset-bottom))}
+  .nn-p20 .nn-journal button {scroll-margin-bottom:calc(7.5rem + 24dvh)}
+  .nn-p20 .nn-hand-toggle {
+    display:block;position:fixed;bottom:calc(3.75rem + env(safe-area-inset-bottom));left:.6rem;
+    z-index:6;background:#252d3e;min-height:40px
+  }
+  .nn-p20 .nn-hand {
+    position:fixed;inset:auto .6rem calc(6.6rem + env(safe-area-inset-bottom));z-index:5;
+    background:#171c2b;border:1px solid #796448;border-radius:.55rem;padding:.55rem;max-height:24dvh;
+  }
+  .nn-p20 .nn-operation[data-hand-open=false] .nn-hand {display:none}
+  body:has(.room-chat.is-open,dialog[open]) .nn-p20 :is(.nn-hand,.nn-hand-toggle,.nn-confirm) {visibility:hidden}
+  .nn-board-dialog {width:min(32rem,100%);max-height:100dvh}
+}

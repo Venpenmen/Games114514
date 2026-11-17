@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed} from 'vue'
+import {computed,ref} from 'vue'
 import {cards,skills,phaseNames} from './cards.ts'
 import {asset} from './art.ts'
 import type {publicView,privateView} from './engine.ts'
@@ -11,6 +11,7 @@ type Own=NonNullable<ReturnType<typeof privateView>>
 type Option=Own['options'][number]
 const props=defineProps<{state:State;own?:Own;selected:string;locked:boolean;name:(id:string)=>string}>()
 defineEmits<{select:[string];confirm:[]}>()
+const handOpen=ref(true)
 const options=computed(()=>props.own?.options??[])
 const step=computed(()=>props.own?.action?.step??props.state.mode)
 const targets=computed(()=>props.own?.action?.targets??[])
@@ -72,7 +73,8 @@ const passLabel=computed(()=>step.value==='reaction'?'不使用反应':
 </script>
 
 <template>
-  <section class="nn-operation" :data-action="step">
+  <section class="nn-operation" :data-action="step" :data-hand-open="handOpen" :data-has-hand="Boolean(own?.hand.length)">
+    <button v-if="own?.hand.length" type="button" class="nn-hand-toggle" :aria-expanded="handOpen" @click="handOpen=!handOpen">{{ handOpen?'收起手牌':'展开手牌' }} · {{ own.hand.length }}</button>
     <p class="nn-operation-kicker">{{ options.length ? '轮到你操作' : own?.submitted ? '行动已锁定' : '当前战况' }}</p>
     <h3 aria-live="polite">{{ prompt }}</h3>
     <p v-if="stageHelp" class="nn-step-help">{{ stageHelp }}</p>
