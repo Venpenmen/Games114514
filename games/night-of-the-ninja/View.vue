@@ -24,7 +24,7 @@ const privateState=computed(()=>props.room.spectator?undefined:match.value.priva
 const identityDialog=ref<HTMLDialogElement>(), playDrawer=ref<HTMLDialogElement>()
 const inspected=ref<string>()
 const subject=computed(()=>state.value.seats.find(seat=>seat.id===inspected.value))
-const exposure={unseen:'未暴露',partial:'部分暴露',full:'完全暴露'}
+const exposure={unseen:'未暴露',partial:'部分暴露',full:'完全暴露',pending:'待确认'}
 const historyViews=computed(()=>state.value.events.filter(event=>event.round===state.value.round && event.kind==='identity-view' && event.actors[1]===inspected.value))
 const lastHidden=computed(()=>state.value.events.findLast(event=>event.round===state.value.round &&
   event.kind==='shift-result' && event.text==='变形者隐藏了结果，身份可能变化。' && event.actors.includes(inspected.value??''))?.seq??0)
@@ -297,7 +297,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         <header><h2>{{ subject ? name(subject.id) : '' }} · 身份牌</h2><form method="dialog"><button autofocus>关闭</button></form></header>
         <template v-if="subject">
           <IdentityCard :identity="privateState?.identities?.[subject.id]??subject.identity" caption="当前可确认身份"/>
-          <p>{{ exposure[subject.exposure] }}</p>
+          <p>{{ exposure[privateState?.exposures?.[subject.id]??subject.exposure] }}</p>
           <h3>公开查看记录</h3>
           <p v-if="!historyViews.length">本轮暂无公开查看记录</p>
           <ul><li v-for="event in historyViews" :key="event.seq">{{ name(event.actors[0]) }} · {{ event.card?cardName(event.card):'技能' }}{{ event.seq<lastHidden?' · 秘密决定前记录':'' }}</li></ul>

@@ -419,3 +419,50 @@ test('round replay publishes the actual hidden decision only at the round bounda
   while(s.mode!=='ready'&&s.mode!=='champion') expire(s)
   assert.deepEqual(publicView(s).roundShifts,[{actors:['b','c'],exchanged:false,disclosed:false}])
 })
+
+test('self inspection leaves the original card unseen and only foreign inspection raises the grade',()=>{
+  const s=start()
+  assert(publicView(s).seats.every(p=>p.exposure==='unseen'))
+  stage('trickster-1',s);expire(s)
+  click(s,'a','a')
+  assert.equal(publicView(s).seats[0].exposure,'unseen')
+  click(s,'a','b')
+  assert.equal(publicView(s).seats[1].exposure,'partial')
+  assert.equal(publicView(s).events.filter(event=>event.kind==='identity-view').length,2)
+
+  for(const reveal of ['hide','reveal']) {
+    const branches=['pass','yes'].map(answer=>{
+      const branch=structuredClone(s)
+      click(branch,'a',answer)
+      click(branch,'a',reveal)
+      return JSON.parse(JSON.stringify(branch)) as NinjaState
+    })
+    const grades=(branch:NinjaState)=>publicView(branch).seats.slice(0,2).map(p=>p.exposure)
+    if(reveal==='hide') {
+      assert.deepEqual(publicView(branches[0]),publicView(branches[1]))
+      for(const player of ['b','c','d']) assert.deepEqual(privateView(branches[0],player),privateView(branches[1],player))
+      assert.deepEqual(grades(branches[0]),['pending','pending'])
+      assert.deepEqual(grades(branches[1]),['pending','pending'])
+    } else {
+      assert.deepEqual(grades(branches[0]),['unseen','partial'])
+      assert.deepEqual(grades(branches[1]),['partial','unseen'])
+    }
+    assert.equal(privateView(branches[0],'a')?.exposures.a,'unseen')
+    assert.equal(privateView(branches[1],'a')?.exposures.a,'partial')
+    assert.equal(privateView(branches[1],'a')?.exposures.b,'unseen')
+  }
+})
+test('round reveal restores actual grades without formally revealing dead players',()=>{
+  const s=start()
+  stage('trickster-1',s);expire(s)
+  click(s,'a','a');click(s,'a','b');click(s,'a','yes');click(s,'a','hide')
+  expire(s)
+  s.seats[1].alive=false
+  while(s.mode!=='ready' && s.mode!=='champion') expire(s)
+  assert.equal(publicView(s).seats[0].exposure,'full')
+  assert.equal(publicView(s).seats[1].exposure,'unseen')
+  assert.equal(publicView(s).seats[1].identity,null)
+  assert.equal(publicView(s).roundShifts?.[0].exchanged,true)
+  expire(s)
+  assert(publicView(s).seats.every(p=>p.exposure==='unseen'))
+})

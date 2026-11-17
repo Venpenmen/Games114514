@@ -19,7 +19,7 @@ export type PublicEvent = {
   executionId?:number;
 }
 type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; viewedBy?:string; actor?:string; actingCard?:string; text:string; identity?:Identity; card?:string; honor?:number}
-export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; exposed?:'partial'|'full'; knowledge?:Record<string,Identity[]>; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
+export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; exposed?:'partial'|'full'; initialHolder?:string; exposurePending?:boolean; exposureWitnesses?:string[]; knowledge?:Record<string,Identity[]>; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
 export type ReplayEntry = {
   round:number; phase:Phase|null; step:string; player?:string; card?:string;
   choice?:string; affected?:string; intel?:IntelEvent; result?:PublicEvent;
@@ -183,7 +183,10 @@ function newRound(s:NinjaState,ctx:Context) {
     p.identity=deals[i]
     p.known={...p.identity}
     p.knowledge={[p.id]:[{...p.identity}]}
+    p.initialHolder=p.id
     delete p.exposed
+    delete p.exposurePending
+    delete p.exposureWitnesses
     p.hand=hands.slice(i*3,i*3+3)
     p.intel=[]
   })
@@ -233,8 +236,14 @@ export function options(s:NinjaState,id:string):Option[] {
 function canPlayImmediately(card:string) { return !!card && cards[card].phase!=='special' }
 function removeHand(p:Seat,card:string) { p.hand=p.hand.filter(value=>value!==card) }
 function showIdentity(s:NinjaState,ctx:Context,id:string) {
-  seat(s,id).exposed='full'
+  const target=seat(s,id)
+  target.exposed='full'
+  delete target.exposurePending
   event(s,ctx,'identity','公开了当时的流派。',[id],{identities:{[id]:{...seat(s,id).identity}}})
+}
+function originalHolder(s:NinjaState,target:Seat) {
+  return target.initialHolder??s.replay?.findLast(entry=>entry.round===s.round && entry.step==='deal')
+    ?.seats?.find(player=>player.identity && sameIdentity(player.identity,target.identity))?.id??target.id
 }
 function inspect(s:NinjaState,ctx:Context,id:string,target:string,withCard=false) {
   const p=seat(s,target)
@@ -243,7 +252,7 @@ function inspect(s:NinjaState,ctx:Context,id:string,target:string,withCard=false
   const viewer=seat(s,id)
   ;(viewer.knowledge??={})[target]=[{...p.identity}]
   if(viewer.id===target) viewer.known={...p.identity}
-  p.exposed??='partial'
+  if(id!==originalHolder(s,p)) p.exposed??='partial'
   event(s,ctx,'identity-view','查看了目标身份。',[id,target],{card:s.current?.card})
   if(withCard) notifyTarget(s,ctx,target,id,s.current!.card,card)
 }
@@ -356,10 +365,24 @@ function resolveShift(s:NinjaState,ctx:Context,disclosed:boolean) {
   const id=s.current!.player
   const a=seat(s,s.target!), b=seat(s,s.second!)
   const exchanged=s.shiftChoice===true
+  // Existing uncertainty must not be resolved by comparing the hidden actual grades.
+  const pending=Boolean(a.exposurePending || b.exposurePending || a.exposed!==b.exposed)
   delete s.shiftChoice
   if(exchanged) {
+    const owners=[originalHolder(s,b),originalHolder(s,a)] as const
     ;[a.identity,b.identity]=[b.identity,a.identity]
     ;[a.exposed,b.exposed]=[b.exposed,a.exposed]
+    ;[a.initialHolder,b.initialHolder]=owners
+    ;[a.exposurePending,b.exposurePending]=[b.exposurePending,a.exposurePending]
+    ;[a.exposureWitnesses,b.exposureWitnesses]=[b.exposureWitnesses,a.exposureWitnesses]
+  }
+  for(const target of [a,b]) {
+    if(!disclosed) {
+      target.exposurePending=pending
+      target.exposureWitnesses=[id]
+    } else if(target.exposurePending) {
+      target.exposureWitnesses=[...new Set([...(target.exposureWitnesses??[]),id])]
+    }
   }
   for(const observer of s.seats) {
     const knowledge=observer.knowledge??=(observer.known?{[observer.id]:[observer.known]}:{})
@@ -452,6 +475,7 @@ function reveal(s:NinjaState,ctx:Context) {
     }
   }
   s.awardees=(winner?s.seats.filter(p=>p.identity.house===winner && winner!=='ronin'||p.alive&&p.identity.house==='ronin'):alive).map(p=>p.id)
+  for(const p of s.seats) delete p.exposurePending
   for(const p of alive) p.exposed='full'
   event(s,ctx,'houses','存活者公开流派。',alive.map(p=>p.id),
     {identities:Object.fromEntries(alive.map(p=>[p.id,{...p.identity}]))})
@@ -584,15 +608,19 @@ function requiredPlayers(s:NinjaState):string[] {
   if(s.mode==='reaction') return [s.target!]
   return s.current && ['target','second','choice','recover','shift-disclosure'].includes(s.mode) ? [s.current.player] : []
 }
+function exposureOf(target:Seat,observer?:string): NonNullable<Seat["exposed"]> | "unseen" | "pending" {
+  if(target.exposurePending && !target.exposureWitnesses?.includes(observer??'')) return 'pending'
+  return target.exposed??'unseen'
+}
 export function publicView(s:NinjaState) {
   const step=visibleStep(s)
   const through=step?.events.at(-1)
   return {
     round:s.round, mode:['target','second','choice','recover','shift-disclosure'].includes(s.mode)?'resolve':s.mode,
     night:['commit','play','target','second','choice','recover','shift-disclosure','reaction'].includes(s.mode)?phases[s.night]:null, submitted:Object.keys(s.submissions).length,
-    seats:(step?.visible.seats??s.seats).map(({id,portrait,alive,honor,hand,exposed,identity})=>({
-      id,portrait,alive,honorCount:honor.length,handCount:hand.length,
-      exposure:exposed??('unseen' as const),identity:exposed==='full'?identity:null,
+    seats:(step?.visible.seats??s.seats).map(target=>({
+      id:target.id,portrait:target.portrait,alive:target.alive,honorCount:target.honor.length,handCount:target.hand.length,
+      exposure:exposureOf(target),identity:target.exposed==='full'?target.identity:null,
     })),
     cardArea:{undealt:s.undealt?.length??33-s.seats.length*3,discard:step?.visible.discardCount??s.discard.length,
       played:(step?.visible.tableCards??s.tableCards??[]).map(item=>({
@@ -624,7 +652,7 @@ export function privateView(s:NinjaState,id:string) {
   const seats=visible?.seats??s.seats
   const identities=Object.fromEntries(seats.map(target=>[target.id,
     target.exposed==='full'?target.identity:exact(p.knowledge?.[target.id])??(target.id===id?p.known:null)]))
-  return {hand:p.hand, known:identities[id], identities, honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
+  return {hand:p.hand, known:identities[id], identities, exposures:Object.fromEntries(seats.map(target=>[target.id,exposureOf(target,id)] as const)), honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
     options:legal,action,tableTargets:(visible?.tableTargets??s.tableTargets??[]).filter(entry=>entry.round===s.round)}
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
