@@ -19,7 +19,7 @@ export type PublicEvent = {
   executionId?:number;
 }
 type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; viewedBy?:string; actor?:string; actingCard?:string; text:string; identity?:Identity; card?:string; honor?:number}
-export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; exposed?:'partial'|'full'; initialHolder?:string; exposurePending?:boolean; exposureWitnesses?:string[]; knowledge?:Record<string,Identity[]>; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
+export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; exposed?:'partial'|'full'; initialHolder?:string; exposurePending?:boolean; exposureWitnesses?:string[]; possibleInitialHolders?:string[]; knowledge?:Record<string,Identity[]>; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
 export type ReplayEntry = {
   round:number; phase:Phase|null; step:string; player?:string; card?:string;
   choice?:string; affected?:string; intel?:IntelEvent; result?:PublicEvent;
@@ -184,6 +184,7 @@ function newRound(s:NinjaState,ctx:Context) {
     p.known={...p.identity}
     p.knowledge={[p.id]:[{...p.identity}]}
     p.initialHolder=p.id
+    p.possibleInitialHolders=[p.id]
     delete p.exposed
     delete p.exposurePending
     delete p.exposureWitnesses
@@ -253,6 +254,13 @@ function inspect(s:NinjaState,ctx:Context,id:string,target:string,withCard=false
   ;(viewer.knowledge??={})[target]=[{...p.identity}]
   if(viewer.id===target) viewer.known={...p.identity}
   if(id!==originalHolder(s,p)) p.exposed??='partial'
+  // An outside viewer of every possible original card makes this seat at least partial,
+  // without revealing which hidden exchange (if any) actually took place.
+  if(p.exposurePending && !(p.possibleInitialHolders??[originalHolder(s,p)]).includes(id)) {
+    p.exposed??='partial'
+    delete p.exposurePending
+    delete p.exposureWitnesses
+  }
   event(s,ctx,'identity-view','查看了目标身份。',[id,target],{card:s.current?.card})
   if(withCard) notifyTarget(s,ctx,target,id,s.current!.card,card)
 }
@@ -367,17 +375,21 @@ function resolveShift(s:NinjaState,ctx:Context,disclosed:boolean) {
   const exchanged=s.shiftChoice===true
   // Existing uncertainty must not be resolved by comparing the hidden actual grades.
   const pending=Boolean(a.exposurePending || b.exposurePending || a.exposed!==b.exposed)
+  const possibleA=a.possibleInitialHolders??[originalHolder(s,a)]
+  const possibleB=b.possibleInitialHolders??[originalHolder(s,b)]
   delete s.shiftChoice
   if(exchanged) {
     const owners=[originalHolder(s,b),originalHolder(s,a)] as const
     ;[a.identity,b.identity]=[b.identity,a.identity]
     ;[a.exposed,b.exposed]=[b.exposed,a.exposed]
     ;[a.initialHolder,b.initialHolder]=owners
+    ;[a.possibleInitialHolders,b.possibleInitialHolders]=[possibleB,possibleA]
     ;[a.exposurePending,b.exposurePending]=[b.exposurePending,a.exposurePending]
     ;[a.exposureWitnesses,b.exposureWitnesses]=[b.exposureWitnesses,a.exposureWitnesses]
   }
   for(const target of [a,b]) {
     if(!disclosed) {
+      target.possibleInitialHolders=[...new Set([...possibleA,...possibleB])]
       target.exposurePending=pending
       target.exposureWitnesses=[id]
     } else if(target.exposurePending) {

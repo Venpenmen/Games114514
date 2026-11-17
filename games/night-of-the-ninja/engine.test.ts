@@ -452,6 +452,41 @@ test('self inspection leaves the original card unseen and only foreign inspectio
     assert.equal(privateView(branches[1],'a')?.exposures.b,'unseen')
   }
 })
+
+test('outside inspection after hidden self-shift resolves only the inspected seat exposure',()=>{
+  const base=start()
+  stage('trickster-1',base);expire(base)
+  click(base,'a','a');click(base,'a','b')
+  const results=[]
+  for(const answer of ['pass','yes']) {
+    const s=structuredClone(base)
+    click(s,'a',answer);click(s,'a','hide')
+    expire(s)
+    assert.deepEqual(publicView(s).seats.slice(0,2).map(p=>p.exposure),['pending','pending'])
+    stage('spy-1',s,'play','c');expire(s);click(s,'c','b')
+    assert.equal(publicView(s).seats[0].exposure,'pending')
+    assert.equal(publicView(s).seats[1].exposure,'partial')
+    for(const id of ids) assert.equal(privateView(s,id)?.exposures.b,'partial')
+    assert.deepEqual(privateView(s,'c')?.identities.b,s.seats[1].identity)
+    results.push(publicView(s))
+  }
+  assert.deepEqual(results[0],results[1])
+})
+
+test('possible original holder inspecting after hidden shift does not disclose the branch',()=>{
+  const base=start()
+  stage('trickster-1',base);expire(base)
+  click(base,'a','a');click(base,'a','b')
+  const branches=['pass','yes'].map(answer=>{
+    const s=structuredClone(base)
+    click(s,'a',answer);click(s,'a','hide');expire(s)
+    stage('trickster-1',s,'play','b');expire(s);click(s,'b','b')
+    return s
+  })
+  assert.deepEqual(publicView(branches[0]),publicView(branches[1]))
+  assert.equal(publicView(branches[0]).seats[1].exposure,'pending')
+})
+
 test('round reveal restores actual grades without formally revealing dead players',()=>{
   const s=start()
   stage('trickster-1',s);expire(s)
