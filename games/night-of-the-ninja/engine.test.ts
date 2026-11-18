@@ -5,7 +5,19 @@ import {nightOfTheNinja as game,defaults,identities,privateView,publicView,type 
 const ids=['a','b','c','d']
 const start=()=>game.start(ids,defaults,{now:0,random:()=>0})
 function expire(s:NinjaState,random=(_limit:number)=>0) { game.advance(s,{now:s.deadline!,random}) }
-function click(s:NinjaState,id:string,value:string) {game.command(s,id,{value},{now:s.deadline!-1,random:()=>0})}
+const pairBuffer=new WeakMap<NinjaState,string>()
+function click(s:NinjaState,id:string,value:string) {
+  if(s.mode==='target' && s.current?.card==='trickster-1' && !value.startsWith('pair:')) {
+    const previous=pairBuffer.get(s)
+    if(!previous) {pairBuffer.set(s,value);return}
+    pairBuffer.delete(s)
+    const pair=privateView(s,id)?.options.find(option=>option.value.startsWith('pair:') &&
+      [previous,value].every(target=>option.value.split(':').includes(target)))
+    if(!pair)throw new Error('Illegal pair in test')
+    value=pair.value
+  }
+  game.command(s,id,{value},{now:s.deadline!-1,random:()=>0})
+}
 function stage(skillCard:string,state:NinjaState,mode:NinjaState['mode']='play',actor='a') {
   state.current={player:actor,card:skillCard}
   state.mode=mode
@@ -128,7 +140,7 @@ test('shapeshifter truth, memory and public swap only on confirmation',()=>{
     const other=structuredClone(s.seats[2].identity)
     assert.deepEqual(privateView(s,'a')?.action,{step:'target',targets:[]})
     click(s,'a','b')
-    assert.deepEqual(privateView(s,'a')?.action,{step:'second',targets:['b']})
+    assert.deepEqual(privateView(s,'a')?.action,{step:'target',targets:[]})
     assert.equal(privateView(s,'b')?.action,undefined)
     assert.equal(Object.hasOwn(publicView(s),'action'),false)
     click(s,'a','c')
@@ -164,7 +176,11 @@ test('merchant may exchange an unseen token and thief compares counts',()=>{
   const s=start()
   s.seats[0].honor=[{id:101,value:4}]
   s.seats[1].honor=[{id:102,value:2},{id:103,value:3}]
-  stage('trickster-4',s);expire(s);click(s,'a','b');click(s,'a','view:102');click(s,'a','give:101');click(s,'a','take:103')
+  stage('trickster-4',s);expire(s);click(s,'a','b');click(s,'a','view:102')
+  assert.deepEqual(privateView(s,'a')?.merchant?.theirs.map(t=>t.value),[2,undefined])
+  assert.equal(privateView(s,'c')?.merchant,undefined)
+  assert.throws(()=>click(s,'a','swap:101:999'))
+  click(s,'a','swap:101:103')
   assert.equal(s.seats[0].honor[0].id,103)
   assert.equal(s.seats[0].intel[0].honor,2)
   stage('trickster-5',s);expire(s);expire(s);click(s,'a','b')
@@ -340,10 +356,12 @@ for(const card of ['spy-1','mystic-1','trickster-1','trickster-3','trickster-4',
     expire(s)
     if(publicView(s).mode==='presentation') expire(s)
     click(s,'a','b')
+    if(card==='trickster-1') click(s,'a','c')
     assert(!Object.hasOwn(publicView(s),'tableTargets'))
     for(const id of ids) assert.equal(privateView(s,id)?.tableTargets[0]?.target,'b')
     const outside=privateView(s,'c')!
-    assert.deepEqual(outside.intel,[])
+    if(card==='trickster-1') assert.equal(outside.intel.at(-1)?.actingCard,card)
+    else assert.deepEqual(outside.intel,[])
     const recipient=privateView(s,'b')!.intel.at(-1)!
     assert.equal(recipient.actingCard,card)
     assert.equal(recipient.identity,undefined)
@@ -533,4 +551,63 @@ test('round reveal restores actual grades without formally revealing dead player
   assert.equal(publicView(s).roundShifts?.[0].exchanged,true)
   expire(s)
   assert(publicView(s).seats.every(p=>p.exposure==='unseen'))
+})
+
+test('UX2 shapeshifter pair selection is atomic, ordered and privately notifies counterparts',()=>{
+  const s=start()
+  stage('trickster-1',s);expire(s)
+  assert(privateView(s,'a')?.options.some(option=>option.value==='pair:c:b'))
+  assert.throws(()=>game.command(s,'a',{value:'pair:b:b'},{now:s.deadline!-1,random:()=>0}))
+  assert.equal(s.seats[1].intel.length,0)
+  assert.equal(s.tableTargets?.length??0,0)
+  click(s,'a','pair:c:b')
+  assert.deepEqual(privateView(s,'a')?.action?.targets,['c','b'])
+  assert.deepEqual(s.tableTargets?.map(item=>item.target),['c','b'])
+  assert.equal(privateView(s,'d')?.intel.length,0)
+  click(s,'a','yes');click(s,'a','hide')
+  assert.equal(privateView(s,'c')?.intel.findLast(item=>item.counterpart)?.counterpart,'b')
+  assert.equal(privateView(s,'b')?.intel.findLast(item=>item.counterpart)?.counterpart,'c')
+  assert.equal(privateView(s,'d')?.intel.find(item=>item.counterpart),undefined)
+  assert.equal(publicView(s).roundShifts,undefined)
+})
+
+test('UX2 shapeshifter pair timeout chooses two distinct eligible targets',()=>{
+  const s=start()
+  stage('trickster-1',s);expire(s)
+  expire(s)
+  assert.equal(s.mode,'choice')
+  assert(s.target!==s.second)
+  assert.deepEqual(privateView(s,'a')?.action?.targets,[s.target,s.second])
+})
+
+test('UX2 merchant known identities cannot be re-inspected',()=>{
+  const s=start()
+  s.seats[0].honor=[{id:201,value:4}]
+  s.seats[1].honor=[{id:202,value:2},{id:203,value:3}]
+  s.seats[0].knowledge={b:[structuredClone(s.seats[1].identity)]}
+  stage('trickster-4',s);expire(s);click(s,'a','b')
+  assert(!privateView(s,'a')?.options.some(option=>option.value==='house'))
+  assert(privateView(s,'a')?.options.some(option=>option.value==='view:202'))
+  assert.throws(()=>click(s,'a','house'))
+  click(s,'a','view:202')
+  assert.deepEqual(privateView(s,'a')?.merchant?.theirs.map(item=>item.value),[2,undefined])
+  assert.equal(privateView(s,'b')?.merchant,undefined)
+  assert.equal(privateView(s,'c')?.merchant,undefined)
+  assert.throws(()=>click(s,'a','swap:201:999'))
+  click(s,'a','swap:201:203')
+  assert.equal(s.seats[0].honor[0].id,203)
+  assert.equal(s.seats[1].honor.find(item=>item.id===201)?.value,4)
+})
+
+test('UX2 merchant voluntary skip does not transfer honor',()=>{
+  const s=start()
+  s.seats[0].honor=[{id:201,value:4}]
+  s.seats[1].honor=[{id:202,value:2}]
+  stage('trickster-4',s);expire(s);click(s,'a','b')
+  assert(privateView(s,'a')?.options.some(option=>option.value==='house'))
+  click(s,'a','view:202')
+  assert.equal(privateView(s,'a')?.merchant?.theirs[0].value,2)
+  click(s,'a','pass')
+  assert.deepEqual(s.seats[0].honor.map(item=>item.id),[201])
+  assert.deepEqual(s.seats[1].honor.map(item=>item.id),[202])
 })

@@ -32,7 +32,7 @@ defineProps<{own:NonNullable<ReturnType<typeof privateView>>; seats:Seat[]; name
               <strong>{{ entry.viewedBy ? '手牌被查看' : entry.source ? skills[entry.source][0] : entry.phase ? phaseNames[entry.phase] : '私人提示' }}</strong>
               <span>第 {{ entry.round }} 轮 · <time :datetime="new Date(entry.at).toISOString()">{{ new Date(entry.at).toLocaleTimeString() }}</time></span>
             </header>
-            <p>{{ entry.viewedBy ? name(entry.viewedBy)+' 查看了你的这张手牌。' : entry.actor ? name(entry.actor)+' 对你使用了 '+skills[cards[entry.actingCard!].skill][0]+'。' : (entry.target ? name(entry.target)+' · ' : '')+entry.text }}</p>
+            <p>{{ entry.viewedBy ? name(entry.viewedBy)+' 查看了你的这张手牌。' : entry.actor ? name(entry.actor)+' 对你使用了 '+skills[cards[entry.actingCard!].skill][0]+'。' : entry.counterpart ? '你与 '+name(entry.counterpart)+' 是本次变形者的两名目标。'+entry.text : (entry.target ? name(entry.target)+' · ' : '')+entry.text }}</p>
             <div class="nn-intel-evidence">
               <IdentityCard v-if="entry.identity" :identity="entry.identity" caption="取得时的身份"/>
               <div v-if="entry.actingCard">执行牌 <CardFace :id="entry.actingCard" compact/></div>

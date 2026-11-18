@@ -486,3 +486,34 @@
 .nn-p20[data-effects=full] .nn-event {animation-duration:min(calc(.65s * var(--ux-speed,1)),var(--ux-event-duration,100s))}
 .nn-p20[data-effects=full] .nn-event[data-event=reveal] {animation-duration:min(calc(2.3s * var(--ux-speed,1)),var(--ux-event-duration,100s))}
 .nn-p20[data-effects=full] .nn-event[data-event=champion] {animation-duration:min(calc(5s * var(--ux-speed,1)),var(--ux-event-duration,100s))}
+
+/* UX.2: visible knowledge, numbered identities and two-party selections. */
+.nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger.nn-identity-known {
+  position:relative;
+  border-color:#f5d89e;
+  box-shadow:0 0 0 1px #f5d89e,0 0 12px 3px #eec87e7a;
+}
+.nn-identity-rank-badge {
+  position:absolute;top:1px;right:1px;z-index:2;
+  display:grid;place-items:center;min-width:1.1rem;height:1.1rem;
+  padding:0 .15rem;border-radius:.28rem;
+  background:#241d2ce8;color:#fff1bb;border:1px solid #dcb66a;
+  font:bold .78rem/1 system-ui,sans-serif;box-shadow:0 1px 5px #0009;
+}
+.nn-identity-card-art {position:relative;display:block;flex:none;border-radius:.32rem}
+.nn-identity-card-art.nn-identity-known {box-shadow:0 0 0 1px #f5d89e,0 0 10px 2px #eec87e65}
+.nn-identity-card-art img {display:block}
+.nn-p20 .nn-pair-progress {text-align:center;color:#f0d9a0;margin:.25rem 0 .6rem}
+.nn-p20 .nn-merchant-swap {display:grid;gap:.6rem}
+.nn-p20 .nn-merchant-panel {width:100%;display:grid;gap:.55rem}
+.nn-p20 .nn-merchant-panel > p {margin:.1rem 0;color:#f1dba9;text-align:center}
+.nn-p20 .nn-merchant-columns {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+.nn-p20 .nn-merchant-columns > div {min-width:0;border:1px solid #917452;border-radius:.6rem;padding:.5rem}
+.nn-p20 .nn-merchant-columns h4 {margin:.1rem 0 .45rem;color:#ffe2aa}
+.nn-p20 .nn-merchant-tokens {display:flex;flex-wrap:wrap;gap:.45rem}
+.nn-p20 .nn-merchant-tokens button {display:grid;justify-items:center;gap:.2rem;border:1px solid #8e7452;border-radius:.5rem;padding:.3rem;min-width:4.15rem;min-height:4.7rem}
+.nn-p20 .nn-merchant-tokens button[aria-pressed=true] {border-color:#f3c879;outline:2px solid #f3c879}
+.nn-p20 .nn-merchant-tokens button small {font-size:.67rem}
+.nn-p20 .nn-merchant-pass {justify-self:center}
+.nn-p20 .nn-merchant-pass[aria-pressed=true] {outline:2px solid #f3c879}
+@media(max-width:800px) {.nn-p20 .nn-merchant-columns {gap:.35rem}.nn-p20 .nn-merchant-tokens button {min-width:3.5rem}}

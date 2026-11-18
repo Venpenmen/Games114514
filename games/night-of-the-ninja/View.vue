@@ -53,12 +53,35 @@ function inspectIdentity(id:string) {
 }
 const name=(id:string)=>props.room.members.find(p=>p.id===id)?.name??'玩家'
 const selected=ref('')
+const shiftPicked=ref<string[]>([]),merchantGive=ref<number|null>(null),merchantTake=ref<number|null>(null)
 const pending=ref(false)
-watch([()=>match.value.id,()=>match.value.phase,()=>props.connectionEpoch],()=>{selected.value=''})
+watch([()=>match.value.id,()=>state.value.round,()=>state.value.night,()=>privateState.value?.action?.step,()=>Boolean(privateState.value?.merchant),()=>props.connectionEpoch],()=>{selected.value='';shiftPicked.value=[];merchantGive.value=null;merchantTake.value=null})
 const ownOptions=computed(()=>privateState.value?.options??[])
 const locked=computed(()=>pending.value || props.room.pausedMs!==undefined)
-const targetOptions=computed(()=>new Map(ownOptions.value.filter(option=>option.target).map(option=>[option.target,option.value])))
-const select=(value:string)=>{if(!locked.value) selected.value=selected.value===value?'':value}
+const shiftPairMode=computed(()=>step.value==='target' && ownOptions.value.some(option=>option.value.startsWith('pair:')))
+const targetOptions=computed(()=>{
+  if(shiftPairMode.value) return new Map(state.value.seats.filter(p=>
+    ownOptions.value.some(option=>option.value.startsWith('pair:') && option.value.split(':').includes(p.id)))
+    .map(p=>[p.id,p.id]))
+  return new Map(ownOptions.value.filter(option=>option.target).map(option=>[option.target!,option.value]))
+})
+const select=(value:string)=>{
+  if(locked.value) return
+  if(shiftPairMode.value) {
+    shiftPicked.value=shiftPicked.value.includes(value)?shiftPicked.value.filter(id=>id!==value):
+      shiftPicked.value.length<2?[...shiftPicked.value,value]:[shiftPicked.value[0],value]
+    selected.value=''
+    return
+  }
+  if(value==='pass' && privateState.value?.merchant){merchantGive.value=null;merchantTake.value=null}
+  selected.value=selected.value===value?'':value
+}
+const chooseMerchant=(side:'give'|'take',id:number)=>{
+  if(locked.value)return
+  if(side==='give')merchantGive.value=merchantGive.value===id?null:id
+  else merchantTake.value=merchantTake.value===id?null:id
+  selected.value=''
+}
 const polar=(index:number)=>{
   const offset=Math.max(0,state.value.seats.findIndex(seat=>seat.id===props.player))
   const count=state.value.seats.length
@@ -71,11 +94,18 @@ const polar=(index:number)=>{
     '--nn-mobile-y':(row+.5)*100/rows+'%'}
 
 }
-const selection=computed(()=>ownOptions.value.find(option=>option.value===selected.value))
+const selection=computed(()=>{
+  if(shiftPairMode.value && shiftPicked.value.length===2)
+    return ownOptions.value.find(option=>option.value==='pair:'+shiftPicked.value.join(':'))
+  if(privateState.value?.merchant && selected.value!=='pass' &&
+    merchantGive.value!==null && merchantTake.value!==null)
+    return ownOptions.value.find(option=>option.value==='swap:'+merchantGive.value+':'+merchantTake.value)
+  return ownOptions.value.find(option=>option.value===selected.value)
+})
 async function confirm() {
   if(!selection.value||pending.value||props.room.pausedMs!==undefined) return
   pending.value=true
-  try {await props.send('game',{value:selected.value})}
+  try {await props.send('game',{value:selection.value.value})}
   finally {pending.value=false}
 }
 const clock=ref(Date.now())
@@ -261,11 +291,11 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
       <div v-for="(p,i) in state.seats" :key="p.id" class="nn-seat-shell" :data-player="p.id" :style="polar(i)">
       <button type="button" class="nn-seat"
         :data-self="p.id===player" :aria-label="name(p.id)+(p.id===player?'（本人）':'')"
-        :aria-pressed="targetOptions.has(p.id)?selection?.target===p.id:undefined"
+        :aria-pressed="targetOptions.has(p.id)?(shiftPairMode?shiftPicked.includes(p.id):selection?.target===p.id):undefined"
         :data-can-target="!locked && targetOptions.has(p.id)"
         :disabled="targetOptions.size>0 && (locked || !targetOptions.has(p.id))"
         @click="targetOptions.has(p.id)?select(targetOptions.get(p.id)!):inspectIdentity(p.id)"
-        :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id,'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id)}">
+        :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id || shiftPicked.includes(p.id),'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id)}">
         <PlayerAvatar :src="asset('portrait-'+p.portrait)" :name="name(p.id)" :online="room.members.some(member=>member.id===p.id && member.online)" compact :image-class="{'nn-death-flash':shown?.kind==='death' && shown.actors.includes(p.id),'nn-attack-target':shown?.kind==='attack' && shown.actors[1]===p.id}"/>
         <span class="nn-seat-info"><strong :title="name(p.id)"><span class="nn-seat-name-text">{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</span></strong>
         <small class="nn-seat-status" :title="(p.alive?'存活':'已死亡')+' · '+(room.members.find(member=>member.id===p.id)?.online?'在线':'离线')">
@@ -273,11 +303,13 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           <span class="nn-status-label">{{ room.members.find(member=>member.id===p.id)?.online?'在线':'离线' }}</span>
           <span class="nn-seat-honor" :aria-label="'荣誉 '+p.honorCount" :title="'荣誉 '+p.honorCount"><img :src="asset('honor-back')" alt=""> {{ p.honorCount }}</span> <span :title="'手牌 '+p.handCount+' 张'" :aria-label="'手牌 '+p.handCount+' 张'">▤{{ p.handCount }}</span>
         </small>
-        <small v-if="targetOptions.size">{{ privateState?.action?.targets.includes(p.id) ? '目标 '+(privateState.action.targets.indexOf(p.id)+1) : targetOptions.has(p.id)?'可选':'不可选' }}</small></span>
+        <small v-if="targetOptions.size">{{ shiftPairMode && shiftPicked.includes(p.id)?'目标 '+(shiftPicked.indexOf(p.id)+1):privateState?.action?.targets.includes(p.id) ? '目标 '+(privateState.action.targets.indexOf(p.id)+1) : targetOptions.has(p.id)?'可选':'不可选' }}</small></span>
       </button>
       <button type="button" class="nn-identity-trigger"
+        :class="{'nn-identity-known':Boolean(privateState?.identities?.[p.id]??p.identity)}"
         :aria-label="'查看 '+name(p.id)+' 的身份牌'" @click="inspectIdentity(p.id)">
         <img :src="asset((privateState?.identities?.[p.id]??p.identity)?.house??'card-back')" alt="">
+        <span v-if="(privateState?.identities?.[p.id]??p.identity)?.rank" class="nn-identity-rank-badge">{{ (privateState?.identities?.[p.id]??p.identity)?.rank }}</span>
       </button>
       </div>
       </div>
@@ -326,7 +358,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         </div>
       </section>
         <section v-if="freshIntel" class="nn-letter nn-private-toast" :key="freshIntel.seq" aria-label="新收到的私人情报">
-          <p role="status"><span aria-hidden="true">封</span> {{ freshIntel.viewedBy ? name(freshIntel.viewedBy)+' 查看了你的 '+cardName(freshIntel.card!)+' '+cards[freshIntel.card!].number+'。' : freshIntel.actor ? name(freshIntel.actor)+' 对你使用了 '+cardName(freshIntel.actingCard!)+ '。' : (freshIntel.source ? skills[freshIntel.source][0]+' · ' : '')+freshIntel.text }}</p>
+          <p role="status"><span aria-hidden="true">封</span> {{ freshIntel.viewedBy ? name(freshIntel.viewedBy)+' 查看了你的 '+cardName(freshIntel.card!)+' '+cards[freshIntel.card!].number+'。' : freshIntel.actor ? name(freshIntel.actor)+' 对你使用了 '+cardName(freshIntel.actingCard!)+ '。' : freshIntel.counterpart ? '你与 '+name(freshIntel.counterpart)+' 是本次变形者的两名目标。'+freshIntel.text : (freshIntel.source ? skills[freshIntel.source][0]+' · ' : '')+freshIntel.text }}</p>
           <div class="nn-letter-cards">
             <IdentityCard v-if="freshIntel.identity" :identity="freshIntel.identity" :caption="freshIntel.roundIdentity?'你的本轮身份':freshIntel.target ? name(freshIntel.target)+' · 取得时' : '取得时的身份'"/>
             <div v-if="freshIntel.actingCard">执行牌 <CardFace :id="freshIntel.actingCard" compact/></div>
@@ -342,7 +374,10 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
       </div>
     </div>
     <OperationStage v-if="!match.finished" :state="state" :own="privateState" :selected="selection?.value??''"
-          :locked="locked" :name="name" @select="select" @confirm="confirm"/>
+          :locked="locked" :name="name" :shift-picked="shiftPicked" :shift-pair-mode="shiftPairMode"
+          :merchant-give="merchantGive" :merchant-take="merchantTake"
+          @merchant-give="chooseMerchant('give',$event)" @merchant-take="chooseMerchant('take',$event)"
+          @select="select" @confirm="confirm"/>
     <aside class="nn-journal">
       <button @click="playDrawer?.showModal()">出牌区</button>
       <dialog ref="playDrawer" class="nn-board-dialog nn-play-drawer" aria-label="出牌区">

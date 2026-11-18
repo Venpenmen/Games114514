@@ -19,7 +19,7 @@ export type PublicEvent = {
   card?:string; identities?:Record<string,Identity>; group?:string; presentationAt?:number; duration?:number;
   executionId?:number;
 }
-type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; viewedBy?:string; actor?:string; actingCard?:string; text:string; identity?:Identity; card?:string; honor?:number}
+type IntelEvent = {seq:number; at:number; round:number; phase?:Phase; source?:Skill; target?:string; viewedBy?:string; actor?:string; actingCard?:string; text:string; identity?:Identity; card?:string; honor?:number; counterpart?:string; honorTokenId?:number}
 export type Seat = {id:string; portrait:number; alive:boolean; identity:Identity; known:Identity|null; exposed?:'partial'|'full'; initialHolder?:string; exposurePending?:boolean; exposureWitnesses?:string[]; possibleInitialHolders?:string[]; knowledge?:Record<string,Identity[]>; hand:string[]; honor:Honor[]; intel:IntelEvent[] }
 export type ReplayEntry = {
   round:number; phase:Phase|null; step:string; player?:string; card?:string;
@@ -43,7 +43,7 @@ export type NinjaState = Turn & {
   pool:Honor[]; nextHonor:number; events:PublicEvent[]; seq:number; submissions:Record<string,string>;
   queue:Play[]; current?:Play; target?:string; second?:string; offered:string[];
   presentation?:Presentation; presentedThrough?:number; replay?:ReplayEntry[]; replayFrom?:number; tableTargets?:TableTarget[];
-  tableCards?:TableCard[]; undealt?:string[]; recovered?:string[]; shiftChoice?:boolean; roundShifts?:ShiftResult[];
+  tableCards?:TableCard[]; undealt?:string[]; recovered?:string[]; shiftChoice?:boolean; roundShifts?:ShiftResult[]; merchantViewed?:{id:number;value:number};
   awardees:string[]; champions:string[]; finalScores?:Record<string,number>;
 }
 const settings = [
@@ -204,6 +204,21 @@ function targets(s:NinjaState):Seat[] {
     (s.mode!=='second' || p.id!==s.target) &&
     (skill(s)!=='thief' || p.honor.length>player.honor.length))
 }
+function merchantIdentityKnown(s:NinjaState,actor:string,target:string) {
+  const observer=seat(s,actor),subject=seat(s,target)
+  return subject.exposed==='full' || !!exact(observer.knowledge?.[target]) ||
+    (actor===target && !!observer.known)
+}
+function shiftPairOptions(s:NinjaState) {
+  const legal=targets(s)
+  return legal.flatMap(first=>legal.filter(second=>second.id!==first.id).map(second=>
+    opt('pair:'+first.id+':'+second.id,'确认两名目标')))
+}
+function merchantSwapOptions(s:NinjaState,id:string) {
+  const them=seat(s,s.target!),us=seat(s,id)
+  return us.honor.flatMap(give=>them.honor.map(take=>
+    opt('swap:'+give.id+':'+take.id,'交换双方选中的荣誉标记')))
+}
 function tokenOptions(s:NinjaState,owner:string,prefix:string) {
   return seat(s,owner).honor.map((h,i)=>opt(prefix+h.id,'第 '+(i+1)+' 枚荣誉'))
 }
@@ -221,6 +236,7 @@ export function options(s:NinjaState,id:string):Option[] {
     return [pass,...p.hand.filter(card=>card==='mirror'||card==='martyr').map(card=>opt(card,'发动',undefined,card))]
   }
   if(s.current?.player!==id) return []
+  if(s.mode==='target' && skill(s)==='shift') return shiftPairOptions(s)
   if(s.mode==='target'||s.mode==='second') return targets(s).map(target=>opt(target.id,'选择目标',target.id))
   if(s.mode==='recover') return s.offered.map(card=>opt(card,'取得',undefined,card))
   if(s.mode==='shift-disclosure') return [opt('hide','隐藏结果'),opt('reveal','揭示结果')]
@@ -231,7 +247,12 @@ export function options(s:NinjaState,id:string):Option[] {
     case 'shinobi': return [pass,opt('yes','刺杀')]
     case 'dig': return [pass,...(canPlayImmediately(s.offered[0])?[opt('yes','立即使用',undefined,s.offered[0])]:[])]
     case 'merchant':
-      if(!s.second) return [pass,opt('house','查看流派'),...tokenOptions(s,s.target!,'view:')]
+      if(!s.second) return [
+        ...(!merchantIdentityKnown(s,id,s.target!)?[opt('house','查看身份')]:[]),
+        ...tokenOptions(s,s.target!,'view:'),
+      ]
+      if(s.second==='exchange') return [pass,...merchantSwapOptions(s,id)]
+      // Legacy pending rounds are still resumable after an upgrade.
       if(s.second==='viewed') return [pass,...tokenOptions(s,id,'give:')]
       return [pass,...tokenOptions(s,s.target!,'take:')]
     default: return []
@@ -273,6 +294,7 @@ function nextCard(s:NinjaState,ctx:Context) {
   if(finished) finished.status='resolved'
   s.target=undefined
   s.second=undefined
+  delete s.merchantViewed
   s.offered=[]
   while(s.queue.length) {
     s.current=s.queue.shift()!
@@ -343,6 +365,7 @@ function onTarget(s:NinjaState,ctx:Context,value:string) {
   confirmTarget(s,ctx,value,1)
   switch(skill(s)) {
     case 'shift':
+      // Legacy first-target state (old saved rounds) remains resumable.
       inspect(s,ctx,id,value)
       enter(s,ctx,'second',s.config.target)
       return
@@ -356,6 +379,8 @@ function onTarget(s:NinjaState,ctx:Context,value:string) {
       enter(s,ctx,'choice',s.config.target)
       return
     case 'merchant':
+      // If every potential inspection is already known or unavailable, finish immediately.
+      if(merchantIdentityKnown(s,id,value) && !p.honor.length) {nextCard(s,ctx);return}
       enter(s,ctx,'choice',s.config.target)
       return
     case 'thief':
@@ -419,7 +444,10 @@ function resolveShift(s:NinjaState,ctx:Context,disclosed:boolean) {
     }
     if(observer===a || observer===b) observer.known=exact(knowledge[observer.id])
   }
-  if(!disclosed || exchanged) for(const p of [a,b]) intel(s,ctx,p.id,{text:'你的流派卡可能发生变化。'})
+  if(!disclosed || exchanged) for(const p of [a,b]) intel(s,ctx,p.id,{
+    text:'你与另一名目标的身份牌可能发生交换。',
+    counterpart:p.id===a.id?b.id:a.id,
+  })
   const actors=[a.id,b.id]
   ;(s.roundShifts??=[]).push({actors,exchanged,disclosed})
   recordReplay(s,{step:'变形者实际结果',player:id,choice:exchanged?'交换':'未交换',seats:replaySeats(s,'identity')})
@@ -454,10 +482,11 @@ function choice(s:NinjaState,ctx:Context,value:string) {
         if(value==='house') inspect(s,ctx,id,target.id)
         else {
           const h=target.honor.find(token=>token.id===Number(value.slice(5)))!
-          intel(s,ctx,id,{text:'查阅了目标的一枚荣誉。',target:target.id,honor:h.value})
+          s.merchantViewed={id:h.id,value:h.value}
+          intel(s,ctx,id,{text:'查阅了目标的一枚荣誉。',target:target.id,honor:h.value,honorTokenId:h.id})
         }
         if(!player.honor.length||!target.honor.length) { nextCard(s,ctx); return }
-        s.second='viewed'
+        s.second='exchange'
         enter(s,ctx,'choice',s.config.target)
         return
       }
@@ -466,8 +495,15 @@ function choice(s:NinjaState,ctx:Context,value:string) {
         enter(s,ctx,'choice',s.config.target)
         return
       }
-      const a=player.honor.findIndex(h=>h.id===Number(s.second!.slice(5)))
-      const b=target.honor.findIndex(h=>h.id===Number(value.slice(5)))
+      const pair=s.second==='exchange'
+        ? /^swap:(\d+):(\d+)$/.exec(value)
+        : /^take:(\d+)$/.exec(value)
+      if(!pair) throw new Error('荣誉标记组合无效')
+      const giveId=s.second==='exchange'?Number(pair[1]):Number(s.second.slice(5))
+      const takeId=Number(pair[s.second==='exchange'?2:1])
+      const a=player.honor.findIndex(h=>h.id===giveId)
+      const b=target.honor.findIndex(h=>h.id===takeId)
+      if(a<0||b<0) throw new Error('荣誉标记已失效')
       ;[player.honor[a],target.honor[b]]=[target.honor[b],player.honor[a]]
       event(s,ctx,'honor','双方各交换一枚荣誉。',[id,target.id])
       break
@@ -577,7 +613,16 @@ function settleStep(s:NinjaState,ctx:Context) {
     case 'commit': commit(s,ctx); return
     case 'play': beginCard(s,ctx); return
     case 'target':
-      if(value!=='pass') onTarget(s,ctx,value)
+      if(value!=='pass' && skill(s)==='shift') {
+        const match=/^pair:([^:]+):([^:]+)$/.exec(value)
+        if(!match || match[1]===match[2]) throw new Error('两名目标必须不同')
+        s.target=match[1];s.second=match[2]
+        for(const [i,target] of [match[1],match[2]].entries()) {
+          confirmTarget(s,ctx,target,(i+1) as 1|2)
+          inspect(s,ctx,s.current!.player,target)
+        }
+        enter(s,ctx,'choice',s.config.target)
+      } else if(value!=='pass') onTarget(s,ctx,value)
       else nextCard(s,ctx)
       return
     case 'second':
@@ -669,7 +714,16 @@ export function privateView(s:NinjaState,id:string) {
   const seats=visible?.seats??s.seats
   const identities=Object.fromEntries(seats.map(target=>[target.id,
     target.exposed==='full'?target.identity:exact(p.knowledge?.[target.id])??(target.id===id?p.known:null)]))
-  return {hand:p.hand, known:identities[id], identities, exposures:Object.fromEntries(seats.map(target=>[target.id,exposureOf(target,id)] as const)), honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
+  const merchant=s.mode==='choice' && skill(s)==='merchant' && s.current?.player===id &&
+    s.second==='exchange' && s.target ? {
+      target:s.target,
+      mine:p.honor.map(token=>({...token})),
+      theirs:seat(s,s.target).honor.map((token,i)=>({
+        id:token.id,index:i+1,
+        value:s.merchantViewed?.id===token.id?s.merchantViewed.value:undefined,
+      })),
+    }:undefined
+  return {hand:p.hand, known:identities[id], identities, merchant, exposures:Object.fromEntries(seats.map(target=>[target.id,exposureOf(target,id)] as const)), honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
     options:legal,action,tableTargets:(visible?.tableTargets??s.tableTargets??[]).filter(entry=>entry.round===s.round)}
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {

@@ -9,13 +9,14 @@ import IdentityCard from './IdentityCard.vue'
 type State=ReturnType<typeof publicView>
 type Own=NonNullable<ReturnType<typeof privateView>>
 type Option=Own['options'][number]
-const props=defineProps<{state:State;own?:Own;selected:string;locked:boolean;name:(id:string)=>string}>()
-defineEmits<{select:[string];confirm:[]}>()
+const props=defineProps<{state:State;own?:Own;selected:string;locked:boolean;name:(id:string)=>string;shiftPicked?:string[];shiftPairMode?:boolean;merchantGive?:number|null;merchantTake?:number|null}>()
+defineEmits<{select:[string];confirm:[];'merchant-give':[number];'merchant-take':[number]}>()
 const handOpen=ref(true)
 const options=computed(()=>props.own?.options??[])
 const step=computed(()=>props.own?.action?.step??props.state.mode)
 const targets=computed(()=>props.own?.action?.targets??[])
-const aiming=computed(()=>options.value.some(option=>option.target))
+const aiming=computed(()=>props.shiftPairMode || options.value.some(option=>option.target))
+const merchantExchange=computed(()=>props.own?.merchant)
 const current=computed(()=>props.state.current && cards[props.state.current.card])
 const ownIntel=computed(()=>{
   if(!['choice','shift-disclosure'].includes(step.value) || !current.value) return []
@@ -32,13 +33,14 @@ const prompt=computed(()=>{
     case 'draft1': return '选一张留下，其余两张向左传'
     case 'draft2': return '从别人传来的两张中留一张'
     case 'commit': return '秘密选择本阶段要打出的牌'
-    case 'target': return current.value?.skill==='shift'?'选择第一名目标':'选择一名合法目标'
+    case 'target': return current.value?.skill==='shift'?'在圆桌上同时选择两名目标，然后统一确认':'选择一名合法目标'
     case 'second': return '选择第二名目标'
     case 'recover': return '从查到的弃牌中取得一张'
     case 'reaction': return '你受到攻击，选择一张反应牌或不反应'
     case 'ready': return '查看本轮结果，然后准备下一轮'
     case 'shift-disclosure': return '决定全场能否得知是否交换'
     case 'choice':
+      if(merchantExchange.value) return '双方各选一枚荣誉标记，再统一确认交换或放弃'
       if(options.value.some(option=>option.value.startsWith('give:'))) return '选择要交出的一枚本人荣誉，或放弃交换'
       if(options.value.some(option=>option.value.startsWith('take:'))) return '从对方的荣誉背面选一枚，或放弃交换'
       if(options.value.some(option=>option.value==='house')) return '查阅目标流派或查阅对方一枚荣誉'
@@ -91,8 +93,29 @@ const passLabel=computed(()=>step.value==='reaction'?'不使用反应':
         </span>
       </template>
     </div>
-    <div v-if="options.length" class="nn-options">
-      <div v-if="!aiming" class="nn-action-deck" :class="{'nn-card-deck':options.some(option=>cardIds(option).length),'nn-hand':handMode}"
+    <p v-if="shiftPairMode" class="nn-pair-progress">已选择 {{ shiftPicked?.length??0 }}/2 人：{{ shiftPicked?.map(name).join('、') || '请在圆桌点选' }}。再次点击可取消，也可改选。</p>
+    <div v-if="options.length" class="nn-options" :class="{'nn-merchant-swap':merchantExchange}">
+      <div v-if="merchantExchange" class="nn-merchant-panel">
+        <p>已完成查阅。目标 {{ name(merchantExchange.target) }} 已翻开的荣誉标记保持正面，其他保持背面。</p>
+        <div class="nn-merchant-columns">
+          <div><h4>自己的荣誉</h4><div class="nn-merchant-tokens">
+            <button v-for="token in merchantExchange.mine" :key="token.id" type="button"
+              :disabled="locked" :aria-pressed="merchantGive===token.id" @click="$emit('merchant-give',token.id)">
+              <span class="nn-honor"><img :src="asset('honor-front')" alt=""><b>{{ token.value }}</b></span>
+              <small>{{ merchantGive===token.id?'已选择':'选择交出' }}</small>
+            </button>
+          </div></div>
+          <div><h4>{{ name(merchantExchange.target) }}的荣誉</h4><div class="nn-merchant-tokens">
+            <button v-for="token in merchantExchange.theirs" :key="token.id" type="button"
+              :disabled="locked" :aria-pressed="merchantTake===token.id" @click="$emit('merchant-take',token.id)">
+              <span class="nn-honor"><img :src="asset(token.value===undefined?'honor-back':'honor-front')" alt=""><b v-if="token.value!==undefined">{{ token.value }}</b></span>
+              <small>第 {{ token.index }} 枚 · {{ merchantTake===token.id?'已选择':'点击选择' }}</small>
+            </button>
+          </div></div>
+        </div>
+        <button type="button" class="nn-merchant-pass" :aria-pressed="selected==='pass'" :disabled="locked" @click="$emit('select','pass')">放弃交换</button>
+      </div>
+      <div v-if="!aiming && !merchantExchange" class="nn-action-deck" :class="{'nn-card-deck':options.some(option=>cardIds(option).length),'nn-hand':handMode}"
         :aria-label="handMode?'本人手牌':undefined">
         <button v-for="option in options" :key="option.value" type="button" class="nn-choice"
           :class="{'nn-choice-card':cardIds(option).length,'nn-choice-pass':option.value==='pass'}"
@@ -119,7 +142,7 @@ const passLabel=computed(()=>step.value==='reaction'?'不使用反应':
         </div>
       </div>
       <div class="nn-confirm">
-        <span>{{ selected ? '已选 · 等待确认' : '先选一项，再确认' }}</span>
+        <span>{{ selected ? '已选 · 等待确认' : merchantExchange ? '双方各选一枚，或放弃交换' : shiftPairMode ? '请先选择两名目标' : '先选一项，再确认' }}</span>
         <button type="button" class="primary" :disabled="!selected || locked" @click="$emit('confirm')">确认提交</button>
       </div>
     </div>
