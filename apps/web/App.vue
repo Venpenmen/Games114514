@@ -43,6 +43,7 @@ const legacy=ref<Profile|null>(null)
 const avatar = ref(0)
 const error = ref('')
 const copied = ref(false)
+const returnDialog=ref<HTMLDialogElement>()
 const tabId=sessionStorage.getItem('games.tab')??crypto.randomUUID()
 sessionStorage.setItem('games.tab',tabId)
 const socket = io({autoConnect:false,auth:{tab:tabId}})
@@ -337,10 +338,9 @@ async function share() {
         <button v-if="room.spectator" @click="leaveWatch">退出旁观</button>
         <template v-else>
           <button v-if="room.gameId!=='night-of-the-ninja'" @click="send('leave',undefined)">离开对局（保留席位）</button>
-          <button @click="goLobby()">返回大厅</button>
-          <details v-if="room.gameId==='night-of-the-ninja'" class="room-optional-actions">
-            <summary>更多</summary><button @click="send('leave',undefined)">离开对局（保留席位）</button>
-          </details>
+          <template v-if="room.gameId==='night-of-the-ninja'"><button @click="returnDialog?.showModal()">返回大厅</button><span>房间号：{{ room.code }}</span>
+          <dialog ref="returnDialog" aria-label="返回游戏大厅？" class="nn-board-dialog"><h2>返回游戏大厅？</h2><p>返回后将保留你在当前房间的席位及对局进度，之后可以从大厅继续进入。</p><div class="actions"><button autofocus @click="returnDialog?.close()">继续游戏</button><button @click="returnDialog?.close();goLobby()">确认返回</button></div></dialog></template>
+          <button v-else @click="goLobby()">返回大厅</button>
         </template>
       </div>
       <component v-if="view && room.match && (!room.readOnly || room.gameId==='night-of-the-ninja') && (me || room.spectator)" :is="view" :key="room.match.id" :room="room.readOnly?{...room,spectator:true}:room" :player="profile?.id ?? ''" :connection-epoch="connectionEpoch" :send="send"/>

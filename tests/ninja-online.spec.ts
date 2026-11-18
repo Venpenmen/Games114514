@@ -72,8 +72,17 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
     await a.emulateMedia({reducedMotion:'reduce'})
     await a.screenshot({path:'work/logs/'+evidence+'-desktop.png',fullPage:true})
     await b.screenshot({path:'work/logs/'+evidence+'-mobile.png',fullPage:true})
-    await b.locator('.room-optional-actions summary').click()
-    await button(b,'离开对局（保留席位）').click()
+    await button(b,'设置').click()
+    const settings=b.getByRole('dialog',{name:'游戏设置'})
+    await settings.getByLabel('演出').selectOption('reduced')
+    await settings.getByRole('button',{name:'关闭'}).click()
+    await expect(b.locator('.nn-game')).toHaveAttribute('data-effects','reduced')
+    await button(b,'返回大厅').click()
+    const returning=b.getByRole('dialog',{name:'返回游戏大厅？'})
+    await returning.getByRole('button',{name:'继续游戏'}).click()
+    await expect(b.locator('.nn-seat')).toHaveCount(4)
+    await button(b,'返回大厅').click()
+    await returning.getByRole('button',{name:'确认返回'}).click()
     await expect(a.locator('.nn-seat').getByRole('img',{name:'乙，离线'})).toHaveCount(1)
     await expect(button(b,'继续对局')).toBeVisible()
     await b.reload()
@@ -184,7 +193,7 @@ for(const count of [6,8,9,11]) test(count+' real seats fit the desktop ring and 
         const blocks=Array.from(ring.querySelectorAll('.nn-seat-shell,.nn-stage'),el=>el.getBoundingClientRect())
         const covers=(a:DOMRect,b:DOMRect)=>a.left<b.right-1 && b.left<a.right-1 && a.top<b.bottom-1 && b.top<a.bottom-1
         return cards.flatMap((card,i)=>[
-          ...blocks.flatMap((block,j)=>covers(card,block)?[{card:i,block:j,box:card.toJSON()}]:[]),
+          ...blocks.flatMap((block,j)=>j!==i && covers(card,block)?[{card:i,block:j,box:card.toJSON()}]:[]),
           ...cards.flatMap((other,j)=>j>i && covers(card,other)?[{card:i,other:j,box:card.toJSON()}]:[]),
         ])
       }),{message:`${count} 人 ${width}×${height} 身份牌碰撞`}).toEqual([])

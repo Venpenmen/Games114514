@@ -93,6 +93,7 @@ const roundResult=computed(()=>(['reveal','awards','ready','champion'].includes(
   ? state.value.events.findLast(event=>event.round===state.value.round && event.kind==='reveal'):undefined)
 const awardResult=computed(()=>roundResult.value
   ? state.value.events.findLast(event=>event.round===state.value.round && event.seq>roundResult.value!.seq && event.kind==='honor'):undefined)
+const settingsDialog=ref<HTMLDialogElement>()
 const effects=ref<'full'|'light'|'reduced'>(matchMedia('(prefers-reduced-motion: reduce)').matches?'reduced':innerWidth<620?'light':'full')
 const emit=defineEmits<{audioCue:[{matchId:string;sequence:number;kind:string}]}>()
 const presented=computed(()=>state.value.presentation?.events??(attack.value?[attack.value]:[]))
@@ -112,32 +113,21 @@ function placeIdentityCards() {
   if(!board || !matchMedia('(min-width:801px)').matches) return
   const frame=board.getBoundingClientRect()
   const seats=Array.from(board.querySelectorAll<HTMLElement>('.nn-seat-shell'))
-  const rectangles=seats.map(seat=>seat.getBoundingClientRect())
   const stage=board.querySelector('.nn-stage')?.getBoundingClientRect()
-  const used=stage?[...rectangles,stage]:[...rectangles]
-  const intersects=(a:DOMRect,b:DOMRect)=>a.left<b.right && b.left<a.right && a.top<b.bottom && b.top<a.bottom
-  seats.forEach((seat,index)=>{
-    const box=rectangles[index]
-    const card=seat.querySelector<HTMLElement>('.nn-identity-trigger')!
-    const width=card.offsetWidth,height=card.offsetHeight, gap=5
-    const outwardX=box.left+box.width/2<frame.left+frame.width/2 ? -1 : 1
-    const outwardY=box.top+box.height/2<frame.top+frame.height/2 ? -1 : 1
-    const side=(direction:number,shift:number)=>new DOMRect(direction<0?box.left-width-gap:box.right+gap,box.top+(box.height-height)/2+shift,width,height)
-    const end=(direction:number,shift:number)=>new DOMRect(box.left+(box.width-width)/2+shift,direction<0?box.top-height-gap:box.bottom+gap,width,height)
-    const choices=[0,12,-12,24,-24,36,-36,48,-48,60,-60].flatMap(shift=>[
-      side(outwardX,shift),end(outwardY,shift),side(-outwardX,shift),end(-outwardY,shift),
-    ])
-    const chosen=choices.find(candidate=>candidate.left>=frame.left+2 && candidate.right<=frame.right-2 &&
-      candidate.top>=frame.top+2 && candidate.bottom<=frame.bottom-2 && !used.some(box=>intersects(candidate,box)))
-    if(chosen) {
-      card.style.setProperty('--identity-left',chosen.left-box.left+'px')
-      card.style.setProperty('--identity-top',chosen.top-box.top+'px')
-      const origin=chosen.left>=box.right?'left center':chosen.right<=box.left?'right center':
-        chosen.top>=box.bottom?'center top':'center bottom'
-      card.style.setProperty('--identity-origin',origin)
-      used.push(chosen)
-    }
-  })
+  const used:DOMRect[]=stage?[stage]:[]
+  for(const seat of seats) {
+    seat.style.removeProperty('--seat-shift-x')
+    seat.style.removeProperty('--seat-shift-y')
+    const base=seat.getBoundingClientRect()
+    const width=base.width,height=base.height
+    const intersects=(a:DOMRect,b:DOMRect)=>a.left<b.right+3 && b.left<a.right+3 && a.top<b.bottom+3 && b.top<a.bottom+3
+    const x=Math.min(Math.max(base.left,frame.left+3),frame.right-width-3)
+    const candidates=[0,12,-12,24,-24,36,-36,48,-48,64,-64,80,-80].flatMap(dy=>[0,16,-16,32,-32,64,-64].map(dx=>new DOMRect(Math.max(frame.left+3,Math.min(x+dx,frame.right-width-3)),Math.max(frame.top+3,Math.min(base.top+dy,frame.bottom-height-3)),width,height)))
+    const chosen=candidates.find(box=>!used.some(other=>intersects(box,other)))??candidates[0]
+    seat.style.setProperty('--seat-shift-x',chosen.left-base.left+'px')
+    seat.style.setProperty('--seat-shift-y',chosen.top-base.top+'px')
+    used.push(chosen)
+  }
   seatLayout.value++
 }
 onMounted(()=>{
@@ -250,7 +240,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
 </script>
 
 <template>
-  <article class="nn-game nn-p20" :data-presentation="state.presentation?.id" :data-static-presentation="staticPresentation" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
+  <article @click.capture="($event.target as HTMLElement).closest('[data-ninja-settings]') && settingsDialog?.showModal()" class="nn-game nn-p20" :data-presentation="state.presentation?.id" :data-static-presentation="staticPresentation" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
     <header class="nn-header">
       <div><p>第 {{ state.round }} 轮<span v-if="state.night" :data-phase="state.night"> · {{ ({spy:'◈',mystic:'✦',trickster:'◇',blind:'◒',shinobi:'❖'})[state.night] }} {{ phaseNames[state.night] }}</span></p>
       <h2>{{ modes[step] ?? '技能结算' }}</h2><p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p><p v-else-if="match.deadline" class="nn-clock" :class="{'nn-clock-urgent':seconds<=5}">剩余 {{ seconds }} 秒 · {{ state.submitted }} 人已提交</p></div>
@@ -264,7 +254,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         </template>
         <template v-else>身份可能变化</template> · {{ privateState.score }} 荣誉分
       </p>
-      <div class="actions"><Rules :step="step"/><label>演出 <select v-model="effects"><option value="full">完整</option><option value="light">轻量</option><option value="reduced">减少动态</option></select></label></div>
+      <div class="actions"><button data-ninja-settings type="button">设置</button><Rules :step="step"/><dialog ref="settingsDialog" class="nn-board-dialog" aria-label="游戏设置"><header><h2>游戏设置</h2><form method="dialog"><button autofocus>关闭</button></form></header><label>演出 <select v-model="effects"><option value="full">完整</option><option value="light">轻量</option><option value="reduced">减少动态</option></select></label></dialog></div>
       <p v-if="room.spectator">旁观中 · 仅公开信息</p>
     </header>
     <div ref="ring" class="nn-ring" :data-seat-count="state.seats.length" :data-dense="state.seats.length>=9" :style="{'--nn-player-count':state.seats.length,'--nn-mobile-rows':Math.ceil((state.seats.length-1)/2)+1}">
