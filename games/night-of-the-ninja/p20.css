@@ -413,7 +413,6 @@
 }
 .nn-p20 .nn-seat-shell:has(.nn-seat[data-self=true]) {box-shadow:0 0 0 1px #cab080}
 .nn-p20 .nn-seat-shell:has(.nn-seat.nn-dead) {border-color:#b35a56}
-.nn-p20 .nn-seat-shell:has(.nn-seat.nn-focus,.nn-seat.nn-target) {outline:2px solid #e3b56e}
 .nn-p20 .nn-seat-shell .nn-seat {
   position:static;transform:none;width:100%;min-width:0;height:auto;min-height:0;
   border:0;outline:none;background:transparent;box-shadow:none;padding:.12rem;
@@ -422,7 +421,6 @@
 .nn-p20 .nn-seat-shell .nn-seat > .player-avatar {width:clamp(1.25rem,2.4vw,2.25rem)}
 .nn-p20 .nn-seat-shell .nn-seat-info strong {line-height:1.1}
 .nn-p20 .nn-seat-shell .nn-identity-trigger {position:static;transform:none;width:clamp(1.05rem,1.8vw,1.65rem);min-height:32px}
-.nn-p20 .nn-seat-shell:has(.nn-seat[data-can-target=true]) {border-color:#e8c37e}
 @media (min-width:801px) {
   .nn-p20 .nn-ring:has(.nn-table-play) .nn-stage {inset:29% 24%}
   .nn-p20 .nn-ring[data-dense=true] .nn-seat-shell {width:clamp(5.35rem,calc((100cqw - 3rem) / var(--nn-player-count)),7rem)}
@@ -483,8 +481,6 @@
 
 /* Actual avatar DOM and seat feedback: selected > eligible hover > presentation focus. */
 .nn-p20 .nn-seat.nn-dead .player-avatar > img {filter:grayscale(1) brightness(.65)!important}
-.nn-p20 .nn-seat-shell:has(.nn-seat[data-can-target=true]:is(:hover,:focus-visible)):not(:has(.nn-target)) {outline:2px solid #65d9ed;box-shadow:0 0 12px #44c7df66}
-.nn-p20 .nn-seat-shell:has(.nn-seat.nn-target) {outline:2px solid #f1c570;box-shadow:0 0 12px #e9b65366}
 .nn-p20 .nn-seat.nn-target {outline:2px solid #f1c570}
 .nn-p20 .nn-seat[data-can-target=true]:is(:hover,:focus-visible):not(.nn-target) {outline:2px solid #65d9ed}
 .nn-p20[data-effects=full] .nn-event {animation-duration:min(calc(.65s * var(--ux-speed,1)),var(--ux-event-duration,100s))}
