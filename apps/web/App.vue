@@ -76,6 +76,7 @@ function setCode(value: string,replace=false) {
 function detach() {
   if(socket.connected) socket.emit('command',{v:protocolVersion,id:crypto.randomUUID(),type:'detach'},()=>{})
 }
+function openNinjaSettings() {window.dispatchEvent(new Event('ninja:settings'))}
 function goLobby(account=false) {
   routeEpoch++
   detach()
@@ -334,11 +335,11 @@ async function share() {
           </div>
         </template>
       </section>
-      <div v-if="!room.readOnly && (room.spectator || (playing && room.canLeaveActive))" class="actions">
-        <button v-if="room.spectator" @click="leaveWatch">退出旁观</button>
+      <div v-if="!room.readOnly && (room.spectator || (playing && room.canLeaveActive))" class="actions" :class="{'nn-match-toolbar':room.gameId==='night-of-the-ninja'}">
+        <template v-if="room.spectator"><button @click="leaveWatch">退出旁观</button><template v-if="room.gameId==='night-of-the-ninja'"><span class="nn-room-code">房间号：{{ room.code }}</span><button class="nn-toolbar-settings" type="button" @click="openNinjaSettings">设置</button></template></template>
         <template v-else>
           <button v-if="room.gameId!=='night-of-the-ninja'" @click="send('leave',undefined)">离开对局（保留席位）</button>
-          <template v-if="room.gameId==='night-of-the-ninja'"><button @click="returnDialog?.showModal()">返回大厅</button><span>房间号：{{ room.code }}</span>
+          <template v-if="room.gameId==='night-of-the-ninja'"><button @click="returnDialog?.showModal()">返回大厅</button><span class="nn-room-code">房间号：{{ room.code }}</span><button class="nn-toolbar-settings" type="button" @click="openNinjaSettings">设置</button>
           <dialog ref="returnDialog" aria-label="返回游戏大厅？" class="nn-board-dialog"><h2>返回游戏大厅？</h2><p>返回后将保留你在当前房间的席位及对局进度，之后可以从大厅继续进入。</p><div class="actions"><button autofocus @click="returnDialog?.close()">继续游戏</button><button @click="returnDialog?.close();goLobby()">确认返回</button></div></dialog></template>
           <button v-else @click="goLobby()">返回大厅</button>
         </template>
@@ -349,6 +350,9 @@ async function share() {
 </template>
 
 <style scoped>
+.nn-match-toolbar {display:flex;align-items:center;width:100%;min-width:0}
+.nn-match-toolbar .nn-room-code {font-variant-numeric:tabular-nums;white-space:nowrap}
+.nn-match-toolbar .nn-toolbar-settings {margin-inline-start:auto}
 .auth-form {max-width:28rem;margin-inline:auto}
 .auth-form input,.auth-form select {width:100%}
 </style>

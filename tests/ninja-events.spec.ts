@@ -85,6 +85,22 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await Promise.all([a,b,d].map(page=>select(page,'跳过')))
     const boardCard=a.locator('.nn-table-play[data-card="mystic-3"]')
     await expect(boardCard).toHaveAttribute('data-status','resolving')
+    // The actual illustration must fill its outer frame and fit inside the table.
+    await expect.poll(()=>boardCard.evaluate(card=>{
+      const frame=card.getBoundingClientRect()
+      const image=card.querySelector('.nn-card-art img')!.getBoundingClientRect()
+      const ring=document.querySelector('.nn-ring')!.getBoundingClientRect()
+      return image.width>=frame.width-3 && image.height>=frame.height-3 &&
+        image.right>=frame.right-3 && frame.left>=ring.left+2 && frame.right<=ring.right-2 &&
+        frame.top>=ring.top+2 && frame.bottom<=ring.bottom-2
+    })).toBe(true)
+    await expect.poll(()=>boardCard.evaluate(card=>{
+      const play=card.getBoundingClientRect()
+      return !Array.from(document.querySelectorAll('.nn-seat-shell,.nn-stage')).some(element=>{
+        const box=element.getBoundingClientRect()
+        return box.left<play.right && play.left<box.right && box.top<play.bottom && play.top<box.bottom
+      })
+    })).toBe(true)
     await expect.poll(()=>boardCard.evaluate(card=>{
       const play=card.getBoundingClientRect()
       return Array.from(document.querySelectorAll('.nn-identity-trigger')).some(identity=>{

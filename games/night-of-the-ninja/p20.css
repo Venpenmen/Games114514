@@ -479,4 +479,4 @@
  .nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger img {object-fit:cover}
 }
 
-@media(min-width:801px){.nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger:is(:hover,:focus-visible){transform:scale(1.45)} .nn-p20 .nn-ring .nn-stage{inset:28% 25%}}
+@media(min-width:801px){.nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger:is(:hover,:focus-visible){transform:scale(1.45)} .nn-p20 .nn-ring .nn-stage{inset:28% 25%} .nn-p20 .nn-ring:has(.nn-table-play) .nn-stage{inset:34% 28%}}
