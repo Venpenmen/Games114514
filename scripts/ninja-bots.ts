@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto'
 import {io} from 'socket.io-client'
+import {botAuth,botLogout,botResumable} from './bot-auth.ts'
 import {protocolVersion,type Command,type Reply,type Snapshot} from '../packages/protocol/index.ts'
 import {cards} from '../games/night-of-the-ninja/cards.ts'
 import type {privateView,publicView} from '../games/night-of-the-ninja/engine.ts'
@@ -34,16 +35,18 @@ export function choose(options:Choice[],state:PublicView,mode:BotMode,random:()=
 async function spawnBot(setup:Setup,number:number) {
   const {origin,cookieName,room,mode,random=Math.random,report=()=>{},signal}=setup
   const name='练习机器人'+number
-  const session=await fetch(origin+'/api/session',{method:'POST',headers:{origin},redirect:'error',signal:AbortSignal.any([AbortSignal.timeout(5000),...(signal?[signal]:[])])})
-  const cookie=session.headers.get('set-cookie')?.split(';')[0]
-  if(!session.ok || !cookie?.startsWith(cookieName+'=')) throw new Error('未找到专用试玩会话，请检查隔离服务')
-  const profile=await fetch(origin+'/api/profile',{
-    method:'PUT',headers:{origin,cookie,'content-type':'application/json'},redirect:'error',
-    signal:AbortSignal.any([AbortSignal.timeout(5000),...(signal?[signal]:[])]),
-    body:JSON.stringify({name,avatar:0}),
-  })
-  if(!profile.ok) throw new Error('机器人游客资料设置失败')
-  const {id}=await profile.json() as {id:string}
+  let cookie:string,id:string
+  if(cookieName==='games_ninja_preview'){
+    const session=await fetch(origin+'/api/session',{method:'POST',headers:{origin},signal})
+    const legacyCookie=session.headers.get('set-cookie')?.split(';')[0]
+    if(!session.ok || !legacyCookie?.startsWith(cookieName+'='))throw Error('旧版游客会话创建失败')
+    const profile=await fetch(origin+'/api/profile',{method:'PUT',headers:{origin,cookie:legacyCookie,'content-type':'application/json'},body:JSON.stringify({name,avatar:0}),signal})
+    if(!profile.ok)throw Error('旧版机器人资料设置失败')
+    id=(await profile.json() as {id:string}).id
+    cookie=legacyCookie
+  }else{
+    ({cookie,id}=await botAuth(origin,cookieName,number,signal))
+  }
   const socket=io(origin,{transports:['websocket'],extraHeaders:{origin,cookie},autoConnect:false,timeout:4000})
   let snapshot:Snapshot|undefined
   let joined=false
@@ -51,12 +54,37 @@ async function spawnBot(setup:Setup,number:number) {
   let busy=false
   let timer:ReturnType<typeof setTimeout>|undefined
   let attempted=''
+  let readying=false
+  let readyTimer:ReturnType<typeof setTimeout>|undefined
   const send=(type:string,data?:unknown,match?:Snapshot['match'])=>socket.timeout(3500).emitWithAck(
-    'command',{v:protocolVersion,id:randomUUID(),room,type,data,match:match?.id,phase:match?.phase} satisfies Command,
+    'command',{v:protocolVersion,id:randomUUID(),room,type,data,match:match?.id,phase:match?.phase,controlVersion:match?.controlVersion} satisfies Command,
   ) as Promise<Reply>
-  async function checked(type:string,data?:unknown) {
-    const reply=await send(type,data)
+  async function checked(type:string,data?:unknown,match?:Snapshot['match']) {
+    const reply=await send(type,data,match)
     if(!reply.ok) throw new Error(reply.error)
+  }
+  // A completed match resets ready=false for everyone. Re-ready for the next match,
+  // but never start the next match on behalf of the human host.
+  function scheduleReady() {
+    clearTimeout(readyTimer)
+    const me=snapshot?.members.find(member=>member.id===id)
+    if(!joined || closing || readying || !socket.connected ||
+      !snapshot?.match?.finished || !me || me.ready) return
+    readyTimer=setTimeout(async()=>{
+      if(closing || !socket.connected || !snapshot?.match?.finished ||
+        snapshot.members.find(member=>member.id===id)?.ready) return
+      readying=true
+      try {
+        await checked('lobby',{portrait:number})
+        await checked('ready',true)
+      }
+      catch(error) { if(!closing) report(name+' 自动准备失败：'+String(error)) }
+      finally {
+        readying=false
+        if(snapshot?.match?.finished && !snapshot.members.find(member=>member.id===id)?.ready)
+          scheduleReady()
+      }
+    },1200)
   }
   function schedule() {
     clearTimeout(timer)
@@ -91,12 +119,15 @@ async function spawnBot(setup:Setup,number:number) {
     snapshot=next
     if(finished && number===1) report('比赛已产生冠军。可以在网页查看结果，或停止机器人。')
     schedule()
+    scheduleReady()
   })
+  socket.on('control-lost',(value:{code:string})=>{if(value.code===room){joined=false;clearTimeout(timer);clearTimeout(readyTimer);socket.disconnect();report(name+' 操作权已转移')}})
   socket.on('left',(code:string)=>{
     if(code===room) {
       joined=false
       snapshot=undefined
       clearTimeout(timer)
+      clearTimeout(readyTimer)
       socket.disconnect()
     }
   })
@@ -106,6 +137,7 @@ async function spawnBot(setup:Setup,number:number) {
     void checked('sync').catch(()=>report(name+' 未能恢复席位。'))
   })
   socket.on('disconnect',()=>{
+    clearTimeout(readyTimer)
     clearTimeout(timer)
     snapshot=undefined
   })
@@ -115,11 +147,14 @@ async function spawnBot(setup:Setup,number:number) {
       socket.once('connect_error',reject)
       socket.connect()
     })
-    await checked('join',{gameId,waitingMembers:number})
+    const existing=cookieName==='games_ninja_preview'?undefined:await botResumable(origin,cookie,room,gameId)
+    if(existing)await checked('takeover',{resume:true},{id:existing} as Snapshot['match'])
+    else await checked('join',{gameId,waitingMembers:number})
     joined=true
     if(!snapshot) throw new Error('目标房间未返回有效的忍者之夜快照')
     const capacity=(snapshot.config as {playerCount:number}).playerCount
     if(!Number.isInteger(capacity)||capacity<4||capacity>11) throw new Error('房间人数配置无效')
+    if(!snapshot.match?.finished && snapshot.match){schedule();return {capacity,stop}}
     await checked('lobby',{portrait:number})
     await checked('ready',true)
     schedule()
@@ -132,12 +167,14 @@ async function spawnBot(setup:Setup,number:number) {
   async function stop() {
     closing=true
     clearTimeout(timer)
+    clearTimeout(readyTimer)
     try {
-      if(joined && snapshot && !snapshot.match && socket.connected) await send('leave')
+      if(joined && snapshot && (!snapshot.match || snapshot.match.finished) && socket.connected) await send('leave')
     } catch {
       // Disconnect still releases the connection if the preview is already unavailable.
     } finally {
       socket.disconnect()
+      if(cookieName!=='games_ninja_preview')await botLogout(origin,cookie)
     }
   }
 }

@@ -47,6 +47,8 @@ if (process.argv[2] === 'worker') {
     })
     void import('../apps/server/index.ts')
   })
+} else if (process.argv[2] === 'status') {
+  process.exitCode = await request('ping') === 'running' ? 0 : 1
 } else if (process.argv[2] === 'start') {
   if (await request('ping')) throw new Error('项目服务已运行。')
   mkdirSync(logs,{recursive:true})

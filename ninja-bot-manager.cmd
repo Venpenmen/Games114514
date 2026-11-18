@@ -2,10 +2,10 @@
 setlocal
 cd /d "%~dp0"
 chcp 65001 >NUL
-title Ninja Night - Bot Manager
+title Games114514 - Bot Manager
 echo.
 echo ================================
-echo    Ninja Night Bot Manager
+echo    Games114514 Bot Manager
 echo ================================
 echo.
 :again

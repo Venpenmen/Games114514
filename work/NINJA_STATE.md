@@ -19,3 +19,8 @@ BOT_MANAGER_2026-11-16: 原 3213、3216 机器人组均已通过原 CLI 停止�
 P20.1 DONE · 基线 5341775，圆桌和底部手牌就绪。93/93、浏览器五项分批通过、3216 独立构建就绪。复验见 TEST_REPORT.md。
 P20.2 DONE · 基线 4f29de7，93/93、独立浏览器 3/3、实际 3216 完整赛 1/1，保留候选数据库。
 P20.3 DONE · 按轮情报、名片席位与 8 秒私人提示。93/93、独立浏览器 3/3、3216 实测 1/1。
+
+CLASSIC_BOTS_2026-11-16: 已增加 scripts/classic-bots.ts，复用真实 Socket.IO 游客连接，为诡吹灯/骰子狼人杀提供1~2名随机/普通/困难机器人。原 ninja-bot-manager.cmd 统一支持三款游戏与3216/3213端口，增加管理器父进程存活检查和关闭时取消加入/停止机器人。node --test tests/classic-bots.test.ts 实测1真人自动化客户端+2机器人分别打完诡吹灯(9次真人操作)与骰子狼人杀(45次真人操作)，成功；npm.cmd run check=0；npm.cmd test=93/93；独立 CMD 子进程在关闭CMD后4秒内退出。3227独立数据库测试，不修改3216服务或正式数据。NEXT_ACTION: 通过 ninja-bot-manager.cmd 选择游戏/端口/房间进行真人手动验收，特别检查关闭CMD后已开局机器人离线状态。
+P20.4 DONE · 3216 权威演出与终局复盘，94/94、独立浏览器 5/5、3216 1/1。旧存档可恢复，历史缺项标注。
+
+BOT_AUTO_READY_2026-11-16: scripts/ninja-bots.ts 与 scripts/classic-bots.ts 在比赛正式 finished 后检测本人未准备，自动重新选择必要肖像（忍者之夜/骰子狼人杀）并发送 ready=true，禁止自动 start，添加去重、失败重试、断线/停止取消计时。tests/bots-restart.test.ts 用真实 Socket.IO/隔离3228服务器验证三款游戏：完成→机器人自动准备→同房间由真人房主开始下一局，全部通过（1/1测试覆盖3游戏）。诡吹灯另通过真实完整比赛后跨局重开；骰子狼人杀真实全局测试一次在90s截止前未产生冠军（不是机器人准备失败），历史完整对局曾通过。npm.cmd run check EXIT=0；npm.cmd test 96/96；3216 HTTP 200。未重启/改动现有3216服务。NEXT_ACTION: 关闭旧机器人管理器并重新启动最新脚本，建议新建房间人工验证三游戏连续两局；已有其他人正在编辑的 MatchReplay/View/timeline 与 tests/ninja-events/online 未改动。

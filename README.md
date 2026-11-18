@@ -73,11 +73,13 @@ npm.cmd run build
 
 ```powershell
 npm.cmd run build -- --outDir work/logs/ninja-p20/dist
-.\ninja-p20.cmd
+.\ninja-p20.cmd start
 .\ninja-p20.cmd status
 ```
 
 打开 [P20 候选版](http://127.0.0.1:3216)。独立构建、会话和数据库都在 P20 运行范围内，数据库位于 `work/logs/ninja-p20/preview.db`。单人试玩时，先在 3216 创建房间，再双击 `ninja-bot-manager.cmd`，选择 3216、填写房间码、机器人数量及难度；在同一窗口菜单内停止或切换房间。
+
+双击 `ninja-p20.cmd` 打开常驻菜单，支持自动刷新状态、启动和停止。关闭菜单不会停止后台服务。
 
 回退时运行 `.\ninja-p20.cmd stop`，继续使用 [原隔离试玩](http://127.0.0.1:3213)。两个端口有各自的房间、会话和数据。候选数据库留在原路径，重启候选版可继续使用。
 
