@@ -207,6 +207,8 @@ export function createPlatform(options: {
   }
   function broadcast(room: Room, finishedNow=false) {
     for (const member of room.members) {
+      if(finishedNow && !room.departed?.includes(member.id))
+        for(const socket of devices(member.id)) if(!attending(socket,room)) socket.emit('left',room.code)
       if(room.departed?.includes(member.id)) {
         if(finishedNow) io.to(member.id).emit('left',room.code)
         for(const socket of devices(member.id)) if(attending(socket,room)) socket.emit('room',snapshot(room,member.id,false,true))
@@ -393,7 +395,7 @@ export function createPlatform(options: {
       if (!game) throw new Error('游戏不可用')
       let code: string
       do { code = String(randomInt(1_000_000)).padStart(6,'0') } while (load(code))
-      room = {code,gameId:game.id,version:game.version,config:game.defaults,host:id,members:[{...profile,ready:false}],
+      room = {code,gameId:game.id,version:game.version,config:game.config(game.defaults),host:id,members:[{...profile,ready:false}],
         updated:time,chat:[]}
     } else {
       if (typeof cmd.room !== 'string' || !/^\d{6}$/.test(cmd.room)) throw new Error('请输入六位房间码')

@@ -140,3 +140,12 @@ Windows、Node.js 24、Edge。npm.cmd run check、npm.cmd test（37/37）、npm.
 
 - 类型检查、`npm.cmd test` 122/122 和生产构建通过。Edge 六项分批通过，包含 4 人完整联机、6／8／9／11 人桌面、公开牌与身份牌避让、悬停与详情。9／11 人在最终构建复验，九人截图为 `work/logs/p20-8-1-1-nine-seats.png`。同席多张牌同时展开未单独实战。
 - 切换前无活跃比赛。SQLite 一致性备份与旧构建位于 `work/logs/p20-8-1-1-rollback`。3216 保留原库，HTTP 200，实际 Edge 验证新版、账户及 Socket.IO 建房和解散。
+## P20.8-UX · 2026-11-18
+
+- `node --test apps/server/presentation.test.ts`：15/15，退出码 0。四档时长、独立操作时限、结算后续局、秘密投影、JSON 恢复及真实 Socket.IO 全员暂离／服务重启／剩余演出恢复／大厅完成通知。
+- `npm.cmd run check`、`npm.cmd test`、`npm.cmd run build -- --outDir work/logs/ux-candidate/dist`：退出码均 0；全量 138/138。日志 `work/logs/ux-check.txt`、`ux-full-tests.txt`、`ux-build.txt`。
+- Edge 分批累计 11 个不同用例通过：UX 三游戏入口／速度锁定／图文指南／偏好／返回恢复（忍者增加只读标签页）；忍者四人完整赛及 6/8/11 人布局；诡吹灯双方胜负各一；骰子完整赛加赛冠军及无人获胜。日志 `ux-browser.txt`、`ux-layout.txt`、`ux-final-browser.txt`、`ux-acceptance.txt`、`ux-ghost-final.txt`、`ux-readonly.txt`。含失败历史的批次保留原输出；最后两项诡吹灯复验 2/2、只读补验 1/1，退出码 0。不是一次整套浏览器运行的统计。
+- 发现并修复：创建房间后测试过早读取 URL；演出恢复缺少 phase 递增；公共栏新增高度挤出经典操作按钮；返回大厅 detach 后比赛结束未通知刷新。随完整演出延长，旧浏览器等待上限同步调整，未缩短演出。骰子额外实测「处决演出 → 单局结算 → 第 2 局」，期间无下一步输入、积分提前展示。
+- 指南截图来自隔离真实界面：`apps/web/components/guides/ghost-board.png`、`dice-table.png`；忍者复用实际 CardFace。关键截图 `work/logs/ux-{ghost,dice,ninja}-guide.png`、`ux-3216.png`，另保留原布局与冠军截图。
+- 3216 部署前管理列表为空；SQLite 在线 backup（含 WAL 一致性）与旧静态构建保存在 `work/logs/ux-backup-2026-11-18T06-30-32-048Z`。只通过 ninja-p20.cmd 停启。部署后 HTTP 200、三游戏目录、未登录会话、Socket.IO transport 200 与 Edge 登录页通过；19 账户、19 资料、9 战绩、0 房间保持，integrity_check=ok。未向 3216 写入测试账户。认证的真实交互使用隔离数据库完成。
+- 回退：停止 3216，使用 e5a03da 独立代码工作树和上述旧构建；数据库需先保护部署后新数据，再人工决定是否使用部署前一致性副本，禁止直接覆盖。3199、3213、FRP、EMS 未操作。实体手机、公网链路未测；P20.8.2 未实施。

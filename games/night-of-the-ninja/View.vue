@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlayerAvatar from "../../apps/web/components/PlayerAvatar.vue"
+import {effects} from '../../apps/web/components/effects.ts'
 import {computed,onMounted,onUnmounted,ref,watch} from 'vue'
 import type {Snapshot} from '../../packages/protocol/index.ts'
 import RoomChat from '../../apps/web/components/RoomChat.vue'
@@ -93,26 +94,6 @@ const roundResult=computed(()=>(['reveal','awards','ready','champion'].includes(
   ? state.value.events.findLast(event=>event.round===state.value.round && event.kind==='reveal'):undefined)
 const awardResult=computed(()=>roundResult.value
   ? state.value.events.findLast(event=>event.round===state.value.round && event.seq>roundResult.value!.seq && event.kind==='honor'):undefined)
-const settingsDialog=ref<HTMLDialogElement>()
-type Effects='full'|'light'|'reduced'
-const preferencesKey='games.ninja.preferences.v1'
-function initialEffects():Effects {
-  const fallback:Effects=matchMedia('(prefers-reduced-motion: reduce)').matches?'reduced':innerWidth<620?'light':'full'
-  try {
-    const saved=JSON.parse(localStorage.getItem(preferencesKey)??'null')
-    return ['full','light','reduced'].includes(saved?.effects)?saved.effects:fallback
-  } catch {return fallback}
-}
-const effects=ref<Effects>(initialEffects())
-watch(effects,value=>{
-  try {
-    const stored=JSON.parse(localStorage.getItem(preferencesKey)??'{}')
-    localStorage.setItem(preferencesKey,JSON.stringify({...((stored&&typeof stored==='object'&&!Array.isArray(stored))?stored:{}),effects:value}))
-  } catch {}
-})
-function openSettings(){settingsDialog.value?.showModal()}
-onMounted(()=>window.addEventListener('ninja:settings',openSettings))
-onUnmounted(()=>window.removeEventListener('ninja:settings',openSettings))
 const emit=defineEmits<{audioCue:[{matchId:string;sequence:number;kind:string}]}>()
 const presented=computed(()=>state.value.presentation?.events??(attack.value?[attack.value]:[]))
 const recoveredPresentation=ref<number>()
@@ -165,8 +146,8 @@ const passing=ref(false)
 let passTimer:number|undefined
 watch([()=>match.value.id,()=>state.value.mode,()=>match.value.phase,()=>props.connectionEpoch],([id,mode,phase,epoch],[oldId,oldMode,oldPhase,oldEpoch])=>{
   clearTimeout(passTimer)
-  passing.value=id===oldId && epoch===oldEpoch && oldMode==='draft1' && mode==='draft2' && phase===oldPhase+1
-  if(passing.value) passTimer=window.setTimeout(()=>{passing.value=false},740)
+  passing.value=id===oldId && epoch===oldEpoch && oldMode==='draft1' && (mode==='draft2'||!!state.value.presentation?.events.some(event=>event.kind==='draft-pass')) && phase===oldPhase+1
+  if(passing.value) passTimer=window.setTimeout(()=>{passing.value=false},state.value.presentation?.duration??740)
 })
 const paths=computed(()=>{
   const event=shown.value
@@ -258,7 +239,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
 </script>
 
 <template>
-  <article class="nn-game nn-p20" :data-presentation="state.presentation?.id" :data-static-presentation="staticPresentation" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
+  <article class="nn-game nn-p20" :data-presentation="state.presentation?.id" :data-static-presentation="staticPresentation" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--ux-speed':state.presentationSpeed,'--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
     <header class="nn-header">
       <div><p>第 {{ state.round }} 轮<span v-if="state.night" :data-phase="state.night"> · {{ ({spy:'◈',mystic:'✦',trickster:'◇',blind:'◒',shinobi:'❖'})[state.night] }} {{ phaseNames[state.night] }}</span></p>
       <h2>{{ modes[step] ?? '技能结算' }}</h2><p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p><p v-else-if="match.deadline" class="nn-clock" :class="{'nn-clock-urgent':seconds<=5}">剩余 {{ seconds }} 秒 · {{ state.submitted }} 人已提交</p></div>
@@ -272,7 +253,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         </template>
         <template v-else>身份可能变化</template> · {{ privateState.score }} 荣誉分
       </p>
-      <div class="actions"><Rules :step="step"/><dialog ref="settingsDialog" class="nn-board-dialog" aria-label="游戏设置"><header><h2>游戏设置</h2><form method="dialog"><button autofocus>关闭</button></form></header><label>演出 <select v-model="effects"><option value="full">完整</option><option value="light">轻量</option><option value="reduced">减少动态</option></select></label></dialog></div>
+      <div class="actions"><Rules :step="step"/></div>
       <p v-if="room.spectator">旁观中 · 仅公开信息</p>
     </header>
     <div ref="ring" class="nn-ring" :data-seat-count="state.seats.length" :data-dense="state.seats.length>=9" :style="{'--nn-player-count':state.seats.length,'--nn-mobile-rows':Math.ceil((state.seats.length-1)/2)+1}">

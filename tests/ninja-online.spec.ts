@@ -3,7 +3,7 @@ import {expect,test,type Page} from '@playwright/test'
 const evidence=process.env.NINJA_TEST_ASSETS?'ninja-p20':'ninja'
 
 test('four isolated browsers complete a real ninja tournament and inspect private and public UI',async({browser})=>{
-  test.setTimeout(120000)
+  test.setTimeout(240000)
   const baseURL=process.env.NINJA_PLAY_URL??'http://127.0.0.1:3214'
   const contexts=await Promise.all(Array.from({length:5},(_,i)=>browser.newContext({
     baseURL, viewport:i===1?{width:320,height:720}:process.env.NINJA_PLAY_URL?{width:1280,height:720}:{width:1366,height:850},
@@ -102,8 +102,8 @@ test('four isolated browsers complete a real ninja tournament and inspect privat
         }))
         for (const page of players) await expect(page.locator('.nn-game')).not.toHaveAttribute('data-phase-token',before!)
       }
-      await expect(a.locator('.nn-round-result')).toContainText('鹤派')
-      await expect(banner(a)).toHaveText(/下一轮准备|冠军/,{timeout:18_000})
+      await expect(a.locator('.nn-round-result')).toContainText('鹤派',{timeout:45_000})
+      await expect(banner(a)).toHaveText(/下一轮准备|冠军/,{timeout:45_000})
       if(await banner(a).textContent()==='冠军') break
       await Promise.all(players.map(async page=>{
         await page.locator('.nn-options button[aria-pressed]').first().click()

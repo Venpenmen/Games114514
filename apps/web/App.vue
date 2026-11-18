@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import GameToolbar from './components/GameToolbar.vue'
 import AccountCenter from './components/AccountCenter.vue'
 import PlayerAvatar from './components/PlayerAvatar.vue'
 import { io } from 'socket.io-client'
@@ -26,6 +27,7 @@ async function resumeMatch(item:Resumable) {
   } finally {resuming.value=false}
 }
 const catalog = ref<Game[]>([])
+const speedNames:Record<string,string>={'0.8':'快速','1':'标准','1.35':'舒缓','1.7':'慢速'}
 const profile = ref<Profile>()
 const room = ref<Snapshot>()
 const code = ref(new URLSearchParams(location.search).get('room') ?? '')
@@ -43,7 +45,6 @@ const legacy=ref<Profile|null>(null)
 const avatar = ref(0)
 const error = ref('')
 const copied = ref(false)
-const returnDialog=ref<HTMLDialogElement>()
 const tabId=sessionStorage.getItem('games.tab')??crypto.randomUUID()
 sessionStorage.setItem('games.tab',tabId)
 const socket = io({autoConnect:false,auth:{tab:tabId}})
@@ -76,7 +77,6 @@ function setCode(value: string,replace=false) {
 function detach() {
   if(socket.connected) socket.emit('command',{v:protocolVersion,id:crypto.randomUUID(),type:'detach'},()=>{})
 }
-function openNinjaSettings() {window.dispatchEvent(new Event('ninja:settings'))}
 function goLobby(account=false) {
   routeEpoch++
   detach()
@@ -305,7 +305,7 @@ async function share() {
         <p role="status">本标签页正在只读查看</p>
         <ul><li v-for="member in room.members" :key="member.id">{{ member.name }} · {{ member.online?'在线':'离线' }}{{ !playing && member.ready?' · 已准备':'' }}</li></ul>
         <p v-if="room.match">{{ room.match.finished?'比赛已结束':'比赛进行中' }}</p>
-        <div class="actions"><button @click="send('takeover',undefined)">接管操作</button><button @click="goLobby()">返回大厅</button></div>
+        <div class="actions"><button @click="send('takeover',undefined)">接管操作</button><button v-if="!room.match" @click="goLobby()">返回大厅</button></div>
       </section>
       <section v-else-if="!playing && !room.spectator" class="panel room-panel" :class="{'room-panel-finished':room.match}">
         <div v-if="!room.match" class="actions room-heading">
@@ -324,8 +324,8 @@ async function share() {
         <template v-if="!playing">
           <component v-if="lobby && me" :is="lobby" :room="room" :player="me.id" :send="send"/>
           <div v-if="host" class="actions"><label v-for="field in game?.settings" :key="field.key">{{ field.label }}
-            <select :value="(room.config as Record<string,number>)[field.key]" @change="setting(field.key,$event)">
-              <option v-for="value in field.options" :key="value" :value="value">{{ value }}</option>
+            <select :value="(room.config as Record<string,number>)[field.key]??(field.key==='presentationSpeed'?1:undefined)" @change="setting(field.key,$event)">
+              <option v-for="value in field.options" :key="value" :value="value">{{ field.key==='presentationSpeed'?(speedNames[String(value)]+' · '+value+'×'):value }}</option>
             </select>
           </label></div>
           <div class="actions">
@@ -335,24 +335,13 @@ async function share() {
           </div>
         </template>
       </section>
-      <div v-if="!room.readOnly && (room.spectator || (playing && room.canLeaveActive))" class="actions" :class="{'nn-match-toolbar':room.gameId==='night-of-the-ninja'}">
-        <template v-if="room.spectator"><button @click="leaveWatch">退出旁观</button><template v-if="room.gameId==='night-of-the-ninja'"><span class="nn-room-code">房间号：{{ room.code }}</span><button class="nn-toolbar-settings" type="button" @click="openNinjaSettings">设置</button></template></template>
-        <template v-else>
-          <button v-if="room.gameId!=='night-of-the-ninja'" @click="send('leave',undefined)">离开对局（保留席位）</button>
-          <template v-if="room.gameId==='night-of-the-ninja'"><button @click="returnDialog?.showModal()">返回大厅</button><span class="nn-room-code">房间号：{{ room.code }}</span><button class="nn-toolbar-settings" type="button" @click="openNinjaSettings">设置</button>
-          <dialog ref="returnDialog" aria-label="返回游戏大厅？" class="nn-board-dialog"><h2>返回游戏大厅？</h2><p>返回后将保留你在当前房间的席位及对局进度，之后可以从大厅继续进入。</p><div class="actions"><button autofocus @click="returnDialog?.close()">继续游戏</button><button @click="returnDialog?.close();goLobby()">确认返回</button></div></dialog></template>
-          <button v-else @click="goLobby()">返回大厅</button>
-        </template>
-      </div>
+      <GameToolbar v-if="room.match" :code="room.code" :game-id="room.gameId" :speed="(room.config as {presentationSpeed?:number}).presentationSpeed" @lobby="goLobby()"/>
       <component v-if="view && room.match && (!room.readOnly || room.gameId==='night-of-the-ninja') && (me || room.spectator)" :is="view" :key="room.match.id" :room="room.readOnly?{...room,spectator:true}:room" :player="profile?.id ?? ''" :connection-epoch="connectionEpoch" :send="send"/>
     </template>
   </main>
 </template>
 
 <style scoped>
-.nn-match-toolbar {display:flex;align-items:center;width:100%;min-width:0}
-.nn-match-toolbar .nn-room-code {font-variant-numeric:tabular-nums;white-space:nowrap}
-.nn-match-toolbar .nn-toolbar-settings {margin-inline-start:auto}
 .auth-form {max-width:28rem;margin-inline:auto}
 .auth-form input,.auth-form select {width:100%}
 </style>

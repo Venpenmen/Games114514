@@ -24,3 +24,7 @@ CLASSIC_BOTS_2026-11-16: 已增加 scripts/classic-bots.ts，复用真实 Socket
 P20.4 DONE · 3216 权威演出与终局复盘，94/94、独立浏览器 5/5、3216 1/1。旧存档可恢复，历史缺项标注。
 
 BOT_AUTO_READY_2026-11-16: scripts/ninja-bots.ts 与 scripts/classic-bots.ts 在比赛正式 finished 后检测本人未准备，自动重新选择必要肖像（忍者之夜/骰子狼人杀）并发送 ready=true，禁止自动 start，添加去重、失败重试、断线/停止取消计时。tests/bots-restart.test.ts 用真实 Socket.IO/隔离3228服务器验证三款游戏：完成→机器人自动准备→同房间由真人房主开始下一局，全部通过（1/1测试覆盖3游戏）。诡吹灯另通过真实完整比赛后跨局重开；骰子狼人杀真实全局测试一次在90s截止前未产生冠军（不是机器人准备失败），历史完整对局曾通过。npm.cmd run check EXIT=0；npm.cmd test 96/96；3216 HTTP 200。未重启/改动现有3216服务。NEXT_ACTION: 关闭旧机器人管理器并重新启动最新脚本，建议新建房间人工验证三游戏连续两局；已有其他人正在编辑的 MatchReplay/View/timeline 与 tests/ninja-events/online 未改动。
+
+UX-P0: DONE · 基线 e5a03da；保留未跟踪模拟结果。公共导航、指南与房间演出倍率；3216 尚未更动。NEXT_ACTION: 定向实现并在隔离实例验证。
+UX-P1-P5: 实现完成；定向 15/15、全量 138/138（退出码 0）；四档倍率、操作时限、真实 Socket.IO 暂离／重启／恢复／大厅结束通知通过。4 人完整比赛、6/8/11 人布局、三款导航／图文指南及骰子动画→结算→续局已实测；旧测试的固定等待已适配权威演出时长。NEXT_ACTION: 完成经典游戏最终复验、只读标签页补验后，确认空闲并备份更新 3216。
+UX-P6 DONE · 2026-11-18：15/15 定向、138/138 全量、类型检查与生产构建退出码 0；11 个不同 Edge 用例分批通过（含三款完整比赛、只读标签页、320/390px、6/8/11 人布局）。3216 空房间后在线 SQLite 一致性备份＋旧构建保留，再更新；HTTP/目录/会话/Socket.IO 握手/登录页验证通过，19 账户、19 资料、9 战绩、0 房间保持，integrity_check=ok。备份与健康证据：work/logs/ux-deployment.json、ux-deploy-check.json。NEXT_ACTION: 人工体验 3216 的舒缓速度及指南；P20.8.2 延后，不动 3199/3213/FRP。

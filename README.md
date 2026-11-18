@@ -100,3 +100,10 @@ npm.cmd run build -- --outDir work/logs/ninja-p20/dist
 ### P20.8 单席位、标签页与手机试玩
 
 同一个账户只占一个正式席位。其他标签页可只读查看，必要时接管操作。浏览器返回大厅保留席位。手机验收和 3216 回退见 [P20.8 验收与回退](docs/P20.8.md)。
+# P20.8-UX 操作入口
+
+三款游戏对局顶部共用「返回大厅 / 房间号 / ? / 设置」。返回先确认，保留席位；`?` 是界面操作教学，独立于玩法规则。指南复用实际卡牌、骰子组件和隔离浏览器采集的蜡烛／骰桌截图，图片位于 `apps/web/components/guides/`。
+
+房主开局前选择演出时长倍率：快速 0.8、标准 1、舒缓 1.35（新房间默认）、慢速 1.7。开局后锁定，操作时限保持原值。个人完整／轻量／减少动态偏好不改变服务端时序。旧对局缺少倍率时保留原计时，已有忍者演出步骤不重新缩放。
+
+候选构建命令：`npm.cmd run build -- --outDir work/logs/ux-candidate/dist`。定向验收：`node --test apps/server/presentation.test.ts`；浏览器：设置 `NINJA_TEST_ASSETS=work/logs/ux-candidate/dist` 后运行 `node_modules/.bin/playwright.cmd test tests/ux.spec.ts --workers=1`。所有自动化使用独立端口与数据库。

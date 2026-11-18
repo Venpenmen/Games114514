@@ -1,10 +1,11 @@
 import { record, type Context, type GamePlugin, type Turn } from '../../packages/game-sdk/index.ts'
 import { cards, deck, phases, type Phase, type Skill } from './cards.ts'
+import {presentationSetting,presentationSpeed} from '../../packages/game-sdk/presentation.ts'
 
 type House = 'crane'|'lotus'|'ronin'
 export type Identity = {house:House; rank:number}
 type Honor = {id:number; value:number}
-type Config = {playerCount:number; draft:number; play:number; target:number; reaction:number; forceShiftReveal?:number}
+type Config = {playerCount:number; draft:number; play:number; target:number; reaction:number; forceShiftReveal?:number;presentationSpeed?:number}
 type Mode = 'draft1'|'draft2'|'commit'|'play'|'target'|'second'|'choice'|'recover'|'shift-disclosure'|'reaction'|'reveal'|'awards'|'ready'|'champion'|'presentation'
 type Play = {player:string; card:string; executionId?:number}
 type TableCard = Play & {targets?:string[]; source:'hand'|'discard'|'reaction'|'master'; status:'queued'|'resolving'|'resolved'|'skipped'}
@@ -46,6 +47,7 @@ export type NinjaState = Turn & {
   awardees:string[]; champions:string[]; finalScores?:Record<string,number>;
 }
 const settings = [
+  presentationSetting,
   {key:'playerCount',label:'正式玩家数',options:[4,5,6,7,8,9,10,11]},
   {key:'draft',label:'轮抽秒数',options:[30,45,60,90]},
   {key:'play',label:'出牌秒数',options:[20,30,45,60]},
@@ -56,7 +58,7 @@ const settings = [
 export const defaults: Config = {playerCount:4,draft:45,play:30,target:30,reaction:15,forceShiftReveal:0}
 const opt = (value:string,label:string,target?:string,card?:string):Option => ({value,label,target,card})
 const pass = opt('pass','跳过')
-const durations:Record<string,number>={play:1500,identity:4000,swap:4000,'shift-result':4000,death:4000,mirror:3500,martyr:3500,master:1300,houses:2800,reveal:2600,honor:5000,champion:6000}
+const durations:Record<string,number>={'draft-pass':900,play:1500,identity:4000,swap:4000,'shift-result':4000,death:4000,mirror:3500,martyr:3500,master:1300,houses:2800,reveal:2600,honor:5000,champion:6000}
 const seat = (s:NinjaState,id:string) => s.seats.find(value=>value.id===id)!
 const skill = (s:NinjaState) => cards[s.current!.card].skill
 const sum = (p:Seat) => p.honor.reduce((n,h)=>n+h.value,0)
@@ -127,12 +129,13 @@ function hold(s:NinjaState,ctx:Context,next:Presentation['next']) {
   const events=s.events.filter(item=>item.seq>after&&item.at===ctx.now&&durations[item.kind])
   s.presentedThrough=s.seq
   if(!events.length) return false
-  const duration=Math.max(...events.map(item=>durations[item.kind]))
+  const multiplier=s.config.presentationSpeed??1
+  const duration=Math.round(Math.max(...events.map(item=>durations[item.kind]))*multiplier)
   const context=s.events.filter(item=>item.seq>after&&item.at===ctx.now&&(durations[item.kind]||item.kind==='attack'||item.kind==='pool'))
   const frames=observations.get(s)
   if(frames) {
     const steps:PresentationStep[]=context.map(item=>({
-      events:[item.seq],duration:durations[item.kind]??1100,visible:frames.get(item.seq)!,
+      events:[item.seq],duration:Math.round((durations[item.kind]??1100)*multiplier),visible:frames.get(item.seq)!,
     }))
     s.presentation={events:context.map(item=>item.seq),duration:steps[0].duration,next,steps,cursor:0}
   } else s.presentation={events:context.map(item=>item.seq),duration,next}
@@ -555,6 +558,7 @@ function settleStep(s:NinjaState,ctx:Context) {
       recordReplay(s,{step:'draft1',draft:s.seats.map((p,i)=>({
         id:p.id,kept:kept[i],passed:[...passed[i]],received:[...passed[(i+s.seats.length-1)%s.seats.length]],
       }))})
+      if(s.config.presentationSpeed!==undefined) event(s,ctx,'draft-pass','轮抽传牌。',s.seats.map(p=>p.id))
       s.seats.forEach((p,i)=>{p.hand=[kept[i],...passed[(i+s.seats.length-1)%s.seats.length]]})
       enter(s,ctx,'draft2',s.config.draft)
       return
@@ -628,6 +632,7 @@ export function publicView(s:NinjaState) {
   const step=visibleStep(s)
   const through=step?.events.at(-1)
   return {
+    presentationSpeed:s.config.presentationSpeed??1,
     round:s.round, mode:['target','second','choice','recover','shift-disclosure'].includes(s.mode)?'resolve':s.mode,
     night:['commit','play','target','second','choice','recover','shift-disclosure','reaction'].includes(s.mode)?phases[s.night]:null, submitted:Object.keys(s.submissions).length,
     seats:(step?.visible.seats??s.seats).map(target=>({
@@ -672,10 +677,10 @@ export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
   roomPolicy:{capacity:config=>config.playerCount, spectators:true, resumeFromLobby:true, allowActiveLeave:true, hostTransferMs:120_000},
   config(input) {
     const config=record(input)
-    const result={...defaults}
+    const result={...defaults,presentationSpeed:presentationSpeed(config)}
     for(const setting of settings) {
       const key=setting.key as keyof Config
-      const value=config[key] ?? defaults[key]
+      const value=config[key] ?? result[key]
       if(typeof value!=='number'||!setting.options.includes(value)) throw new Error('房间参数无效')
       result[key]=value
     }

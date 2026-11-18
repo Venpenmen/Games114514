@@ -104,3 +104,8 @@ button.primary:hover { background: #e8f8c7; }
   main:not(.game-page) .join-form input {width:100%;font-size:16px}
   main:not(.game-page) .join-form label {min-width:0;flex:1 1 100%}
 }
+/* Shared preferences only change visual detail, never authoritative clocks. */
+[data-effects=reduced] *,[data-effects=light] .flame {animation:none!important;transition:none!important}
+.ghost .ghost-resolving,.ghost .ghost-impact {animation-duration:calc(1.5s * var(--ux-speed,1))}
+.dw-saloon .dw-point.dw-settling,.dw-saloon .dw-delta-burst {animation-duration:calc(1.35s * var(--ux-speed,1))}
+.dw-saloon .dw-point.dw-execution-focus {animation-duration:calc(1.65s * var(--ux-speed,1))}

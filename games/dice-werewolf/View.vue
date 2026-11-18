@@ -10,6 +10,7 @@ import Die from './Die.vue'
 import Rules from './Rules.vue'
 import { portraits } from './portraits.ts'
 import './theme.css'
+import {effects} from '../../apps/web/components/effects.ts'
 
 const props=defineProps<{room:Snapshot;player:string;send:(type:string,data:unknown)=>Promise<boolean>}>()
 const match=computed(()=>props.room.match!)
@@ -17,11 +18,11 @@ const state=computed(()=>match.value.public as DicePublic)
 const identity=computed(()=>(match.value.private as {identity:number}).identity)
 const now=ref(Date.now())
 const stageSeconds={ACTION:30,VOTE:30,REVOTE:30,BALLOT:3,SUMMARY:8,CHAMPION:0}
-const clock=computed(()=>Math.min(stageSeconds[state.value.stage],Math.max(0,Math.ceil(((match.value.deadline ?? now.value)-now.value)/1000))))
+const clock=computed(()=>Math.max(0,Math.ceil(((match.value.deadline ?? now.value)-now.value)/1000)))
 let timer:number
 onMounted(()=>{timer=window.setInterval(()=>{now.value=Date.now()},200)})
 onUnmounted(()=>{clearInterval(timer);if(pointPulseTimer)clearTimeout(pointPulseTimer);if(executionTimer)clearTimeout(executionTimer);void audio?.close()})
-const labels={ACTION:'逐点报数',VOTE:'投票处决',REVOTE:'重新投票',BALLOT:'公开票型',SUMMARY:'本局结算',CHAMPION:'比赛结束'}
+const labels:Record<string,string>={PRESENTATION:'公开演出 · 等待结算展示完成',ACTION:'逐点报数',VOTE:'投票处决',REVOTE:'重新投票',BALLOT:'公开票型',SUMMARY:'本局结算',CHAMPION:'比赛结束'}
 const causes={health:'生命值处决',vote:'投票处决',dealer:'庄家清场'}
 const name=(id:string)=>props.room.members.find(member=>member.id===id)?.name ?? '离席玩家'
 const voting=computed(()=>state.value.stage==='VOTE' || state.value.stage==='REVOTE')
@@ -81,17 +82,17 @@ watch(()=>state.value.last ? [state.value.game,state.value.last.face,state.value
   if(pointPulseTimer) clearTimeout(pointPulseTimer)
   if(!key || !state.value.last){pointPulse.value=null;return}
   pointPulse.value={face:state.value.last.face,delta:state.value.last.delta,hp:state.value.last.hp}
-  pointPulseTimer=window.setTimeout(()=>{pointPulse.value=null},1450)
+  pointPulseTimer=window.setTimeout(()=>{pointPulse.value=null},Math.min(1450*((props.room.config as {presentationSpeed?:number}).presentationSpeed??1),2000*((props.room.config as {presentationSpeed?:number}).presentationSpeed??1)))
 })
 watch(()=>[state.value.game,state.value.executions.length].join(':'),()=>{
   if(executionTimer) clearTimeout(executionTimer)
   executionFaces.value=[...(state.value.executions.at(-1)?.faces??[])]
-  if(executionFaces.value.length) executionTimer=window.setTimeout(()=>{executionFaces.value=[]},1850)
+  if(executionFaces.value.length) executionTimer=window.setTimeout(()=>{executionFaces.value=[]},1850*((props.room.config as {presentationSpeed?:number}).presentationSpeed??1))
 })
 </script>
 
 <template>
-  <article class="dw-saloon">
+  <article class="dw-saloon" :data-effects="effects" :style="{'--ux-speed':(room.config as {presentationSpeed?:number}).presentationSpeed??1}">
     <GameResultDialog :result-key="resultKey" :title="resultTitleText" :victory="victory" theme="dice">
       <template v-if="summary">
         <p v-if="state.stage==='CHAMPION'">整场比赛结束。</p>

@@ -79,7 +79,7 @@ const activeSpecial=computed(()=>props.state.presentation?.events.find(event=>
   event.card && ['mirror','martyr','master'].includes(event.kind)))
 const specialLive=ref<number>()
 function schedule(fn:()=>void,delay:number) {
-  const timer=window.setTimeout(()=>{timers.delete(timer);fn()},delay)
+  const timer=window.setTimeout(()=>{timers.delete(timer);fn()},delay*props.state.presentationSpeed)
   timers.add(timer)
 }
 function clearAnimations() {
@@ -161,15 +161,15 @@ const specialOrigin=computed(()=>{
 .nn-table-play {pointer-events:auto;transition:left .24s,top .24s,transform .24s;background:#191d2c;border:1px solid #97805b}
 .nn-table-caption {position:absolute;inset:auto 0 0;background:#151924ed;color:#fff2da;font-size:clamp(.52rem,1vw,.68rem);line-height:1.1;text-align:center;padding:2px;overflow-wrap:anywhere}
 .nn-table-play[data-status=resolving] {border-color:#ffe3a0;outline:2px solid #ffe3a0;z-index:2}
-.nn-table-play[data-fresh=true] {animation:nn-table-reveal .4s ease-out}
+.nn-table-play[data-fresh=true] {animation:nn-table-reveal calc(.4s * var(--ux-speed,1)) ease-out}
 .nn-table-play:hover,.nn-table-play:focus-visible {transform:translate(-50%,-50%) scale(1.4);z-index:4}
 .nn-table-play :deep(.nn-card-face),.nn-table-flight :deep(.nn-card-face) {display:block;box-sizing:border-box;min-width:0;width:100%;height:100%;max-width:none;padding:0;border:0;overflow:hidden}
 .nn-table-play :deep(.nn-card-copy),.nn-table-flight :deep(.nn-card-copy) {display:none}
 .nn-table-play :deep(.nn-card-art),.nn-table-flight :deep(.nn-card-art) {display:block;width:100%;height:100%;min-width:0;flex:none}
 .nn-table-play :deep(.nn-card-art img),.nn-table-flight :deep(.nn-card-art img) {display:block;width:100%;height:100%;aspect-ratio:auto;object-fit:cover;object-position:center}
-.nn-table-flight {pointer-events:none;animation:nn-table-exit .68s ease-in-out both}
+.nn-table-flight {pointer-events:none;animation:nn-table-exit calc(.68s * var(--ux-speed,1)) ease-in-out both}
 .nn-table-flight[data-status=skipped] {filter:brightness(.45);animation-duration:.42s}
-.nn-special-flight {animation-duration:1.18s;z-index:5}
+.nn-special-flight {animation-duration:calc(1.18s * var(--ux-speed,1));z-index:5}
 .nn-special-flight[data-kind=master] {animation-name:nn-table-master;animation-duration:1.28s}
 .nn-table-plays[data-performance=light] .nn-table-flight {animation-name:nn-table-reveal;animation-direction:reverse;animation-duration:.35s}
 .nn-table-plays[data-performance=reduced] .nn-table-play {animation:none;transition:none}

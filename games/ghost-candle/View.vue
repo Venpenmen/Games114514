@@ -8,8 +8,9 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
 import Rules from './Rules.vue'
 import './theme.css'
+import {effects} from '../../apps/web/components/effects.ts'
 type Public = {
-  stage:string;night:number;candles:string[];submitted:string[];winner?:string;roles?:Record<string,string>;
+  stage:string;night:number;candles:string[];submitted:string[];winner?:string;roles?:Record<string,string>;presentation?:{id:number;duration:number};presentationSpeed?:number;
   last?:{candle:number;status:string};ballots:{day:number;round:number;votes:[string,string|null][]}[];
 }
 const props = defineProps<{room:Snapshot;player:string;send:(type:string,data:unknown)=>Promise<boolean>}>()
@@ -29,7 +30,7 @@ watch(() => state.value.last ? [state.value.night, state.value.last.candle, stat
     if (!key || !previous && state.value.night > 1) return
     if (candlePulseTimer) clearTimeout(candlePulseTimer)
     pulseCandle.value = state.value.last?.candle
-    candlePulseTimer = window.setTimeout(() => { pulseCandle.value = undefined }, 1600)
+    candlePulseTimer = window.setTimeout(() => { pulseCandle.value = undefined }, Math.min(1600*(state.value.presentationSpeed??1),state.value.presentation?.duration??Infinity))
   })
 const secret = computed(() => props.room.match!.private as {role:string})
 const submitted = computed(() => state.value.submitted.includes(props.player))
@@ -66,7 +67,7 @@ watch(() => state.value.last?.candle, () => cue(state.value.last?.status === 'LI
 watch(() => state.value.winner, winner => { if (winner) cue(740) })
 const seconds = computed(() => Math.max(0,Math.ceil(((props.room.match!.deadline ?? now.value)-now.value)/1000)))
 watch(seconds, value => { if (value > 0 && value <= 3) cue(360) })
-const labels:Record<string,string> = {NIGHT:'夜晚',DAY_DISCUSSION:'白天讨论',DAY_DECISION:'是否寻找诡异',ACCUSATION:'指认诡异',REVOTE:'重新指认',RESULT:'公开投票结果',FINISHED:'对局结束'}
+const labels:Record<string,string> = {PRESENTATION:'公开演出 · 等待结算展示完成',NIGHT:'夜晚',DAY_DISCUSSION:'白天讨论',DAY_DECISION:'是否寻找诡异',ACCUSATION:'指认诡异',REVOTE:'重新指认',RESULT:'公开投票结果',FINISHED:'对局结束'}
 const names = (id:string) => props.room.members.find(member=>member.id===id)?.name ?? '已离开'
 const role = (id:string) => id==='GHOST' ? '诡异' : '人类'
 const resultKey = computed(() => state.value.stage==='FINISHED' && state.value.winner
@@ -77,7 +78,7 @@ const command = (data:unknown) => props.send('game',data)
 </script>
 
 <template>
-  <article class="ghost" :data-stage="state.stage">
+  <article class="ghost" :data-stage="state.stage" :data-effects="effects" :style="{'--ux-speed':state.presentationSpeed??1}">
     <GameResultDialog :result-key="resultKey" :title="(victory?'胜利':'失败') + ' · ' + role(state.winner ?? '') + (victory?'阵营':'阵营获胜')"
       :victory="victory" theme="ghost">
       <p>{{ role(state.winner ?? '') }}阵营赢得本局。关闭后仍可查看身份、投票及聊天记录。</p>
