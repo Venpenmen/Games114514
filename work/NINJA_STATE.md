@@ -28,3 +28,7 @@ BOT_AUTO_READY_2026-11-16: scripts/ninja-bots.ts 与 scripts/classic-bots.ts 在
 UX-P0: DONE · 基线 e5a03da；保留未跟踪模拟结果。公共导航、指南与房间演出倍率；3216 尚未更动。NEXT_ACTION: 定向实现并在隔离实例验证。
 UX-P1-P5: 实现完成；定向 15/15、全量 138/138（退出码 0）；四档倍率、操作时限、真实 Socket.IO 暂离／重启／恢复／大厅结束通知通过。4 人完整比赛、6/8/11 人布局、三款导航／图文指南及骰子动画→结算→续局已实测；旧测试的固定等待已适配权威演出时长。NEXT_ACTION: 完成经典游戏最终复验、只读标签页补验后，确认空闲并备份更新 3216。
 UX-P6 DONE · 2026-11-18：15/15 定向、138/138 全量、类型检查与生产构建退出码 0；11 个不同 Edge 用例分批通过（含三款完整比赛、只读标签页、320/390px、6/8/11 人布局）。3216 空房间后在线 SQLite 一致性备份＋旧构建保留，再更新；HTTP/目录/会话/Socket.IO 握手/登录页验证通过，19 账户、19 资料、9 战绩、0 房间保持，integrity_check=ok。备份与健康证据：work/logs/ux-deployment.json、ux-deploy-check.json。NEXT_ACTION: 人工体验 3216 的舒缓速度及指南；P20.8.2 延后，不动 3199/3213/FRP。
+
+UX.1 DONE: baseline 6cb2a1c; ordered classic result frames, bounded animation timing, Ninja seat feedback and real guide captures. NEXT_ACTION: targeted tests and isolated screenshots.
+
+P20.8-UX.1 DONE · 19/19 定向、142/142 全量、类型检查与构建成功；Edge 专项 4/4。经典分步公开、头像持续灰白（三档偏好/离线/新轮）、青蓝悬停与金色选中、7 张真实标注教程图完成。3216 空闲后备份并部署，19账户/19资料/9战绩不变，完整性ok；ux1-deployment.json、ux1-health.json 记录回退资料。NEXT_ACTION: 3216 人工体验；P20.8.2 延后。

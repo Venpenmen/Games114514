@@ -1,9 +1,11 @@
 import {registerPlayer} from './account-fixtures.ts'
-import {expect,test,type Page} from '@playwright/test'
+import {expect as baseExpect,test,type Page} from '@playwright/test'
+
+const expect=baseExpect.configure({timeout:15_000})
 
 test('real exchange and mirror reaction gate their corresponding animations',async({browser})=>{
   test.setTimeout(180_000)
-  const baseURL='http://127.0.0.1:3215'
+  const baseURL=process.env.NINJA_EVENTS_URL??'http://127.0.0.1:3215'
   const contexts=await Promise.all(Array.from({length:4},(_,i)=>browser.newContext({baseURL,
     viewport:i===2?{width:390,height:844}:{width:1280,height:900}})))
   contexts.forEach(context=>context.setDefaultTimeout(10_000))
@@ -15,6 +17,21 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     async function login(page:Page,name:string,url=baseURL){
       await page.goto(url)
       await registerPlayer(page,name)
+    }
+    async function capture(page:Page,file:string,marks:[string,string][]) {
+      if(!process.env.NINJA_GUIDE_CAPTURE)return
+      await page.evaluate(marks=>{
+        const layer=document.createElement('div');layer.id='guide-annotations'
+        const hide=document.createElement('style');hide.textContent='.room-chat,.nn-private-toast{visibility:hidden!important}';layer.append(hide)
+        marks.forEach(([selector,label],i)=>{
+          const target=document.querySelector(selector);if(!target)return
+          const r=target.getBoundingClientRect();const box=document.createElement('div')
+          box.style.cssText=`position:fixed;pointer-events:none;z-index:99999;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border:3px solid #63def1;border-radius:5px;`
+          const tag=document.createElement('span');tag.textContent=(i+1)+' '+label;tag.style.cssText='position:absolute;left:0;top:0;background:#10212e;color:#ffe5a7;padding:2px 5px;font:bold 14px Microsoft YaHei;white-space:nowrap;';box.append(tag);layer.append(box)
+        });document.body.append(layer)
+      },marks)
+      await page.screenshot({path:'apps/web/components/guides/ninja-'+file+'.jpg',type:'jpeg',quality:82})
+      await page.evaluate(()=>document.getElementById('guide-annotations')?.remove())
     }
     async function select(page:Page,choice?:string){
       const controls=page.locator('.nn-options')
@@ -57,6 +74,7 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     const resting=(await card.boundingBox())!.y
     await card.click()
     await expect(card).toHaveAttribute('aria-pressed','true')
+    await capture(a,'draft1',[['.nn-action-deck','选中手牌上浮'],['.nn-confirm','确认才保留'],['.game-toolbar','返回 / 房间 / 指南 / 设置'],['.nn-journal','公开与私人信息入口']])
     await expect.poll(async()=>(await card.boundingBox())!.y).toBeLessThan(resting-3)
     await card.click()
     await expect(btn(a,'确认提交')).toBeDisabled()
@@ -73,11 +91,13 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await expect(a.locator('.nn-action-deck button .nn-card-face')).toHaveCount(2)
     await expect(a.getByText('第一步已保留 · 已锁定')).toBeVisible()
     await expect(a.locator('html')).toHaveAttribute('data-pass-cards','8')
+    await capture(a,'draft2',[['.nn-action-deck','收到两张再选一张'],['.nn-hand-card','第一步保留牌锁定'],['.nn-confirm','确认第二步'],['.nn-stage','按席位方向传牌']])
     await a.reload()
     await expect(stage(a)).toHaveText('第二步轮抽')
-    await expect(a.locator('[data-kind=draft-pass]')).toHaveCount(0)
+    await expect(a.locator('.nn-paths[data-kind=draft-pass]')).toHaveCount(0)
     await Promise.all([select(a),select(b),select(c,'保留 隐士 3'),select(d)])
     await expect(a.locator('.nn-header > div:first-child [data-phase]')).toContainText('密探')
+    await capture(a,'commit',[['.nn-operation','合法出牌或本阶段不出牌'],['.nn-confirm','选好后统一确认'],['.nn-seat-shell','名片与身份牌'],['.nn-stage','中央公开舞台']])
     await Promise.all(pages.map(page=>select(page,'跳过')))
     await expect(a.locator('.nn-header > div:first-child [data-phase]')).toContainText('隐士')
     await select(c,'打出 隐士 3')
@@ -112,7 +132,18 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await boardCard.click()
     await expect(a.getByRole('dialog',{name:'公开卡牌详情'})).toContainText('隐士')
     await a.keyboard.press('Escape')
-    await select(c,'甲')
+    const targetSeat=c.getByRole('button',{name:'甲',exact:true})
+    await c.setViewportSize({width:1280,height:900})
+    await targetSeat.hover()
+    await expect(targetSeat.locator('..')).toHaveCSS('outline-color','rgb(101, 217, 237)')
+    await targetSeat.click()
+    await expect(targetSeat.locator('..')).toHaveCSS('outline-color','rgb(241, 197, 112)')
+    await targetSeat.hover()
+    await expect(targetSeat.locator('..')).toHaveCSS('outline-color','rgb(241, 197, 112)')
+    await c.getByRole('button',{name:'乙',exact:true}).hover()
+    await capture(c,'target',[['.nn-seat-shell:has(.nn-target)','金色：已选目标'],['.nn-stage','公开执行牌与效果'],['.nn-confirm','确认技能目标'],['.nn-journal','身份 / 时间线 / 情报']])
+    await btn(c,'确认提交').click()
+    await c.setViewportSize({width:390,height:844})
     await expect(boardCard).toHaveCount(0)
     await btn(d,'公开时间线').click()
     await expect(d.locator('.nn-timeline [data-kind=reveal-batch]')).toContainText('隐士阶段 · 同时亮牌')
@@ -176,6 +207,7 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await expect(area).toContainText('目标：乙、丙')
     await b.screenshot({path:'work/logs/p20-7-2-card-area.png'})
     await b.keyboard.press('Escape')
+    await capture(a,'choice',[['.nn-decision-intel','本人合法获得的情报'],['.nn-options','选择交换或不交换'],['.nn-confirm','确认二次决定'],['.nn-stage','技能执行舞台']])
     await expect(b.locator('.nn-event[data-event=swap]')).toHaveCount(0)
     await select(a,'交换')
     await select(a,'揭示结果')
@@ -204,11 +236,15 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     const chatRect=await c.locator('.room-chat-toggle').boundingBox()
     expect(chatRect!.x).toBeGreaterThanOrEqual(confirmRect!.x+confirmRect!.width)
     await c.screenshot({path:'work/logs/ninja-p20-reaction-mobile.png'})
+    await c.setViewportSize({width:1280,height:900})
+    await capture(c,'reaction',[['.nn-operation','合法反应牌或不使用反应'],['.nn-clock','反应剩余时间'],['.nn-confirm','确认反应'],['.nn-stage','攻击尚未裁决']])
+    await c.setViewportSize({width:390,height:844})
     await select(c,'发动 镜僧 1')
     await expect(a.locator('.nn-event[data-event=mirror]')).toBeVisible()
     await expect(a.locator('.nn-seat.nn-dead')).toHaveCount(0)
     await expect(a.locator('.nn-event[data-event=death]')).toBeVisible()
     await expect(a.locator('.nn-seat.nn-dead')).toContainText('乙')
+    await expect(a.locator('.nn-seat.nn-dead .player-avatar > img')).toHaveCSS('filter','grayscale(1) brightness(0.65)')
     const barrier=await a.locator('.nn-game').getAttribute('data-presentation')
     expect(barrier).toBeTruthy()
     await expect(stage(b)).toHaveText('公开演出')
@@ -218,8 +254,21 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await expect(a.locator('.nn-game')).toHaveAttribute('data-presentation',barrier!)
     await expect(a.locator('.nn-event[data-event=death]')).toBeVisible()
     await expect(a.locator('.nn-header > div:first-child [data-phase]')).toContainText('上忍')
+    for(const effect of ['light','reduced','full']) {
+      await btn(a,'设置').click()
+      await a.getByLabel('个人演出偏好').selectOption(effect)
+      await a.getByRole('dialog',{name:'游戏设置'}).getByRole('button',{name:'关闭',exact:true}).click()
+      await expect(a.locator('.nn-seat.nn-dead .player-avatar > img')).toHaveCSS('filter','grayscale(1) brightness(0.65)')
+    }
+    await contexts[1].setOffline(true)
+    await expect(a.locator('.nn-seat.nn-dead .player-avatar')).toHaveAttribute('data-offline','true')
+    await expect(a.locator('.nn-seat.nn-dead .player-avatar > img')).toHaveCSS('filter','grayscale(1) brightness(0.65)')
+    await contexts[1].setOffline(false)
+    await expect(a.locator('.nn-seat.nn-dead .player-avatar')).toHaveAttribute('data-offline','false')
     await Promise.all([a,c,d].map(page=>select(page,'跳过')))
-    await expect(stage(a)).toHaveText('下一轮准备',{timeout:16000})
+    await expect(stage(a)).toHaveText('下一轮准备',{timeout:45000})
+    await expect(a.locator('.nn-seat.nn-dead .player-avatar > img')).toHaveCSS('filter','grayscale(1) brightness(0.65)')
+    await capture(d,'review',[['.nn-journal','时间线 / 情报 / 聊天入口'],['.nn-round-result','本轮结果与荣誉'],['.nn-header','轮次和阶段'],['.game-toolbar','返回大厅后可继续对局']])
     await btn(d,'本轮复盘').click()
     const recap=d.getByRole('dialog',{name:'本轮复盘'})
     await expect(recap).toBeVisible()
@@ -230,6 +279,7 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await Promise.all(pages.map(page=>select(page)))
     await expect(stage(a)).toHaveText('第一步轮抽')
     await expect(a.locator('.nn-header')).toContainText('第 2 轮')
+    await expect(a.locator('.nn-seat.nn-dead')).toHaveCount(0)
     await expect(a.locator('.nn-private-toast .nn-identity-card')).toContainText('你的本轮身份')
     await expect(a.getByRole('button',{name:'本轮复盘'})).toHaveCount(0)
     await a.reload()

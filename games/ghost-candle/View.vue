@@ -25,13 +25,12 @@ const ballotTarget = computed(() => {
 })
 const pulseCandle = ref<number>()
 let candlePulseTimer: number | undefined
-watch(() => state.value.last ? [state.value.night, state.value.last.candle, state.value.last.status].join(':') : '',
-  (key, previous) => {
-    if (!key || !previous && state.value.night > 1) return
-    if (candlePulseTimer) clearTimeout(candlePulseTimer)
-    pulseCandle.value = state.value.last?.candle
-    candlePulseTimer = window.setTimeout(() => { pulseCandle.value = undefined }, Math.min(1600*(state.value.presentationSpeed??1),state.value.presentation?.duration??Infinity))
-  })
+watch(() => state.value.candles.join(','),(key,previous)=>{
+  if(!previous || key===previous)return
+  if(candlePulseTimer)clearTimeout(candlePulseTimer)
+  pulseCandle.value=state.value.candles.findIndex((value,i)=>value!==previous.split(',')[i])+1
+  candlePulseTimer=window.setTimeout(()=>{pulseCandle.value=undefined},Math.min(1600*(state.value.presentationSpeed??1),state.value.presentation?.duration??Infinity))
+})
 const secret = computed(() => props.room.match!.private as {role:string})
 const submitted = computed(() => state.value.submitted.includes(props.player))
 const canChat = computed(() => ['DAY_DISCUSSION','DAY_DECISION','ACCUSATION','REVOTE'].includes(state.value.stage))
@@ -78,7 +77,7 @@ const command = (data:unknown) => props.send('game',data)
 </script>
 
 <template>
-  <article class="ghost" :data-stage="state.stage" :data-effects="effects" :style="{'--ux-speed':state.presentationSpeed??1}">
+  <article class="ghost" :data-stage="state.stage" :data-effects="effects" :style="{'--ux-speed':state.presentationSpeed??1,'--ux-event-duration':(state.presentation?.duration??100000)+'ms'}">
     <GameResultDialog :result-key="resultKey" :title="(victory?'胜利':'失败') + ' · ' + role(state.winner ?? '') + (victory?'阵营':'阵营获胜')"
       :victory="victory" theme="ghost">
       <p>{{ role(state.winner ?? '') }}阵营赢得本局。关闭后仍可查看身份、投票及聊天记录。</p>

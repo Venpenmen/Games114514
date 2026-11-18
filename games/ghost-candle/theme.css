@@ -88,7 +88,7 @@ p.role-label { border: 1px solid #8d704c; border-radius: .5rem; background: #221
   border-color:#fff1ad;
   outline:2px solid #ffd28c;
   background:radial-gradient(ellipse at center,#865e3466,#292016 78%);
-  animation:ghost-settlement-focus 1.5s ease-out both;
+  animation:ghost-settlement-focus calc(1.5s * var(--ux-speed,1)) ease-out both;
 }
 .candles .ghost-resolving.destroyed {
   outline-color:#f3a3a3;
@@ -100,7 +100,7 @@ p.role-label { border: 1px solid #8d704c; border-radius: .5rem; background: #221
   padding:.12rem .34rem;border-radius:.3rem;
   background:#54261fe8;color:#fff0d1;font-size:.78rem;font-weight:750;
   box-shadow:0 0 13px #d77b4455;
-  animation:ghost-settlement-label 1.5s ease-out both;
+  animation:ghost-settlement-label calc(1.5s * var(--ux-speed,1)) ease-out both;
 }
 .ghost-resolving.lit .ghost-impact { background:#775027e8; }
 .ghost-outcome,.ghost-vote-outcome {

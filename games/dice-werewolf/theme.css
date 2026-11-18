@@ -35,7 +35,7 @@
 .dw-point.dw-current {border-color:#f7c87a;background:radial-gradient(ellipse at 50% 25%,#e997576b,transparent 90%);box-shadow:inset 0 0 18px #f6b75133}
 .dw-point.dw-risk {border-color:#df8063}
 .dw-point.dw-condemned {background:#751f20}
-.dw-removed .dw-die {filter:grayscale(.86) brightness(.56);animation:dw-drop .43s both}
+.dw-removed .dw-die {filter:grayscale(.86) brightness(.56);animation:dw-drop calc(.43s * var(--ux-speed,1)) both}
 .dw-plinth {display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.15rem .45rem;max-width:100%;font-size:.82rem;background:linear-gradient(#82613d,#302117 48%);color:#ffebc2;border:1px solid #ab8755;border-radius:.4rem;padding:.18rem .36rem}
 .dw-plinth span {font-variant-numeric:tabular-nums}
 .dw-point button {font-size:.82rem;padding:.3rem .34rem;width:100%}
@@ -75,7 +75,7 @@
 .dw-face-4 {transform:rotateX(90deg) translateZ(var(--dw-half));filter:brightness(.9)}
 .dw-face-5 {transform:rotateY(-90deg) translateZ(var(--dw-half));filter:brightness(.79)}
 .dw-face-6 {transform:rotateY(180deg) translateZ(var(--dw-half));filter:brightness(.78)}
-.dw-roll {animation:dw-roll .95s cubic-bezier(.19,.71,.33,1) both}
+.dw-roll {animation:dw-roll calc(.95s * var(--ux-speed,1)) cubic-bezier(.19,.71,.33,1) both}
 @keyframes dw-roll {
   0% {transform:translate3d(-16px,-14px,0) rotateX(-390deg) rotateY(-510deg)}
   54% {transform:translate3d(6px,3px,0) rotateX(-28deg) rotateY(-48deg)}
@@ -133,21 +133,21 @@
   border-color:#ffd48b;
   outline:2px solid #e3af67;
   box-shadow:inset 0 0 18px #ffc27b55,0 0 16px #e8ab6d55;
-  animation:dw-settlement-focus 1.35s ease-out both;
+  animation:dw-settlement-focus calc(1.35s * var(--ux-speed,1)) ease-out both;
 }
 .dw-point.dw-execution-focus {
   z-index:2;
   outline:2px solid #f6a48b;
   border-color:#f6a48b;
   box-shadow:0 0 18px #f1736055,inset 0 0 16px #f173603e;
-  animation:dw-execution-focus 1.65s ease-out both;
+  animation:dw-execution-focus calc(1.65s * var(--ux-speed,1)) ease-out both;
 }
 .dw-delta-burst {
   position:absolute;right:.22rem;top:.12rem;z-index:3;pointer-events:none;
   border:1px solid #e6c78a;border-radius:.35rem;padding:.05rem .35rem;
   background:#3b231de8;color:#ffdb9b;font-weight:800;font-size:1rem;
   font-variant-numeric:tabular-nums;
-  animation:dw-settlement-label 1.35s ease-out both;
+  animation:dw-settlement-label calc(1.35s * var(--ux-speed,1)) ease-out both;
 }
 .dw-settlement-summary {
   margin:.5rem 0 0;padding:.32rem .6rem;

@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import {computed,ref} from 'vue'
-import CardFace from '../../../games/night-of-the-ninja/CardFace.vue'
 import Die from '../../../games/dice-werewolf/Die.vue'
-import {deck} from '../../../games/night-of-the-ninja/cards.ts'
+import ninja0 from './guides/ninja-draft1.jpg'
+import ninja1 from './guides/ninja-draft2.jpg'
+import ninja2 from './guides/ninja-commit.jpg'
+import ninja3 from './guides/ninja-target.jpg'
+import ninja4 from './guides/ninja-choice.jpg'
+import ninja5 from './guides/ninja-reaction.jpg'
+import ninja6 from './guides/ninja-review.jpg'
 import ghostBoard from './guides/ghost-board.png'
 import diceTable from './guides/dice-table.png'
 const props=defineProps<{gameId:string}>()
@@ -11,20 +16,27 @@ const ninja=computed(()=>props.gameId==='night-of-the-ninja')
 const dice=computed(()=>props.gameId==='dice-werewolf')
 const names:Record<string,string>={'night-of-the-ninja':'忍者之夜','ghost-candle':'诡吹灯','dice-werewolf':'骰子狼人杀'}
 const selected=ref(0)
+const ninjaSteps=[
+ {src:ninja0,title:'两步轮抽 · 第一步保留',text:'点选一张手牌上浮，再点确认。其余两张向左传；中央只展示传牌提示。顶部可返回大厅、查看房间号、打开指南或设置。'},
+ {src:ninja1,title:'两步轮抽 · 第二步保留',text:'第一步保留牌已锁定；从新收到的两张中再保留一张，然后确认。传牌演出结束后操作计时才开始。'},
+ {src:ninja2,title:'秘密出牌与本阶段不出牌',text:'从合法手牌中选择，点确认才秘密提交；选择本阶段不出牌后同样需要确认。无合法牌时按当前提示处理；旁观、只读、死亡或非本人行动时不能操作。'},
+ {src:ninja3,title:'目标选择 · 青蓝悬停，金色选中',text:'点击圆桌上合法玩家，再点确认。青蓝框是合法悬停，持续金框是已选目标；再次悬停不改变金色。非法目标不能选。名片旁的身份牌可查看授权详情。'},
+ {src:ninja4,title:'技能的二次决定',text:'按真实技能选项依次完成目标一、目标二及后续决定。图中变形者已查看两名目标，仍需确认交换或不交换，并遵守结果公开要求。私人情报只对本人开放。'},
+ {src:ninja5,title:'刺杀反应',text:'受攻击者在倒计时内选择合法反应牌，或明确选择不使用反应，然后确认。其他玩家只看公开攻击；真实裁决演出后才公布死亡并继续。'},
+ {src:ninja6,title:'舞台、历史与复盘入口',text:'中央显示当前公开牌、技能及结果。侧栏进入出牌区、公开时间线、私人情报和聊天；轮末可查看本轮复盘，冠军后开放完整复盘。返回大厅保留席位，可从大厅继续对局。'}
+]
 </script>
 <template>
   <button aria-label="UI 操作指南" title="UI 操作指南" @click="dialog?.showModal()">?</button>
   <dialog ref="dialog" class="ui-guide" aria-label="UI 操作指南">
     <header><div><small>界面操作教学 · 非实际对局</small><h2>{{ names[gameId] }} · UI 操作指南</h2></div><button autofocus @click="dialog?.close()">关闭</button></header>
     <p>下面使用真实卡牌组件与界面结构示意。点击示意不会提交游戏操作；具体效果与优先级请查阅「游戏规则」。</p>
-    <section v-if="ninja"><h3>① 底部手牌 → 选中上浮 → 确认</h3>
-      <div class="guide-hand"><button v-for="(card,i) in deck.slice(0,3)" :key="card.id" :class="{selected:selected===i}" @click="selected=i"><CardFace :id="card.id" compact/></button></div>
-      <div class="guide-flow"><b>第一步：三选一保留</b><span>→ 两张卡背传给相邻席位 →</span><b>第二步：已保留牌锁定，新收到两张再选一</b></div>
-      <p>选牌后点击底部「确认」才提交。提交后不可更改。传牌只显示牌背。</p>
-      <h3>② 秘密出牌与圆桌目标</h3><div class="guide-table"><span>玩家 A</span><b>当前技能牌<br>↓ 选择合法头像</b><span class="selected">目标一</span><span>目标二</span></div>
-      <p>先选择合法手牌组合，统一确认；亮牌后点击圆桌高亮头像选择目标。双目标依次标注一、二，再确认。非法目标不能选。</p>
-      <div class="guide-flow"><b>无可出牌：等待自动处理</b><b>主动跳过：点击「跳过」再确认</b><b>无法操作：检查死亡、旁观、只读或当前行动者</b></div>
-      <h3>③ 技能二次选择与反应</h3><p>变形者等技能按舞台步骤继续选择；以服务器提供的选项为准。受到刺杀时在倒计时内选合法反应牌，或明确不反应。等待真实裁决演出后才进行下一张牌。</p>
+    <section v-if="ninja" class="ninja-screenshots">
+      <p>以下为隔离真实四人对局截图，青色编号框是教学标注。点击图片可查看清晰原图；截图中的身份、手牌和房间号仅为该次测试示例。</p>
+      <figure v-for="(step,i) in ninjaSteps" :key="step.src"><h3>{{ i+1 }} · {{ step.title }}</h3>
+        <a :href="step.src" target="_blank" rel="noopener" :aria-label="step.title+'：查看原图'"><img :src="step.src" :alt="step.title+'，实际界面和操作区域编号标注'" loading="lazy"></a>
+        <figcaption>{{ step.text }}</figcaption>
+      </figure>
     </section>
     <section v-else-if="dice"><h3>① 身份骰与公共生命值</h3><figure><img :src="diceTable" alt="实际界面的六点数赌桌：每个点数下方显示生命值和处决状态"><figcaption>① 认准公共点数 → ② 看下方生命值 → ③ 按阶段投票；这不是你的私人身份骰。</figcaption></figure><div class="guide-dice"><Die :face="3"/><span>私人身份骰：仅本人可见</span><Die :face="6"/><span>公共点数：生命值 / 待处决状态</span></div>
       <h3>② 红黑操作 → 确认 → 投票</h3><div class="guide-flow"><b class="red">红牌 +1</b><b>黑牌 −1</b><span>→ 当前公共点数生命值 →</span><b>点击点数投票处决</b></div><p>逐点秘密提交红黑牌；确认后不能修改。投票选择仍存活的点数，平票按阶段提示重投。处决以公开裁决为准。</p>
@@ -40,6 +52,7 @@ const selected=ref(0)
   </dialog>
 </template>
 <style scoped>
+.ninja-screenshots img{max-height:none;height:auto}.ninja-screenshots figure{padding-bottom:1rem;border-bottom:1px solid #887443}.ninja-screenshots a:focus-visible{outline:3px solid #65d9ed}
 figure{margin:1rem 0}figure img{display:block;width:100%;max-height:24rem;object-fit:contain;border:1px solid #887443;border-radius:.6rem}figcaption{padding:.5rem;color:#e5c579}
 .ui-guide{width:min(54rem,95vw);max-height:88dvh;overflow:auto;background:#141d19;color:#f1e6cb;border:1px solid #a68c52;border-radius:1rem;padding:1.2rem}.ui-guide::backdrop{background:#000b}header{display:flex;justify-content:space-between;gap:1rem;align-items:center;position:sticky;top:-1.2rem;background:#141d19;z-index:2}h2{margin:.3rem 0}h3{color:#e5c579}p{line-height:1.7}.guide-hand,.guide-dice,.guide-flow,.guide-nav{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;padding:1rem;border:1px solid #887443;border-radius:.6rem}.guide-hand button{width:10rem;padding:.3rem;transition:transform .15s}.selected{outline:3px solid #e4bd63;transform:translateY(-.35rem)}.guide-flow b,.guide-nav span{background:#283b30;padding:.7rem;border-radius:.4rem}.guide-table{display:grid;grid-template-columns:1fr 1fr;gap:1rem;background:#24382c;padding:1rem;border-radius:40%}.guide-table>*{padding:1rem;text-align:center}.guide-candles{display:grid;grid-template-columns:repeat(3,3.5rem);gap:.6rem;justify-content:center}.guide-candles button{font-size:1.6rem}.guide-candles small{display:block;font-size:.8rem}.red{color:#ff9d93}@media(max-width:600px){.ui-guide{padding:.8rem}.guide-hand{gap:.4rem}.guide-hand button{width:8rem}.guide-flow{gap:.4rem;padding:.5rem;font-size:.9rem}header{top:-.8rem}}@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>

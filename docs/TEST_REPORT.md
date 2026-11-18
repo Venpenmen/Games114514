@@ -149,3 +149,12 @@ Windows、Node.js 24、Edge。npm.cmd run check、npm.cmd test（37/37）、npm.
 - 指南截图来自隔离真实界面：`apps/web/components/guides/ghost-board.png`、`dice-table.png`；忍者复用实际 CardFace。关键截图 `work/logs/ux-{ghost,dice,ninja}-guide.png`、`ux-3216.png`，另保留原布局与冠军截图。
 - 3216 部署前管理列表为空；SQLite 在线 backup（含 WAL 一致性）与旧静态构建保存在 `work/logs/ux-backup-2026-11-18T06-30-32-048Z`。只通过 ninja-p20.cmd 停启。部署后 HTTP 200、三游戏目录、未登录会话、Socket.IO transport 200 与 Edge 登录页通过；19 账户、19 资料、9 战绩、0 房间保持，integrity_check=ok。未向 3216 写入测试账户。认证的真实交互使用隔离数据库完成。
 - 回退：停止 3216，使用 e5a03da 独立代码工作树和上述旧构建；数据库需先保护部署后新数据，再人工决定是否使用部署前一致性副本，禁止直接覆盖。3199、3213、FRP、EMS 未操作。实体手机、公网链路未测；P20.8.2 未实施。
+
+## P20.8-UX.1
+
+- 定向 `node --test apps/server/presentation.test.ts`：19/19，退出码0；覆盖四档倍率、分步票型→处决→分数、蜡烛→结果文本、拒绝输入、暂停/重启恢复及旧字段兼容路径。
+- 最终集中 `npm.cmd run check`、`npm.cmd test`、候选生产构建：均退出码0，全量142/142。仅在补齐揭示动画高优先级覆盖后重建静态包，未重复全量测试。日志：work/logs/ux1-{check,full,build,targeted}.txt。
+- Edge：`tests/ninja-events.spec.ts tests/ux.spec.ts --workers=1`，4/4，退出码0；真实隐士/变形者/镜僧反应、裁决后死亡、刷新恢复、三档偏好与离线灰白、下一轮复活、青蓝悬停/金色选中（再次悬停不变）、指南七图加载及390px内部滚动、经典游戏结果与续局。日志 ux1-browser.txt。原有事件测试的全局 draft-pass 查询改为动画容器查询，等待上限适配权威演出；中间失败未隐藏。
+- 截图复用种子83的真实4人协议流程，经隔离开发预览采集，均为真实UI加3–4个编号框；7张JPEG合计846960字节，未包含聊天窗口或调试面板。最终包已验证全部图片可加载。开发预览3226及Playwright实例均已停止。未做实体手机或公网验收。
+- 关键时间审计：首脑飞牌1.28×不超过服务端1.3×，揭示主体2.3×和11席分批延迟不超过2.6×；死亡/交换/荣誉/冠军使用房间倍率，减少动态保持静态。有限机制动画已缩放，装饰循环未机械改动。
+- 3216更新前无房间；一致性SQLite与旧构建备份：work/logs/ux1-backup-2026-11-18T07-16-11-863Z。HTTP/登录页/三游戏目录/Socket.IO握手正常；19账户、19资料、9战绩、0房间保持，integrity_check=ok。证据 ux1-deployment.json、ux1-health.json。回退使用6cb2a1c代码和上述旧包；先保护更新后数据，不自动覆盖数据库。3199/3213/FRP/EMS及并行模拟文件未操作。

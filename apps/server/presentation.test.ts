@@ -15,10 +15,11 @@ for(const speed of [.8,1,1.35,1.7]) {
     let s=ghost.start(['a','b','c'],ghost.config({night:30,day:60,presentationSpeed:speed}),ctx)
     for(const id of s.players) ghost.command(s,id,{kind:'night',candle:1,action:'LIGHT'},ctx)
     assert(s.uxPresentation)
-    assert.equal(s.deadline,1000+3500*speed)
+    assert.equal(s.deadline,1000+1600*speed)
     const view=ghost.public(s) as any
     assert.equal(view.stage,'PRESENTATION')
     assert.equal(view.candles[0],'LIT')
+    assert.equal(view.last,undefined,'result text waits until candle animation completes')
     assert.throws(()=>ghost.command(s,'a',{kind:'discuss'},ctx),/演出/)
     const ending=s.deadline!
     const barrierPhase=s.phase
@@ -27,10 +28,13 @@ for(const speed of [.8,1,1.35,1.7]) {
     // Model the platform's all-offline pause/resume shift.
     s.deadline=ending+9000
     ghost.advance(s,{...ctx,now:s.deadline})
+    assert.equal((ghost.public(s) as any).last.status,'LIT')
+    assert(s.uxPresentation)
+    ghost.advance(s,{...ctx,now:s.deadline!})
     assert(!s.uxPresentation)
     assert(s.phase>barrierPhase)
     assert.equal(s.stage,'DAY_DISCUSSION')
-    assert.equal(s.deadline,ending+9000+60000)
+    assert.equal(s.deadline,1000+3500*speed+9000+60000)
     assert.equal(s.candles.filter(c=>c==='LIT').length,1)
   })
   test(`ninja ordered event deadlines scale ${speed}; input windows do not`,()=>{
@@ -65,7 +69,7 @@ for(const speed of [.8,1,1.35,1.7]) {
     assert.equal(hidden.summary,null)
     const beforeScores={a:0,b:0,c:0}
     assert.deepEqual(hidden.scores,beforeScores)
-    now=s.deadline!;dice.advance(s,{now,random})
+    while(s.uxPresentation){now=s.deadline!;dice.advance(s,{now,random})}
     assert.equal(s.deadline,now+8000*speed)
     const scores=structuredClone(s.scores),game=s.game
     const end=s.deadline!
@@ -142,9 +146,11 @@ test('real authenticated sockets, host lock, all-offline restart and barrier res
   for(const client of clients)assert((await send(client,'join',code,{resume:true})).ok)
   assert((await send(clients[0],'sync',code)).ok)
   const recovered=clients[0].rooms.get(code)!.match!
-  assert.equal(recovered.deadline,clock+2800)
-  assert.deepEqual(recovered.public,barrier.public && {...barrier.public as object,presentation:{...(barrier.public as any).presentation,startedAt:clock,endsAt:clock+2800}})
-  clock+=2800;platform.tick()
+  assert.equal(recovered.deadline,clock+1280)
+  assert.deepEqual(recovered.public,barrier.public && {...barrier.public as object,presentation:{...(barrier.public as any).presentation,startedAt:clock,endsAt:clock+1280}})
+  clock+=1280;platform.tick()
+  assert((await send(clients[0],'sync',code)).ok)
+  clock=clients[0].rooms.get(code)!.match!.deadline!;platform.tick()
   assert((await send(clients[0],'sync',code)).ok)
   const after=clients[0].rooms.get(code)!.match!
   assert.equal((after.public as any).stage,'DAY_DISCUSSION')
@@ -160,4 +166,20 @@ test('real authenticated sockets, host lock, all-offline restart and barrier res
   assert(clients[0].rooms.get(code)!.match!.finished)
   await new Promise(done=>setTimeout(done,30))
   assert(lobbyNotified,'detached lobby must refresh its resume entry when the match finishes')
+})
+
+for(const speed of [.8,1,1.35,1.7])test('vote precedes execution and scores at '+speed,()=>{
+ let draw=0;const c={now:1000,random:(n:number)=>draw++%n}
+ let s=dice.start(['a','b','c'],dice.config({target:3,presentationSpeed:speed}),c,{a:0,b:1,c:2})
+ s.stage='VOTE';s.deadline=31000
+ for(const id of s.players)dice.command(s,id,{kind:'vote',value:1},c)
+ let view=dice.public(s) as any
+ assert.equal(view.presentation.kind,'ballot');assert.equal(view.points[0].removed,false)
+ assert.equal(view.executions.length,0);assert.equal(view.summary,null);assert.deepEqual(view.scores,{a:0,b:0,c:0})
+ s=JSON.parse(JSON.stringify(s));dice.advance(s,{...c,now:s.deadline!})
+ view=dice.public(s) as any
+ assert.equal(view.presentation.kind,'execution');assert.equal(view.points[0].removed,true)
+ assert.equal(view.summary,null);assert.deepEqual(view.scores,{a:0,b:0,c:0})
+ dice.advance(s,{...c,now:s.deadline!});view=dice.public(s) as any
+ assert.equal(view.stage,'SUMMARY');assert(view.summary);assert.equal(view.scores.b,1)
 })

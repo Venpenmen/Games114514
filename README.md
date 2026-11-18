@@ -107,3 +107,5 @@ npm.cmd run build -- --outDir work/logs/ninja-p20/dist
 房主开局前选择演出时长倍率：快速 0.8、标准 1、舒缓 1.35（新房间默认）、慢速 1.7。开局后锁定，操作时限保持原值。个人完整／轻量／减少动态偏好不改变服务端时序。旧对局缺少倍率时保留原计时，已有忍者演出步骤不重新缩放。
 
 候选构建命令：`npm.cmd run build -- --outDir work/logs/ux-candidate/dist`。定向验收：`node --test apps/server/presentation.test.ts`；浏览器：设置 `NINJA_TEST_ASSETS=work/logs/ux-candidate/dist` 后运行 `node_modules/.bin/playwright.cmd test tests/ux.spec.ts --workers=1`。所有自动化使用独立端口与数据库。
+
+P20.8-UX.1：忍者操作指南使用 `apps/web/components/guides/ninja-*.jpg` 的 7 张真实对局标注截图（合计约 827 KiB），可点图打开原图。经典游戏分步展示蜡烛／结果、生命／票型／处决／积分；原有操作时限不变。3216 启停入口仍为 `ninja-p20.cmd`。

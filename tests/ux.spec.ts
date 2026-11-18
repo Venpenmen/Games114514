@@ -38,7 +38,15 @@ for(const [game,count] of [['诡吹灯',3],['骰子狼人杀',3],['忍者之夜'
       await a.getByRole('button',{name:'UI 操作指南'}).click()
       const guide=a.getByRole('dialog',{name:'UI 操作指南'})
       await expect(guide).toBeVisible()
-      if(game==='忍者之夜')await expect(guide.locator('.nn-card-face')).toHaveCount(3)
+      if(game==='忍者之夜') {
+        const pictures=guide.locator('.ninja-screenshots img')
+        await expect(pictures).toHaveCount(7)
+        for(const picture of await pictures.all()) {await picture.scrollIntoViewIfNeeded();await expect.poll(()=>picture.evaluate((img:HTMLImageElement)=>img.naturalWidth)).toBeGreaterThan(0)}
+        await a.setViewportSize({width:390,height:844})
+        expect(await guide.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true)
+        await a.screenshot({path:'work/logs/ux1-guide-mobile.png'})
+        await a.setViewportSize({width:1366,height:768})
+      }
       else if(game==='骰子狼人杀')await expect(guide.locator('.dw-die')).toHaveCount(2)
       else await expect(guide.locator('.guide-candles button')).toHaveCount(9)
       await a.screenshot({path:`work/logs/ux-${game==='忍者之夜'?'ninja':game==='诡吹灯'?'ghost':'dice'}-guide.png`})

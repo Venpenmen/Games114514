@@ -6,7 +6,8 @@ export function presentationSpeed(input:unknown):number {
   if(typeof value!=='number'||!presentationSetting.options.includes(value)) throw new Error('演出速度无效')
   return value
 }
-type Barrier={id:number;startedAt:number;duration:number;endsAt:number;next:any;visible:any;private:Record<string,unknown>}
+type Frame={duration:number;visible:any;kind?:string}
+type Barrier={id:number;startedAt:number;duration:number;endsAt:number;next:any;visible:any;private:Record<string,unknown>;steps?:Frame[];cursor?:number}
 type State=Turn & {uxSpeed?:number;uxPresentation?:Barrier}
 
 /** Classic plugins retain their own rules; this adapter delays transitions, never client acknowledgements. */
@@ -15,6 +16,7 @@ export function withPresentation<C,S extends Turn>(plugin:GamePlugin<C,S>, optio
   duration(before:S,after:S):number
   display?(before:S,after:S,view:any):any
   displayStage?(s:S):boolean
+  frames?(before:S,after:S,view:any):Frame[]
 }):GamePlugin<C & {presentationSpeed?:number},S & State> {
   const base=plugin as GamePlugin<any,any>
   function run(s:S & State,ctx:Context,action:()=>void) {
@@ -22,19 +24,21 @@ export function withPresentation<C,S extends Turn>(plugin:GamePlugin<C,S>, optio
     action()
     if(s.phase===before.phase || s.uxSpeed===undefined) return
     const at=before.deadline!==null&&ctx.now>=before.deadline?before.deadline:ctx.now
-    const duration=Math.round(options.duration(before,s)*s.uxSpeed)
+    const frames=options.frames?.(before,s,base.public(s))?.map(frame=>({...frame,duration:Math.round(frame.duration*s.uxSpeed!)}))
+    const duration=frames?.reduce((sum,frame)=>sum+frame.duration,0)??Math.round(options.duration(before,s)*s.uxSpeed)
     // Existing result stages already own a server deadline. Scale it in place.
     if(options.displayStage?.(s) && s.deadline!==null) {
       s.deadline=at+(s.deadline-at)*s.uxSpeed
     }
     if(!duration) return
     const next=structuredClone(s)
-    next.phase=s.phase+1
+    next.phase=s.phase+(frames?.length??1)
     if(next.deadline!==null) next.deadline+=duration
-    const visible=options.display?.(before,s,base.public(s))??base.public(s)
-    s.uxPresentation={id:s.phase,startedAt:at,duration,endsAt:at+duration,next,visible,
+    const visible=frames?.[0].visible??options.display?.(before,s,base.public(s))??base.public(s)
+    const firstDuration=frames?.[0].duration??duration
+    s.uxPresentation={id:s.phase,startedAt:at,duration:firstDuration,endsAt:at+firstDuration,next,visible,steps:frames,cursor:0,
       private:Object.fromEntries(options.players(before).map(id=>[id,base.private(before,id)]))}
-    s.deadline=at+duration
+    s.deadline=at+firstDuration
   }
   return {...base,
     defaults:{...base.defaults,presentationSpeed:1.35},settings:[...base.settings,presentationSetting],
@@ -50,6 +54,14 @@ export function withPresentation<C,S extends Turn>(plugin:GamePlugin<C,S>, optio
           const next=s.uxPresentation.next
           // Pause/resume moves the authoritative outer deadline; shift the pending operation equally.
           if(next.deadline!==null) next.deadline+=s.deadline-s.uxPresentation.endsAt
+          const cursor=(s.uxPresentation.cursor??0)+1
+          const frame=s.uxPresentation.steps?.[cursor]
+          if(frame) {
+            const start=s.deadline
+            Object.assign(s.uxPresentation,{cursor,visible:frame.visible,duration:frame.duration,startedAt:start,endsAt:start+frame.duration,id:++s.phase})
+            s.deadline=start+frame.duration
+            return
+          }
           delete s.uxPresentation
           Object.assign(s,next)
         }
@@ -57,6 +69,7 @@ export function withPresentation<C,S extends Turn>(plugin:GamePlugin<C,S>, optio
     },
     public(s){return s.uxPresentation?{...s.uxPresentation.visible,presentation:{
       id:s.uxPresentation.id,startedAt:s.deadline!-s.uxPresentation.duration,endsAt:s.deadline,duration:s.uxPresentation.duration,
+      kind:s.uxPresentation.steps?.[s.uxPresentation.cursor??0]?.kind,
     },presentationSpeed:s.uxSpeed}: {...base.public(s) as object,presentationSpeed:s.uxSpeed}},
     private(s,id){return s.uxPresentation?s.uxPresentation.private[id]:base.private(s,id)},
     finished(s){return !s.uxPresentation&&base.finished(s)},

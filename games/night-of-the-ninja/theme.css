@@ -29,12 +29,12 @@
 .nn-event[data-event=attack],.nn-event[data-event=death] {background:#572b35}
 .nn-event[data-event=honor],.nn-event[data-event=champion] {background:#4d4028}
 .nn-letter {color:#eed29e;background:#362c44;padding:.25rem}
-.nn-game[data-effects=full] .nn-event {animation:nn-enter .45s ease both}
-.nn-game[data-effects=full] .nn-event[data-event=play] {animation-duration:.8s}
-.nn-game[data-effects=full] .nn-event[data-event=attack] {animation:nn-strike 1.8s ease both}
-.nn-game[data-effects=full] .nn-event[data-event=swap] {animation:nn-swap .85s ease both}
-.nn-game[data-effects=full] .nn-event[data-event=reveal] {animation:nn-enter 3s ease both}
-.nn-game[data-effects=full] .nn-event[data-event=champion] {animation:nn-enter 5s ease both}
+.nn-game[data-effects=full] .nn-event {animation:nn-enter calc(.45s * var(--ux-speed,1)) ease both}
+.nn-game[data-effects=full] .nn-event[data-event=play] {animation-duration:calc(.8s * var(--ux-speed,1))}
+.nn-game[data-effects=full] .nn-event[data-event=attack] {animation:nn-strike calc(1.8s * var(--ux-speed,1)) ease both}
+.nn-game[data-effects=full] .nn-event[data-event=swap] {animation:nn-swap calc(.85s * var(--ux-speed,1)) ease both}
+.nn-game[data-effects=full] .nn-event[data-event=reveal] {animation:nn-enter calc(3s * var(--ux-speed,1)) ease both}
+.nn-game[data-effects=full] .nn-event[data-event=champion] {animation:nn-enter calc(5s * var(--ux-speed,1)) ease both}
 @keyframes nn-enter {from{opacity:.4;transform:translateY(-.4rem) rotateX(60deg)}25%,to{opacity:1;transform:none}}
 @keyframes nn-strike {0%{box-shadow:inset 0 0 8px #000}18%{box-shadow:inset 12px 0 16px #e6c9a0}55%,to{box-shadow:inset 0 0 12px #331820}}
 @keyframes nn-swap {0%{background-position:0% 50%}to{background-position:100% 50%}}
@@ -59,10 +59,10 @@
 }
 @media(prefers-reduced-motion:reduce) { .nn-game[data-effects] .nn-event {animation:none!important} }
 
-.nn-game[data-effects=light] .nn-event {animation:nn-soft .3s ease both}
+.nn-game[data-effects=light] .nn-event {animation:nn-soft calc(.3s * var(--ux-speed,1)) ease both}
 @keyframes nn-soft {from{opacity:.65}to{opacity:1}}
-.nn-game[data-effects=full] .nn-event[data-event=mirror] {box-shadow:inset 0 0 20px #a4dcff;animation:nn-enter .5s ease both}
-.nn-game[data-effects=full] .nn-event[data-event=martyr] {box-shadow:inset 0 0 22px #d7a352;animation:nn-enter .5s ease both}
+.nn-game[data-effects=full] .nn-event[data-event=mirror] {box-shadow:inset 0 0 20px #a4dcff;animation:nn-enter calc(.5s * var(--ux-speed,1)) ease both}
+.nn-game[data-effects=full] .nn-event[data-event=martyr] {box-shadow:inset 0 0 22px #d7a352;animation:nn-enter calc(.5s * var(--ux-speed,1)) ease both}
 
 
 .nn-hand {position:sticky;bottom:0;z-index:3}
@@ -75,9 +75,9 @@
   .nn-game[data-mode=reaction] .nn-seat:not(.nn-focus):not(.nn-target)>.player-avatar {filter:brightness(.6)}
 }
 .nn-paths {position:absolute;inset:0;z-index:4;pointer-events:none}
-.nn-paths span {position:absolute;display:grid;place-items:center;transform:translate(-50%,-50%);color:#ffe0a0;font-size:2rem;text-shadow:0 0 12px #f5a95b;animation:nn-flight .55s ease both}
+.nn-paths span {position:absolute;display:grid;place-items:center;transform:translate(-50%,-50%);color:#ffe0a0;font-size:2rem;text-shadow:0 0 12px #f5a95b;animation:nn-flight calc(.55s * var(--ux-speed,1)) ease both}
 .nn-paths img {display:block;width:2rem;border-radius:.25rem;box-shadow:0 0 .7rem #e0b66d;object-fit:cover}
-.nn-paths[data-kind=swap] span {animation-duration:.8s}
+.nn-paths[data-kind=swap] span {animation-duration:calc(.8s * var(--ux-speed,1))}
 @keyframes nn-flight {
   0% {opacity:0;transform:translate(-50%,-50%) scale(.65)}
   20%,70% {opacity:1}
@@ -92,12 +92,12 @@
 .nn-rank strong {color:#ffe6aa;font-size:1.05rem}
 .nn-rank span {color:#e2bc76;font-size:.48rem;letter-spacing:.08em}
 .nn-letter > p > span {display:inline-grid;place-items:center;background:#813a40;color:#f4d5ab;border-radius:50%;width:1.45rem;height:1.45rem;font-family:serif}
-.nn-game[data-effects=full] .nn-letter {animation:nn-enter .55s ease both}
-.nn-game[data-effects=full] .nn-reveal span {animation:nn-enter .34s both;animation-delay:calc(var(--reveal-order)*.2s)}
-.nn-game[data-effects=full] .nn-focus>img {animation:nn-spot .45s ease both}
-.nn-game[data-effects=full] .nn-event[data-event=honor]>img {animation:nn-award .6s cubic-bezier(.17,.67,.47,1.02) both}
+.nn-game[data-effects=full] .nn-letter {animation:nn-enter calc(.55s * var(--ux-speed,1)) ease both}
+.nn-game[data-effects=full] .nn-reveal span {animation:nn-enter calc(.34s * var(--ux-speed,1)) both;animation-delay:calc(var(--reveal-order)*.2s * var(--ux-speed,1))}
+.nn-game[data-effects=full] .nn-focus>img {animation:nn-spot calc(.45s * var(--ux-speed,1)) ease both}
+.nn-game[data-effects=full] .nn-event[data-event=honor]>img {animation:nn-award calc(.6s * var(--ux-speed,1)) cubic-bezier(.17,.67,.47,1.02) both}
 .nn-game[data-mode=champion] .nn-champion {background:radial-gradient(ellipse at top,#715c42,#1d2031 80%);border:1px solid #a78c53;border-radius:.45rem;padding:.55rem}
-.nn-game[data-mode=champion][data-effects=full] .nn-champion {animation:nn-moon 5s ease both}
+.nn-game[data-mode=champion][data-effects=full] .nn-champion {animation:nn-moon calc(5s * var(--ux-speed,1)) ease both}
 @keyframes nn-spot {from{filter:brightness(.75)}45%{filter:brightness(1.28);transform:scale(1.12)}to{transform:none}}
 @keyframes nn-award {from{opacity:.45;transform:translate(-2rem,-1rem) scale(.72)}to{opacity:1;transform:none}}
 @keyframes nn-moon {from{filter:brightness(.86)}35%{filter:brightness(1.18)}to{filter:none}}
@@ -109,8 +109,8 @@
 .nn-champion-cards figure {margin:.25rem 0;padding:.24rem;border:2px double #bf9a62;border-radius:.38rem;background:#212338}
 .nn-champion-cards img {display:block;height:5rem;object-fit:cover;border-radius:.2rem}
 .nn-champion-cards figcaption {font:600 .78rem SimSun,serif;color:#f3dfb0}
-.nn-game[data-effects=full] .nn-seat img.nn-attack-target {animation:nn-target-glow .5s ease both}
-.nn-game[data-effects=full] .nn-seat img.nn-death-flash {animation:nn-death .55s ease both}
+.nn-game[data-effects=full] .nn-seat img.nn-attack-target {animation:nn-target-glow calc(.5s * var(--ux-speed,1)) ease both}
+.nn-game[data-effects=full] .nn-seat img.nn-death-flash {animation:nn-death calc(.55s * var(--ux-speed,1)) ease both}
 @keyframes nn-target-glow {50%{box-shadow:0 0 14px #f7c17f;transform:scale(1.08)}}
 @keyframes nn-death {from{filter:sepia(1) saturate(3) hue-rotate(318deg);box-shadow:0 0 12px #be4242}to{filter:grayscale(1) brightness(.65)}}
 @media(prefers-reduced-motion:reduce) {

@@ -38,7 +38,7 @@
   background:#151a2beb;border:1px solid #796448;overscroll-behavior:contain;
 }
 .nn-p20 .nn-operation {padding:.65rem;border:1px solid #796448;border-radius:.55rem;background:#171c2bea}
-.nn-p20 .nn-paths[data-kind=draft-pass] span {animation-duration:.6s}
+.nn-p20 .nn-paths[data-kind=draft-pass] span {animation-duration:calc(.6s * var(--ux-speed,1))}
 .nn-p20 .nn-paths[data-kind=draft-pass] img {width:1.65rem;aspect-ratio:.7;object-fit:cover}
 .nn-p20 .nn-event {border-radius:.42rem;justify-content:flex-start;color:#f9e9d2}
 .nn-p20 .nn-event img {flex:none}
@@ -480,3 +480,13 @@
 }
 
 @media(min-width:801px){.nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger:is(:hover,:focus-visible){transform:scale(1.45)} .nn-p20 .nn-ring .nn-stage{inset:28% 25%} .nn-p20 .nn-ring:has(.nn-table-play) .nn-stage{inset:34% 28%}}
+
+/* Actual avatar DOM and seat feedback: selected > eligible hover > presentation focus. */
+.nn-p20 .nn-seat.nn-dead .player-avatar > img {filter:grayscale(1) brightness(.65)!important}
+.nn-p20 .nn-seat-shell:has(.nn-seat[data-can-target=true]:is(:hover,:focus-visible)):not(:has(.nn-target)) {outline:2px solid #65d9ed;box-shadow:0 0 12px #44c7df66}
+.nn-p20 .nn-seat-shell:has(.nn-seat.nn-target) {outline:2px solid #f1c570;box-shadow:0 0 12px #e9b65366}
+.nn-p20 .nn-seat.nn-target {outline:2px solid #f1c570}
+.nn-p20 .nn-seat[data-can-target=true]:is(:hover,:focus-visible):not(.nn-target) {outline:2px solid #65d9ed}
+.nn-p20[data-effects=full] .nn-event {animation-duration:min(calc(.65s * var(--ux-speed,1)),var(--ux-event-duration,100s))}
+.nn-p20[data-effects=full] .nn-event[data-event=reveal] {animation-duration:min(calc(2.3s * var(--ux-speed,1)),var(--ux-event-duration,100s))}
+.nn-p20[data-effects=full] .nn-event[data-event=champion] {animation-duration:min(calc(5s * var(--ux-speed,1)),var(--ux-event-duration,100s))}

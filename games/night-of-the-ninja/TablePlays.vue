@@ -106,6 +106,7 @@ watch([()=>props.epoch,()=>props.state.round,()=>props.state.cardArea.played,()=
     schedule(()=>fading.value=fading.value.filter(item=>!exits.some(exit=>exit.play.card===item.play.card)),760)
   }
 },{flush:'post'})
+watch(()=>props.state.presentation?.id,()=>{clearAnimations()},{flush:'pre'})
 watch(()=>props.effects,value=>{if(value==='reduced') clearAnimations()})
 function measure() {
   if(props.ring) bounds.value={width:props.ring.clientWidth,height:props.ring.clientHeight}
@@ -168,10 +169,10 @@ const specialOrigin=computed(()=>{
 .nn-table-play :deep(.nn-card-art),.nn-table-flight :deep(.nn-card-art) {display:block;width:100%;height:100%;min-width:0;flex:none}
 .nn-table-play :deep(.nn-card-art img),.nn-table-flight :deep(.nn-card-art img) {display:block;width:100%;height:100%;aspect-ratio:auto;object-fit:cover;object-position:center}
 .nn-table-flight {pointer-events:none;animation:nn-table-exit calc(.68s * var(--ux-speed,1)) ease-in-out both}
-.nn-table-flight[data-status=skipped] {filter:brightness(.45);animation-duration:.42s}
+.nn-table-flight[data-status=skipped] {filter:brightness(.45);animation-duration:calc(.42s * var(--ux-speed,1))}
 .nn-special-flight {animation-duration:calc(1.18s * var(--ux-speed,1));z-index:5}
-.nn-special-flight[data-kind=master] {animation-name:nn-table-master;animation-duration:1.28s}
-.nn-table-plays[data-performance=light] .nn-table-flight {animation-name:nn-table-reveal;animation-direction:reverse;animation-duration:.35s}
+.nn-special-flight[data-kind=master] {animation-name:nn-table-master;animation-duration:calc(1.28s * var(--ux-speed,1))}
+.nn-table-plays[data-performance=light] .nn-table-flight {animation-name:nn-table-reveal;animation-direction:reverse;animation-duration:calc(.35s * var(--ux-speed,1))}
 .nn-table-plays[data-performance=reduced] .nn-table-play {animation:none;transition:none}
 .nn-board-dialog {pointer-events:auto}
 @keyframes nn-table-reveal {from{opacity:0}to{opacity:1}}
