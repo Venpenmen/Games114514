@@ -25,7 +25,7 @@ defineProps<{own:NonNullable<ReturnType<typeof privateView>>; seats:Seat[]; name
       </section>
       <section>
         <h3>本轮私人情报</h3>
-        <p v-if="!own.intel.length">本轮尚未收到技能情报。</p>
+        <p v-if="!own.intel.length && !own.initialIdentity">本轮尚未收到技能情报。</p>
         <ol v-else class="nn-intel-list">
           <li v-for="entry in [...own.intel].reverse()" :key="entry.seq">
             <header>
@@ -38,6 +38,16 @@ defineProps<{own:NonNullable<ReturnType<typeof privateView>>; seats:Seat[]; name
               <div v-if="entry.actingCard">执行牌 <CardFace :id="entry.actingCard" compact/></div>
               <div v-if="entry.card"><span v-if="entry.viewedBy">被查看的手牌 </span><CardFace :id="entry.card" compact/></div>
               <span v-if="entry.honor!==undefined"><span class="nn-honor"><img :src="asset('honor-front')" alt=""><b>{{ entry.honor }}</b></span> 查阅时的分值</span>
+            </div>
+          </li>
+          <li v-if="own.initialIdentity" class="nn-initial-intel" data-intel-kind="initial-identity">
+            <header>
+              <strong>本轮初始身份</strong>
+              <span>第 {{ own.initialIdentity.round }} 轮 · <time :datetime="new Date(own.initialIdentity.at).toISOString()">{{ new Date(own.initialIdentity.at).toLocaleTimeString() }}</time></span>
+            </header>
+            <p>本轮开始时，你获得了以下身份牌：</p>
+            <div class="nn-intel-evidence">
+              <IdentityCard :identity="own.initialIdentity.identity" caption="本轮最初获得的身份"/>
             </div>
           </li>
         </ol>

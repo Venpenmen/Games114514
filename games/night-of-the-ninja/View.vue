@@ -130,6 +130,13 @@ const recoveredPresentation=ref<number>()
 const staticPresentation=computed(()=>!!state.value.presentation &&
   (recoveredPresentation.value===state.value.presentation.id || props.room.pausedMs!==undefined))
 const shown=computed(()=>presented.value.at(-1))
+// Use only the publicly projected, currently resolving card; never raw hidden targets.
+const activeExecution=computed(()=>state.value.cardArea.played.find(play=>
+  play.status==='resolving' && play.card===state.value.current?.card &&
+  play.player===state.value.current?.player))
+const activeTargets=computed(()=>activeExecution.value?.targets??[])
+const activeActor=computed(()=>activeExecution.value?.player)
+const isActiveTarget=(id:string)=>activeTargets.value.includes(id)
 const roundEvents=computed(()=>timelineRows(state.value.events,privateState.value?.tableTargets??[],state.value.round))
 const batchTitle=(event:PublicEvent)=>event.card && cards[event.card].phase!=='special'
   ? phaseNames[cards[event.card].phase as keyof typeof phaseNames]+'阶段 · 同时亮牌' : '同时亮牌'
@@ -293,9 +300,11 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         :data-self="p.id===player" :aria-label="name(p.id)+(p.id===player?'（本人）':'')"
         :aria-pressed="targetOptions.has(p.id)?(shiftPairMode?shiftPicked.includes(p.id):selection?.target===p.id):undefined"
         :data-can-target="!locked && targetOptions.has(p.id)"
+        :data-execution-actor="activeActor===p.id"
+        :data-execution-target="isActiveTarget(p.id)"
         :disabled="targetOptions.size>0 && (locked || !targetOptions.has(p.id))"
         @click="targetOptions.has(p.id)?select(targetOptions.get(p.id)!):inspectIdentity(p.id)"
-        :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id || shiftPicked.includes(p.id),'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id)}">
+        :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id || shiftPicked.includes(p.id),'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id),'nn-execution-actor':activeActor===p.id,'nn-execution-target':isActiveTarget(p.id)}">
         <PlayerAvatar :src="asset('portrait-'+p.portrait)" :name="name(p.id)" :online="room.members.some(member=>member.id===p.id && member.online)" compact :image-class="{'nn-death-flash':shown?.kind==='death' && shown.actors.includes(p.id),'nn-attack-target':shown?.kind==='attack' && shown.actors[1]===p.id}"/>
         <span class="nn-seat-info"><strong :title="name(p.id)"><span class="nn-seat-name-text">{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</span></strong>
         <small class="nn-seat-status" :title="(p.alive?'存活':'已死亡')+' · '+(room.members.find(member=>member.id===p.id)?.online?'在线':'离线')">
@@ -303,7 +312,9 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           <span class="nn-status-label">{{ room.members.find(member=>member.id===p.id)?.online?'在线':'离线' }}</span>
           <span class="nn-seat-honor" :aria-label="'荣誉 '+p.honorCount" :title="'荣誉 '+p.honorCount"><img :src="asset('honor-back')" alt=""> {{ p.honorCount }}</span> <span :title="'手牌 '+p.handCount+' 张'" :aria-label="'手牌 '+p.handCount+' 张'">▤{{ p.handCount }}</span>
         </small>
-        <small v-if="targetOptions.size">{{ shiftPairMode && shiftPicked.includes(p.id)?'目标 '+(shiftPicked.indexOf(p.id)+1):privateState?.action?.targets.includes(p.id) ? '目标 '+(privateState.action.targets.indexOf(p.id)+1) : targetOptions.has(p.id)?'可选':'不可选' }}</small></span>
+        <small v-if="targetOptions.size">{{ shiftPairMode && shiftPicked.includes(p.id)?'目标 '+(shiftPicked.indexOf(p.id)+1):privateState?.action?.targets.includes(p.id) ? '目标 '+(privateState.action.targets.indexOf(p.id)+1) : targetOptions.has(p.id)?'可选':'不可选' }}</small>
+        <small v-if="isActiveTarget(p.id)" class="nn-execution-tag">技能目标{{ activeTargets.length>1 ? ' '+(activeTargets.indexOf(p.id)+1):'' }}</small>
+        <small v-else-if="activeActor===p.id" class="nn-actor-tag">执行者</small></span>
       </button>
       <button type="button" class="nn-identity-trigger"
         :class="{'nn-identity-known':Boolean(privateState?.identities?.[p.id]??p.identity)}"
@@ -321,6 +332,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         <div v-if="state.current" class="nn-active-card">
           <CardFace :id="state.current.card" compact/>
           <div><p>当前公开执行 · {{ name(state.current.player) }}</p>
+            <p v-if="activeTargets.length" class="nn-execution-route">{{ name(activeActor!) }} → {{ activeTargets.map(name).join('、') }}</p>
             <p class="nn-active-effect">{{ skills[cards[state.current.card].skill][1] }}</p>
             <p v-if="attack">{{ attack.actors.map(name).join(' → ') }} · 攻击尚未裁决</p></div>
         </div>

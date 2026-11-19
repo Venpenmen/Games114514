@@ -611,3 +611,35 @@ test('UX2 merchant voluntary skip does not transfer honor',()=>{
   assert.deepEqual(s.seats[0].honor.map(item=>item.id),[201])
   assert.deepEqual(s.seats[1].honor.map(item=>item.id),[202])
 })
+
+test('UX3 initial identity stays first historical fact after a hidden shapeshift',()=>{
+  const s=start()
+  const originalB=structuredClone(s.seats[1].identity)
+  const originalC=structuredClone(s.seats[2].identity)
+  assert.deepEqual(privateView(s,'b')?.initialIdentity?.identity,originalB)
+  assert.equal(privateView(s,'b')?.initialIdentity?.round,s.round)
+  assert.deepEqual(privateView(s,'c')?.initialIdentity?.identity,originalC)
+  assert(!Object.hasOwn(publicView(s),'initialIdentity'))
+  assert.equal(privateView(s,'b')?.intel.length,0)
+  stage('trickster-1',s);expire(s);click(s,'a','pair:b:c')
+  click(s,'a','yes');click(s,'a','hide')
+  assert.deepEqual(s.seats[1].identity,originalC)
+  assert.deepEqual(privateView(s,'b')?.initialIdentity?.identity,originalB)
+  assert.deepEqual(privateView(s,'c')?.initialIdentity?.identity,originalC)
+  const copy=structuredClone(s)
+  assert.deepEqual(privateView(copy,'b')?.initialIdentity,privateView(s,'b')?.initialIdentity)
+  assert.deepEqual(privateView(copy,'c')?.initialIdentity,privateView(s,'c')?.initialIdentity)
+  assert(!Object.hasOwn(privateView(copy,'a')!.initialIdentity!,'seats'))
+})
+
+test('UX3 private initial deal is separately scoped to every player',()=>{
+  const s=start()
+  for(const id of ids) {
+    const view=privateView(s,id)!
+    const dealt=s.replay!.find(entry=>entry.round===s.round&&entry.step==='deal')!
+    assert.deepEqual(view.initialIdentity?.identity,dealt.seats!.find(seat=>seat.id===id)!.identity)
+    assert.equal(Object.keys(view.initialIdentity!).sort().join(','),'at,identity,round')
+    assert.equal(view.intel.length,0)
+  }
+  assert(!JSON.stringify(publicView(s)).includes('initialIdentity'))
+})

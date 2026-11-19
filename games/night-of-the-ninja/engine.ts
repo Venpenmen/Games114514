@@ -714,6 +714,14 @@ export function privateView(s:NinjaState,id:string) {
   const seats=visible?.seats??s.seats
   const identities=Object.fromEntries(seats.map(target=>[target.id,
     target.exposed==='full'?target.identity:exact(p.knowledge?.[target.id])??(target.id===id?p.known:null)]))
+  // Only the owner's initial deal is exposed; the replay's other identities stay server-side.
+  const initialDeal=s.replay?.findLast(entry=>entry.round===s.round && entry.step==='deal')
+  const dealtIdentity=initialDeal?.seats?.find(target=>target.id===id)?.identity
+  const initialIdentity=dealtIdentity ? {
+    identity:{...dealtIdentity},
+    round:s.round,
+    at:s.events.find(event=>event.round===s.round && event.kind==='round')?.at??0,
+  }:undefined
   const merchant=s.mode==='choice' && skill(s)==='merchant' && s.current?.player===id &&
     s.second==='exchange' && s.target ? {
       target:s.target,
@@ -723,7 +731,7 @@ export function privateView(s:NinjaState,id:string) {
         value:s.merchantViewed?.id===token.id?s.merchantViewed.value:undefined,
       })),
     }:undefined
-  return {hand:p.hand, known:identities[id], identities, merchant, exposures:Object.fromEntries(seats.map(target=>[target.id,exposureOf(target,id)] as const)), honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
+  return {hand:p.hand, known:identities[id], initialIdentity, identities, merchant, exposures:Object.fromEntries(seats.map(target=>[target.id,exposureOf(target,id)] as const)), honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
     options:legal,action,tableTargets:(visible?.tableTargets??s.tableTargets??[]).filter(entry=>entry.round===s.round)}
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
