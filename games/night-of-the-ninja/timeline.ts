@@ -9,10 +9,15 @@ export type TimelineRow=
   | {kind:'event';key:string;event:TimelineEvent}
 
 export function timelineRows(events:PublicEvent[],targets:TableTargets,round:number):TimelineRow[] {
-  const entries:TimelineEvent[]=events.filter(event=>event.round===round)
+  // A target-focus event is only a server-timed visual pause, not a second action.
+  const entries:TimelineEvent[]=events.filter(event=>event.round===round && event.kind!=='target-focus')
     .map(event=>({...event,key:'event-'+event.seq,order:event.seq}))
+  const effectTargets=new Set(events.filter(event=>event.round===round &&
+    event.executionId!==undefined && ['identity-view','attack','honor'].includes(event.kind) && event.actors.length>=2)
+    .flatMap(event=>event.actors.slice(0,2).map(target=>`${event.executionId}:${target}`)))
   for(const [index,target] of targets.entries()) {
-    if(target.round!==round) continue
+    if(target.round!==round || (target.executionId!==undefined &&
+      effectTargets.has(`${target.executionId}:${target.target}`))) continue
     entries.push({key:'target-'+index,order:target.after+.5,seq:target.after,at:0,round,
       kind:'target',actors:[target.player,target.target],executionId:target.executionId,card:target.card,
       text:cards[target.card].skill==='shift'?'已确认目标 '+target.ordinal+'。':'已确认技能目标。'})

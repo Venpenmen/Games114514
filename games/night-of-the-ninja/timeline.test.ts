@@ -28,9 +28,66 @@ test('reveal batches preserve multipicks and execution scopes without disclosing
   const [batch,first,,last,standalone]=rows
   assert(batch.kind==='batch'&&first.kind==='execution'&&last.kind==='execution'&&standalone.kind==='event')
   assert.deepEqual(revealedPlayers(batch.events),[['a',['blind-1','blind-3']],['b',['blind-2']]])
-  assert.deepEqual(first.details.map(event=>event.kind),['target','attack','mirror','death'])
+  assert.deepEqual(first.details.map(event=>event.kind),['attack','mirror','death'])
   assert.deepEqual(last.details[0].actors,['a','d'])
   assert.equal(standalone.event.card,'mystic-1')
   assert(!JSON.stringify(timelineRows(events,[],1)).includes('target-'))
   assert.equal(timelineRows(events,targets,2).length,1)
+})
+
+test('UX3.2 merges target confirmation with actual effect, excludes presentation pause',()=>{
+  const event=(seq:number,kind:string,actors:string[],executionId?:number):PublicEvent=>({
+    seq,at:seq,round:1,kind,actors,text:kind,
+    ...(executionId===undefined?{}:{executionId}),
+    ...(kind==='play'?{card:seq===1?'spy-1':seq===5?'mystic-1':'trickster-1'}:{}),
+  })
+  const events=[
+    event(1,'play',['a']),
+    event(2,'identity-view',['a','b'],1),
+    event(3,'target-focus',['a','b'],1),
+    event(4,'round',[]),
+    event(5,'play',['c']),
+    event(6,'identity-view',['c','d'],5),
+    event(7,'target-focus',['c','d'],5),
+    event(8,'play',['b']),
+    event(9,'identity-view',['b','a'],8),
+    event(10,'identity-view',['b','d'],8),
+    event(11,'shift-result',['a','d'],8),
+  ]
+  const targets=[
+    {round:1,after:1,executionId:1,player:'a',target:'b',card:'spy-1',ordinal:1 as const},
+    {round:1,after:5,executionId:5,player:'c',target:'d',card:'mystic-1',ordinal:1 as const},
+    {round:1,after:8,executionId:8,player:'b',target:'a',card:'trickster-1',ordinal:1 as const},
+    {round:1,after:9,executionId:8,player:'b',target:'d',card:'trickster-1',ordinal:2 as const},
+  ]
+  const rows=timelineRows(events,targets,1)
+  assert.deepEqual(rows.map(row=>row.kind),['execution','event','execution','execution'])
+  const groups=rows.filter(row=>row.kind==='execution')
+  assert(groups.every(row=>row.kind==='execution'))
+  assert.deepEqual(groups.map(row=>row.details.map(e=>e.kind)),[
+    ['identity-view'],['identity-view'],['identity-view','identity-view','shift-result']
+  ])
+  assert(!JSON.stringify(rows).includes('target-focus'))
+  assert.deepEqual(events.map(e=>e.kind).filter(kind=>kind==='target-focus').length,2)
+})
+test('UX3.2 fallback targets remain when no public effect is available, attack and honor collapse repeats',()=>{
+  const event=(seq:number,kind:string,actors:string[],executionId?:number,card?:string):PublicEvent=>({
+    seq,at:seq,round:1,kind,actors,text:kind,...(card?{card}:{}),
+    ...(executionId===undefined?{}:{executionId}),
+  })
+  const cases=[
+    {card:'trickster-4',effect:undefined,expected:['target']}, // private merchant honor inspection
+    {card:'trickster-4',effect:'honor',expected:['honor']},
+    {card:'blind-1',effect:'attack',expected:['attack']},
+    {card:'trickster-5',effect:'honor',expected:['honor']},
+  ]
+  for(const [i,item] of cases.entries()){
+    const events=[event(1,'play',['a'],undefined,item.card),
+      ...(item.effect?[event(2,item.effect,['a','b'],1)]:[])]
+    const targets=[{round:1,after:1,executionId:1,player:'a',target:'b',card:item.card,ordinal:1 as const}]
+    const rows=timelineRows(events,targets,1)
+    assert.equal(rows.length,1,i+' should have one execution')
+    assert(rows[0].kind==='execution')
+    assert.deepEqual(rows[0].details.map(e=>e.kind),item.expected,item.card)
+  }
 })
