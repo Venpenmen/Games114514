@@ -538,7 +538,7 @@ test('chained hidden shapeshifter decisions preserve nonparticipants public and 
   }
 })
 
-test('round reveal restores actual grades without formally revealing dead players',()=>{
+test('intermission reveals all identities including eliminated seats, without altering exposure history',()=>{
   const s=start()
   stage('trickster-1',s);expire(s)
   click(s,'a','a');click(s,'a','b');click(s,'a','yes');click(s,'a','hide')
@@ -546,8 +546,11 @@ test('round reveal restores actual grades without formally revealing dead player
   s.seats[1].alive=false
   while(s.mode!=='ready' && s.mode!=='champion') expire(s)
   assert.equal(publicView(s).seats[0].exposure,'full')
-  assert.equal(publicView(s).seats[1].exposure,'unseen')
-  assert.equal(publicView(s).seats[1].identity,null)
+  assert.equal(publicView(s).seats[1].exposure,'full')
+  assert.deepEqual(publicView(s).seats[1].identity,s.seats[1].identity)
+  assert.equal(privateView(s,'c')?.exposures.b,'full')
+  assert.deepEqual(privateView(s,'c')?.identities.b,s.seats[1].identity)
+  assert.notEqual(s.seats[1].exposed,'full') // projection only; history remains unchanged
   assert.equal(publicView(s).roundShifts?.[0].exchanged,true)
   expire(s)
   assert(publicView(s).seats.every(p=>p.exposure==='unseen'))
@@ -688,4 +691,47 @@ test('UX3.1 target focus respects configured presentation speed and avoids multi
   stage('trickster-3',other);expire(other);click(other,'a','b')
   assert.equal(other.mode,'choice')
   assert.equal(other.events.some(entry=>entry.kind==='target-focus'),false)
+})
+
+test('UX3.1 intermission reveals the whole final identity table and resets it on the next deal',()=>{
+  const s=start()
+  const original=s.seats.map(p=>structuredClone(p.identity))
+  s.seats[1].alive=false
+  s.seats[2].exposed='partial'
+  assert.equal(publicView(s).seats[1].identity,null)
+  assert.equal(privateView(s,'d')?.identities.b,null)
+  s.mode='ready'
+  s.deadline=5000
+  const intermission=publicView(s)
+  assert.equal(intermission.mode,'ready')
+  for(const [i,p] of intermission.seats.entries()) {
+    assert.equal(p.exposure,'full')
+    assert.deepEqual(p.identity,original[i])
+  }
+  for(const id of ids) {
+    const own=privateView(s,id)!
+    for(const [i,target] of s.seats.entries()) {
+      assert.deepEqual(own.identities[target.id],original[i])
+      assert.equal(own.exposures[target.id],'full')
+    }
+  }
+  const stored=structuredClone(s)
+  assert.deepEqual(publicView(stored).seats,intermission.seats)
+  assert.notEqual(stored.seats[1].exposed,'full')
+  assert.equal(stored.seats[2].exposed,'partial')
+  expire(stored)
+  assert.equal(stored.round,2)
+  assert.equal(publicView(stored).mode,'draft1')
+  assert(publicView(stored).seats.every(p=>p.exposure==='unseen'&&p.identity===null))
+  assert.equal(privateView(stored,'d')?.identities.b,null)
+  assert.equal(privateView(stored,'d')?.exposures.b,'unseen')
+})
+test('UX3.1 final champion also shows every final identity',()=>{
+  const s=start()
+  s.seats[2].alive=false
+  s.mode='champion'
+  const result=publicView(s)
+  assert(result.seats.every((p,i)=>p.exposure==='full'&&
+    p.identity?.house===s.seats[i].identity.house&&p.identity?.rank===s.seats[i].identity.rank))
+  assert(result.replay!==undefined)
 })

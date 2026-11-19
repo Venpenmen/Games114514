@@ -279,7 +279,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
   <article class="nn-game nn-p20" :data-presentation="state.presentation?.id" :data-static-presentation="staticPresentation" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--ux-speed':state.presentationSpeed,'--ux-event-duration':(state.presentation?.duration??100000)+'ms','--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
     <header class="nn-header">
       <div><p>第 {{ state.round }} 轮<span v-if="state.night" :data-phase="state.night"> · {{ ({spy:'◈',mystic:'✦',trickster:'◇',blind:'◒',shinobi:'❖'})[state.night] }} {{ phaseNames[state.night] }}</span></p>
-      <h2>{{ modes[step] ?? '技能结算' }}</h2><p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p><p v-else-if="match.deadline" class="nn-clock" :class="{'nn-clock-urgent':seconds<=5}">剩余 {{ seconds }} 秒 · {{ state.submitted }} 人已提交</p></div>
+      <h2>{{ modes[step] ?? '技能结算' }}</h2><p v-if="state.mode==='ready' || state.mode==='champion'" class="nn-intermission-public" role="status">本轮身份已全部公开，可对照牌桌与复盘。</p><p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p><p v-else-if="match.deadline" class="nn-clock" :class="{'nn-clock-urgent':seconds<=5}">剩余 {{ seconds }} 秒 · {{ state.submitted }} 人已提交</p></div>
       <p v-if="privateState" class="nn-identity">
         <template v-if="privateState.known">
           <img :src="asset(privateState.known.house)" alt="">

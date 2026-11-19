@@ -679,13 +679,17 @@ function exposureOf(target:Seat,observer?:string): NonNullable<Seat["exposed"]> 
 export function publicView(s:NinjaState) {
   const step=visibleStep(s)
   const through=step?.events.at(-1)
+  // Intermission reveals every final identity, including eliminated players.
+  // Keep the underlying exposure state intact so the next deal stays private.
+  const showIntermissionIdentities=s.mode==='ready'||s.mode==='champion'
   return {
     presentationSpeed:s.config.presentationSpeed??1,
     round:s.round, mode:['target','second','choice','recover','shift-disclosure'].includes(s.mode)?'resolve':s.mode,
     night:['commit','play','target','second','choice','recover','shift-disclosure','reaction'].includes(s.mode)?phases[s.night]:null, submitted:Object.keys(s.submissions).length,
     seats:(step?.visible.seats??s.seats).map(target=>({
       id:target.id,portrait:target.portrait,alive:target.alive,honorCount:target.honor.length,handCount:target.hand.length,
-      exposure:exposureOf(target),identity:target.exposed==='full'?target.identity:null,
+      exposure:showIntermissionIdentities?'full':exposureOf(target),
+      identity:showIntermissionIdentities||target.exposed==='full'?target.identity:null,
     })),
     cardArea:{undealt:s.undealt?.length??33-s.seats.length*3,discard:step?.visible.discardCount??s.discard.length,
       played:(step?.visible.tableCards??s.tableCards??[]).map(item=>({
@@ -715,8 +719,9 @@ export function privateView(s:NinjaState,id:string) {
       : [],
   }:undefined
   const seats=visible?.seats??s.seats
+  const showIntermissionIdentities=s.mode==='ready'||s.mode==='champion'
   const identities=Object.fromEntries(seats.map(target=>[target.id,
-    target.exposed==='full'?target.identity:exact(p.knowledge?.[target.id])??(target.id===id?p.known:null)]))
+    showIntermissionIdentities||target.exposed==='full'?target.identity:exact(p.knowledge?.[target.id])??(target.id===id?p.known:null)]))
   // Only the owner's initial deal is exposed; the replay's other identities stay server-side.
   const initialDeal=s.replay?.findLast(entry=>entry.round===s.round && entry.step==='deal')
   const dealtIdentity=initialDeal?.seats?.find(target=>target.id===id)?.identity
@@ -734,7 +739,7 @@ export function privateView(s:NinjaState,id:string) {
         value:s.merchantViewed?.id===token.id?s.merchantViewed.value:undefined,
       })),
     }:undefined
-  return {hand:p.hand, known:identities[id], initialIdentity, identities, merchant, exposures:Object.fromEntries(seats.map(target=>[target.id,exposureOf(target,id)] as const)), honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
+  return {hand:p.hand, known:identities[id], initialIdentity, identities, merchant, exposures:Object.fromEntries(seats.map(target=>[target.id,showIntermissionIdentities?'full':exposureOf(target,id)] as const)), honor:p.honor, score:sum(p), intel:p.intel.filter(entry=>entry.round===s.round), submitted:Object.hasOwn(s.submissions,id),
     options:legal,action,tableTargets:(visible?.tableTargets??s.tableTargets??[]).filter(entry=>entry.round===s.round)}
 }
 export const nightOfTheNinja: GamePlugin<Config,NinjaState> = {
