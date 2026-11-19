@@ -58,7 +58,7 @@ const settings = [
 export const defaults: Config = {playerCount:4,draft:45,play:30,target:30,reaction:15,forceShiftReveal:0}
 const opt = (value:string,label:string,target?:string,card?:string):Option => ({value,label,target,card})
 const pass = opt('pass','跳过')
-const durations:Record<string,number>={'draft-pass':900,play:1500,identity:4000,swap:4000,'shift-result':4000,death:4000,mirror:3500,martyr:3500,master:1300,houses:2800,reveal:2600,honor:5000,champion:6000}
+const durations:Record<string,number>={'draft-pass':900,play:1500,'target-focus':1800,identity:4000,swap:4000,'shift-result':4000,death:4000,mirror:3500,martyr:3500,master:1300,houses:2800,reveal:2600,honor:5000,champion:6000}
 const seat = (s:NinjaState,id:string) => s.seats.find(value=>value.id===id)!
 const skill = (s:NinjaState) => cards[s.current!.card].skill
 const sum = (p:Seat) => p.honor.reduce((n,h)=>n+h.value,0)
@@ -84,7 +84,7 @@ function replaySeats(s:NinjaState,kind:'deal'|'identity'|'score') {
   }))
 }
 function event(s:NinjaState,ctx:Context,kind:string,text:string,actors:string[]=[],extra:Pick<PublicEvent,'card'|'identities'|'group'>={}) {
-  const executionId=['identity','swap','attack','death','mirror','martyr','honor'].includes(kind)?s.current?.executionId:undefined
+  const executionId=['identity','swap','attack','death','mirror','martyr','honor','target-focus'].includes(kind)?s.current?.executionId:undefined
   const result={seq:++s.seq,at:ctx.now,round:s.round,kind,text,actors,...extra,...(executionId===undefined?{}:{executionId})}
   s.events.push(result)
   observations.get(s)?.set(result.seq,observe(s))
@@ -372,6 +372,9 @@ function onTarget(s:NinjaState,ctx:Context,value:string) {
     case 'spy':
     case 'mystic':
       inspect(s,ctx,id,value,skill(s)==='mystic')
+      // This public, server-timed pause retains the active actor and target highlight.
+      // Neither identity nor inspected hand card is included in the public event.
+      event(s,ctx,'target-focus','已确认技能目标。',[id,value],{card:s.current!.card})
       break
     case 'trouble':
     case 'shinobi':

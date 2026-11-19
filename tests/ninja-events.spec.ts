@@ -143,6 +143,12 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await c.getByRole('button',{name:'乙',exact:true}).hover()
     await capture(c,'target',[['.nn-seat-shell:has(.nn-target)','金色：已选目标'],['.nn-stage','公开执行牌与效果'],['.nn-confirm','确认技能目标'],['.nn-journal','身份 / 时间线 / 情报']])
     await btn(c,'确认提交').click()
+    // UX.3.1: spectators, actor, and recipient share the server-timed target freeze.
+    await expect(a.locator('.nn-event[data-event="target-focus"]')).toContainText('已确认技能目标。')
+    await expect(a.locator('.nn-seat[data-execution-target="true"]')).toHaveCount(1)
+    await expect(a.locator('.nn-seat[data-execution-actor="true"]')).toHaveCount(1)
+    await expect(a.locator('.nn-execution-route')).toContainText('丙 → 甲')
+    await expect(a.locator('.nn-seat[data-execution-target="true"]')).toHaveCSS('outline-color','rgb(241, 141, 120)')
     await c.setViewportSize({width:390,height:844})
     await expect(boardCard).toHaveCount(0)
     await btn(d,'公开时间线').click()

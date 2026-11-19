@@ -643,3 +643,49 @@ test('UX3 private initial deal is separately scoped to every player',()=>{
   }
   assert(!JSON.stringify(publicView(s)).includes('initialIdentity'))
 })
+
+for(const card of ['spy-1','mystic-1']) test('UX3.1 target focus pauses '+card+' without revealing private inspection',()=>{
+  const state=start()
+  state.seats[1].hand=['mirror']
+  stage(card,state)
+  state.tableCards=[{player:'a',card,source:'hand',status:'resolving'}]
+  expire(state)
+  assert.equal(state.mode,'target')
+  const targetDeadline=state.deadline!
+  click(state,'a','b')
+  assert.equal(state.mode,'presentation')
+  const projected=publicView(state)
+  assert.deepEqual(projected.presentation?.events.map(entry=>entry.kind),['target-focus'])
+  assert.equal(projected.presentation?.duration,1800)
+  assert.equal(projected.presentation?.startedAt,targetDeadline-1)
+  assert.equal(projected.presentation?.endsAt,targetDeadline-1+1800)
+  assert.deepEqual(projected.presentation?.events[0].actors,['a','b'])
+  assert.equal(projected.presentation?.events[0].card,card)
+  assert.equal(projected.presentation?.events[0].executionId,state.current?.executionId)
+  assert.deepEqual(projected.cardArea.played.find(play=>play.card===card)?.targets,['b'])
+  assert.equal(projected.cardArea.played.find(play=>play.card===card)?.status,'resolving')
+  assert.equal(projected.presentation?.events[0].identities,undefined)
+  assert(!JSON.stringify(projected.presentation).includes('"mirror"'))
+  assert(!Object.hasOwn(projected,'tableTargets'))
+  assert.equal(privateView(state,'a')?.intel[0]?.identity?.house,state.seats[1].identity.house)
+  assert.equal(privateView(state,'c')?.intel.length,0)
+  const restored=structuredClone(state)
+  const before=restored.deadline!
+  game.advance(restored,{now:before-1,random:()=>0})
+  assert.equal(restored.mode,'presentation')
+  expire(restored)
+  assert.notEqual(restored.mode,'presentation')
+  assert.equal(restored.tableCards?.[0].status,'resolved')
+  assert.equal(restored.events.filter(entry=>entry.kind==='target-focus').length,1)
+  assert.equal(restored.deadline,before+defaults.play*1000)
+})
+test('UX3.1 target focus respects configured presentation speed and avoids multi-step skills',()=>{
+  const state=start()
+  state.config.presentationSpeed=2
+  stage('spy-1',state);expire(state);click(state,'a','b')
+  assert.equal(publicView(state).presentation?.duration,3600)
+  const other=start()
+  stage('trickster-3',other);expire(other);click(other,'a','b')
+  assert.equal(other.mode,'choice')
+  assert.equal(other.events.some(entry=>entry.kind==='target-focus'),false)
+})
