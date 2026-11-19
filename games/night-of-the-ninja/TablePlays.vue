@@ -27,16 +27,17 @@ function layout(plays:Play[]) {
   const frame=props.ring!.getBoundingClientRect()
   const obstacles=Array.from(props.ring!.querySelectorAll<HTMLElement>('.nn-seat-shell,.nn-stage'),element=>element.getBoundingClientRect())
   const placed:DOMRect[]=[]
-  const padding=5
+  const landscape=matchMedia('(orientation:landscape) and (max-width:1000px) and (max-height:500px)').matches
+  const padding=landscape?(height<=160?.5:2):5
   const intersects=(a:DOMRect,b:DOMRect)=>a.left<b.right+padding && a.right>b.left-padding &&
     a.top<b.bottom+padding && a.bottom>b.top-padding
   // The painted card is portrait, not a square around its center. Include its rotation.
   const boxFor=(point:Point & {angle:number})=>{
     const angle=Math.abs(point.angle)*Math.PI/180
-    const cardWidth=size.value+2,cardHeight=size.value/.72+2
+    const cardWidth=size.value+2,cardHeight=Math.max(44,size.value/.72+2)
     const w=cardWidth*Math.cos(angle)+cardHeight*Math.sin(angle)
     const h=cardHeight*Math.cos(angle)+cardWidth*Math.sin(angle)
-    return new DOMRect(frame.left+point.x-w/2,frame.top+point.y-h/2,w,h)
+    return new DOMRect(frame.left+(landscape?1:0)+point.x-w/2,frame.top+(landscape?1:0)+point.y-h/2,w,h)
   }
   const collisions=(items:{card:string;point:Point & {angle:number}}[])=>{
     let cost=0
@@ -68,6 +69,27 @@ function layout(plays:Play[]) {
     })
     const candidates=[0,12,-12,24,-24,40,-40,56,-56,80,-80].flatMap(side=>
       [0,10,20,32,48,64,80,-8,-16].map(delta=>fan(distance+delta,side)))
+    // Dense landscape: sample the free band at the stage's vertical center first.
+    // A grid anchored at the top misses this narrow band between both seat rows.
+    if(landscape && !candidates.some(items=>collisions(items)===0)) {
+      const stage=props.ring!.querySelector('.nn-stage')?.getBoundingClientRect()
+      const ys=stage?[(stage.top+stage.bottom)/2-frame.top]:[height/2]
+      for(let y=Math.max(44,size.value/.72)/2+2;y<height-Math.max(44,size.value/.72)/2-2;y+=size.value/.72+7)ys.push(y)
+      const spare:{x:number;y:number}[]=[]
+      for(const y of ys)for(let x=size.value/2+2;x<width-size.value/2-2;x+=size.value+7)spare.push({x,y})
+      spare.sort((a,b)=>Math.hypot(a.x-sx,a.y-sy)-Math.hypot(b.x-sx,b.y-sy))
+      candidates.push(...spare.map(origin=>group.map((play,index)=>({card:play.card,point:{x:origin.x+(index-(group.length-1)/2)*(size.value+7),y:origin.y,angle:0}}))))
+      // Edge-aligned candidates cover narrow free rectangles missed by a fixed grid.
+      const hw=((size.value+2)+(group.length-1)*(size.value+7))/2,hh=Math.max(44,size.value/.72+2)/2
+      const xs=[hw+padding,width-hw-padding],edgeYs=[hh+padding,height-hh-padding,...ys]
+      for(const obstacle of [...obstacles,...placed]) {
+        xs.push(obstacle.left-frame.left-1-hw-padding,obstacle.right-frame.left-1+hw+padding)
+        edgeYs.push(obstacle.top-frame.top-1-hh-padding,obstacle.bottom-frame.top-1+hh+padding)
+      }
+      const edges=xs.flatMap(x=>edgeYs.map(y=>({x,y}))).sort((a,b)=>Math.hypot(a.x-sx,a.y-sy)-Math.hypot(b.x-sx,b.y-sy))
+      candidates.push(...edges.map(origin=>group.map((play,index)=>({card:play.card,point:{x:origin.x+(index-(group.length-1)/2)*(size.value+7),y:origin.y,angle:0}}))))
+
+    }
     const chosen=candidates.find(items=>collisions(items)===0) ??
       candidates.reduce((best,items)=>collisions(items)<collisions(best)?items:best,candidates[0])
     for(const {card,point} of chosen) {points.set(card,point);placed.push(boxFor(point))}

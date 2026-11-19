@@ -39,4 +39,17 @@
  .nn-p20 .nn-operation>.nn-hand{display:none}
  .nn-p20 .nn-private-toast{max-height:55%;max-width:45%;overflow:auto;left:25%;top:15%;font-size:11px}
  @media(max-height:340px){main.game-page>.nn-game.nn-p20{grid-template-rows:30px minmax(0,1fr) 100px}.nn-p20 .nn-header p{font-size:10px}.nn-p20 .nn-ring .nn-seat-shell{width:100px!important}.nn-p20 .nn-ring .nn-stage{inset:30% 25% 36%}.nn-p20 .nn-choice-card .nn-card-art img{height:30px!important}}
+
+ .nn-p20 .nn-ring:not([data-seat-count="4"]) .nn-seat-shell{width:min(96px,calc(84% / var(--nn-landscape-columns) - 6px))!important}
+ .nn-p20 .nn-ring:not([data-seat-count="4"]) .nn-stage{inset:33% 21% 33%}
+ .nn-p20 .nn-ring:not([data-seat-count="4"]) .nn-seat-shell .nn-seat-info strong{font-size:10px;white-space:normal;line-height:1.1}
+
+ /* Override the portrait-only <=800px rule: landscape public cards remain visible. */
+ .nn-p20 .nn-ring .nn-table-plays{display:block}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat{height:36px;min-height:36px;max-height:36px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info{min-width:0;flex:1;width:auto;line-height:1.1}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info strong{font-size:9px;line-height:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat small{font-size:8px;line-height:10px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-actor-tag,.nn-p20 .nn-ring .nn-seat-shell .nn-execution-tag{font-size:7px;line-height:10px;white-space:nowrap}
+ .nn-p20 .nn-ring[data-dense=true] .nn-seat-shell .nn-seat>.player-avatar{width:16px}
 }

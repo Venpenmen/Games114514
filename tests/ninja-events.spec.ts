@@ -259,11 +259,23 @@ test('real exchange and mirror reaction gate their corresponding animations',asy
     await c.setViewportSize({width:1280,height:900})
     await capture(c,'reaction',[['.nn-operation','合法反应牌或不使用反应'],['.nn-clock','反应剩余时间'],['.nn-confirm','确认反应'],['.nn-stage','攻击尚未裁决']])
     await c.setViewportSize({width:390,height:844})
+    if(process.env.NINJA_LANDSCAPE_STATES)await a.setViewportSize({width:844,height:390})
     await select(c,'发动 镜僧 1')
     await expect(a.locator('.nn-event[data-event=mirror]')).toBeVisible()
     await expect(a.locator('.nn-seat.nn-dead')).toHaveCount(0)
     await expect(a.locator('.nn-event[data-event=death]')).toBeVisible()
     await expect(a.locator('.nn-seat.nn-dead')).toContainText('乙')
+    if(process.env.NINJA_LANDSCAPE_STATES){
+      for(const [width,height] of [[844,390],[915,412],[740,320]]){
+        await a.setViewportSize({width,height})
+        const shell=a.locator('.nn-seat-shell:has(.nn-dead)');const box=await shell.boundingBox();const identity=await shell.locator('.nn-identity-trigger').boundingBox()
+        expect(identity!.x).toBeGreaterThanOrEqual(box!.x-1);expect(identity!.x+identity!.width).toBeLessThanOrEqual(box!.x+box!.width+1)
+        await expect(shell.locator('.player-avatar>img')).toHaveCSS('filter','grayscale(1) brightness(0.65)')
+      }
+      await a.screenshot({path:'work/logs/p2082-p3-death-4.png'})
+      await a.setViewportSize({width:844,height:390})
+    }
+
     await expect(a.locator('.nn-seat.nn-dead .player-avatar > img')).toHaveCSS('filter','grayscale(1) brightness(0.65)')
     const barrier=await a.locator('.nn-game').getAttribute('data-presentation')
     expect(barrier).toBeTruthy()

@@ -89,9 +89,16 @@ const polar=(index:number)=>{
   const count=state.value.seats.length
   const relative=(index-offset+count)%count
   const angle=relative*2*Math.PI/count
+  const topCount=Math.ceil(count/2),bottomCount=count-topCount
+  const band=(n:number,y:number,reverse=false)=>Array.from({length:n},(_,i)=>({x:8+84*(reverse?n-1-i:i)/Math.max(1,n-1),y}))
+  const perimeter=[...band(topCount,18),...band(bottomCount,82,true)]
+  let self=topCount
+  for(let i=topCount;i<count;i++)if(Math.abs(perimeter[i].x-50)<Math.abs(perimeter[self].x-50))self=i
+  const point=perimeter[(self+relative)%count]
+
   const rows=Math.ceil((count-1)/2)+1
   const row=relative===0?rows-1:Math.floor((relative-1)/2)
-  return {'--nn-landscape-x':(50-40*Math.sin(angle))+'%','--nn-landscape-y':(50+32*Math.cos(angle))+'%',left:(50-42*Math.sin(angle))+'%',top:(50+40*Math.cos(angle))+'%',
+  return {'--nn-landscape-columns':topCount,'--nn-landscape-x':(count<=4?50-40*Math.sin(angle):point.x)+'%','--nn-landscape-y':(count<=4?50+32*Math.cos(angle):point.y)+'%',left:(50-42*Math.sin(angle))+'%',top:(50+40*Math.cos(angle))+'%',
     '--nn-mobile-x':relative===0?'12%':relative%2?'12%':'88%',
     '--nn-mobile-y':(row+.5)*100/rows+'%'}
 
