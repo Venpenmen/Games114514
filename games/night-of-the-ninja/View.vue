@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ViewportMode from './ViewportMode.vue'
 import PlayerAvatar from "../../apps/web/components/PlayerAvatar.vue"
 import {effects} from '../../apps/web/components/effects.ts'
 import {computed,onMounted,onUnmounted,ref,watch} from 'vue'
@@ -18,6 +19,7 @@ import OperationStage from './OperationStage.vue'
 import {timelineRows,revealedPlayers} from './timeline.ts'
 import './theme.css'
 import './p20.css'
+import './landscape.css'
 
 const props=defineProps<{room:Snapshot;player:string;connectionEpoch?:number;send:(type:string,data:unknown)=>Promise<boolean>}>()
 const match=computed(()=>props.room.match!)
@@ -89,7 +91,7 @@ const polar=(index:number)=>{
   const angle=relative*2*Math.PI/count
   const rows=Math.ceil((count-1)/2)+1
   const row=relative===0?rows-1:Math.floor((relative-1)/2)
-  return {left:(50-42*Math.sin(angle))+'%',top:(50+40*Math.cos(angle))+'%',
+  return {'--nn-landscape-x':(50-40*Math.sin(angle))+'%','--nn-landscape-y':(50+32*Math.cos(angle))+'%',left:(50-42*Math.sin(angle))+'%',top:(50+40*Math.cos(angle))+'%',
     '--nn-mobile-x':relative===0?'12%':relative%2?'12%':'88%',
     '--nn-mobile-y':(row+.5)*100/rows+'%'}
 
@@ -277,6 +279,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
 
 <template>
   <article class="nn-game nn-p20" :data-presentation="state.presentation?.id" :data-static-presentation="staticPresentation" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--ux-speed':state.presentationSpeed,'--ux-event-duration':(state.presentation?.duration??100000)+'ms','--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
+    <ViewportMode/>
     <header class="nn-header">
       <div><p>第 {{ state.round }} 轮<span v-if="state.night" :data-phase="state.night"> · {{ ({spy:'◈',mystic:'✦',trickster:'◇',blind:'◒',shinobi:'❖'})[state.night] }} {{ phaseNames[state.night] }}</span></p>
       <h2>{{ modes[step] ?? '技能结算' }}</h2><p v-if="state.mode==='ready' || state.mode==='champion'" class="nn-intermission-public" role="status">本轮身份已全部公开，可对照牌桌与复盘。</p><p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p><p v-else-if="match.deadline" class="nn-clock" :class="{'nn-clock-urgent':seconds<=5}">剩余 {{ seconds }} 秒 · {{ state.submitted }} 人已提交</p></div>

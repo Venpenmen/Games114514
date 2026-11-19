@@ -1,0 +1,42 @@
+/* P2: window-based landscape only; desktop and portrait retain their styles. */
+@media (orientation:landscape) and (max-width:1000px) and (max-height:500px) {
+ main.game-page:has(>.nn-p20){height:var(--ninja-viewport-height,100dvh);min-height:0;max-width:none;padding:2px max(4px,env(safe-area-inset-right)) 2px max(4px,env(safe-area-inset-left));display:grid;grid-template-rows:34px minmax(0,1fr);gap:2px}
+ main.game-page:has(>.nn-p20)>.game-toolbar{margin:0;padding:0 4px;min-height:0;font-size:11px}
+ main.game-page:has(>.nn-p20)>.game-toolbar button{min-height:30px;padding:2px 8px}
+ main.game-page>.nn-game.nn-p20{grid-row:2;height:100%;align-self:stretch;display:grid;grid-template-columns:minmax(0,1fr) 112px;grid-template-rows:38px minmax(0,1fr) 112px;gap:2px;min-height:0;padding:3px;position:relative}
+ .nn-p20 .nn-viewport-controls{position:absolute;right:118px;top:3px;z-index:5;padding:0}
+ .nn-p20 .nn-viewport-controls button{font-size:10px;min-height:28px}
+ .nn-p20 .nn-viewport-controls [role=status]:not(:empty){position:absolute;right:0;top:28px;width:240px;background:#161b2b;padding:4px}
+ .nn-p20 .nn-header{grid-area:1/1/2/3;display:flex;flex-wrap:nowrap;gap:6px;padding:1px 5px;min-height:0}
+ .nn-p20 .nn-header>div:first-child{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+ .nn-p20 .nn-header p,.nn-p20 .nn-header h2{margin:0;font-size:11px;line-height:1.2}
+ .nn-p20 .nn-header .nn-identity{font-size:10px;margin-right:75px}
+ .nn-p20 .nn-header .actions{display:none}
+ .nn-p20 .nn-ring,.nn-p20 .nn-ring[data-dense=true]{grid-area:2/1;height:auto;min-height:0;margin:0;position:relative}
+ .nn-p20 .nn-ring .nn-seat-shell{left:var(--nn-landscape-x)!important;top:var(--nn-landscape-y)!important;width:114px!important;grid-template-columns:minmax(0,1fr) 24px;gap:2px;transform:translate(-50%,-50%)!important;padding:1px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat{grid-column:1;grid-row:1;min-height:32px;height:auto;padding:2px;display:flex;gap:3px;font-size:10px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat>.player-avatar{width:23px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat small{font-size:9px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger{position:static!important;grid-column:2;grid-row:1;align-self:center;width:24px;min-height:32px;transform:none!important}
+ .nn-p20 .nn-ring .nn-stage,.nn-p20 .nn-ring:has(.nn-table-play) .nn-stage{inset:27% 23%;padding:2px;overflow:auto;font-size:10px}
+ .nn-p20 .nn-active-card{padding:1px;gap:3px}.nn-p20 .nn-active-effect{font-size:10px;line-height:1.2}
+ .nn-p20 .nn-journal{grid-area:2/2/4/3;display:flex;flex-direction:column;gap:3px;min-height:0;padding:2px;overflow:auto}
+ .nn-p20 .nn-journal>button{font-size:10px;min-height:32px;padding:3px}
+ main.game-page>.nn-game.nn-p20:has(.nn-operation[data-has-hand=true]){padding:3px}
+ .nn-p20 .nn-operation{grid-area:3/1;display:grid;grid-template-columns:135px minmax(0,1fr);align-content:center;gap:2px;padding:3px;min-height:0}
+ .nn-p20 .nn-operation h3{font-size:12px;line-height:1.2;margin:0}
+ .nn-p20 .nn-operation-kicker,.nn-p20 .nn-step-help,.nn-p20 .nn-hand-toggle{display:none}
+ .nn-p20 .nn-operation>.nn-options{grid-column:2;grid-row:1/span 5;display:grid;grid-template-columns:minmax(0,1fr) 88px;align-items:center;min-height:0}
+ .nn-p20 .nn-action-deck{position:static!important;inset:auto!important;z-index:auto;display:flex!important;align-items:center;padding:7px 2px 2px;overflow-x:auto;min-width:0;max-height:104px;gap:3px}
+ .nn-p20 .nn-choice-card{width:66px;min-width:60px;margin:0!important;transform:none}
+ .nn-p20 .nn-choice-card[aria-pressed=true]{transform:translateY(-5px)}
+ .nn-p20 .nn-choice-card .nn-card-art img{height:38px!important;aspect-ratio:auto;object-fit:cover}
+ .nn-p20 .nn-choice-card .nn-card-copy{padding:2px;font-size:9px}.nn-p20 .nn-choice-card .nn-card-copy strong{font-size:10px}
+ .nn-p20 .nn-choice-card .nn-card-copy>span,.nn-p20 .nn-choice-card .nn-card-copy small{display:none}
+ .nn-p20 .nn-choice-card>strong{font-size:10px}.nn-p20 .nn-hand-card{width:60px;min-width:60px}
+ .nn-p20 .nn-confirm{position:static!important;grid-column:2;display:flex;padding:2px;min-width:0;flex-direction:column;gap:2px}
+ .nn-p20 .nn-confirm button{width:82px;min-height:38px;padding:4px;font-size:12px}.nn-p20 .nn-confirm small{font-size:9px}
+ .nn-p20 .nn-operation>.nn-hand{display:none}
+ .nn-p20 .nn-private-toast{max-height:55%;max-width:45%;overflow:auto;left:25%;top:15%;font-size:11px}
+ @media(max-height:340px){main.game-page>.nn-game.nn-p20{grid-template-rows:30px minmax(0,1fr) 100px}.nn-p20 .nn-header p{font-size:10px}.nn-p20 .nn-ring .nn-seat-shell{width:100px!important}.nn-p20 .nn-ring .nn-stage{inset:30% 25% 36%}.nn-p20 .nn-choice-card .nn-card-art img{height:30px!important}}
+}
