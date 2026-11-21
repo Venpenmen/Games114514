@@ -45,11 +45,14 @@ function settle(s: State, {now, random}: Context) {
       const hits = ghost.candle === a.candle || ghost.candle === b.candle
       let candle: number
       let status: Candle
-      if (hits && ghost.action === 'DESTROY') {
+      if (a.candle === b.candle) {
+        candle = a.candle
+        status = ghost.action === 'DESTROY' && ghost.candle === a.candle ? 'DESTROYED' : 'LIT'
+      } else if (hits && ghost.action === 'DESTROY') {
         candle = ghost.candle
         status = 'DESTROYED'
-      } else if (a.candle === b.candle || hits && ghost.action === 'LIGHT') {
-        candle = a.candle === b.candle ? a.candle : ghost.candle
+      } else if (hits && ghost.action === 'LIGHT') {
+        candle = ghost.candle
         status = 'LIT'
       } else {
         candle = choose()
@@ -88,6 +91,7 @@ function settle(s: State, {now, random}: Context) {
 }
 export const ghostCandle: GamePlugin<Config, State> = {
   id: 'ghost-candle', version: 1, name: '诡吹灯', minPlayers: 3, maxPlayers: 3,
+  roomPolicy:{capacity:()=>3,allowActiveLeave:true,resumeFromLobby:true},
   defaults: { night: 60, day: 120 }, settings,
   config(input) {
     const { night, day } = record(input)
@@ -137,5 +141,10 @@ export const ghostCandle: GamePlugin<Config, State> = {
   },
   private(s, player) { return { role: s.roles[player], confirmed: s.inputs[player] } },
   finished(s) { return s.stage === 'FINISHED' },
+  finalResult(s) {
+    if(s.stage==='FINISHED' && s.winner) return {
+      winners:Object.keys(s.roles).filter(id=>s.roles[id]===s.winner),details:{winner:s.winner,roles:s.roles},
+    }
+  },
   canChat(s) { return ['DAY_DISCUSSION','DAY_DECISION','ACCUSATION','REVOTE'].includes(s.stage) },
 }

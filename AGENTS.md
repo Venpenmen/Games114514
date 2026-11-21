@@ -12,8 +12,14 @@
 - 游戏插件负责特定人数、准备和开始条件、房间参数 schema、专属阶段、规则/裁决、专属界面、胜负、回合超时与特定消息，不能反向污染公共层。
 - 用 `GameDefinition/GamePlugin` 接口与注册表（gameId、版本、displayName、min/maxPlayers、configSchema、createInitialState、handleCommand、advanceDeadline、projectPublicState、projectPrivateState、isFinished、UI入口等，按实现适度调整），由服务端按 gameId 选择专属处理器。
 - 规则引擎在服务端执行；公共广播仅包含公开信息，玩家私有投影只发本人。游戏插件可定义通用房间参数之外的游戏参数。
-- 避免假通用化：应以真正可注册的第二个“测试游戏插件”或最小测试夹具验证框架无需修改核心逻辑就能加载新游戏。第二款实际游戏目前未定，不能编造其规则。
+- 避免假通用化：应以真正可注册的第二个“测试游戏插件”或最小测试夹具验证框架无需修改核心逻辑就能加载新游戏。第二款《骰子狼人杀》按其独立规则文档实现。
 - 游戏规则单独放 `games/ghost-candle/RULES.md` 或 `docs/games/ghost-candle/RULES.md`，不要写在平台 AGENTS/公共 API 的硬编码分支中。
+
+## 平台级机制反馈与美术约定
+- 所有现有和未来游戏插件必须遵守 [`docs/MECHANICS_VISUAL_FEEDBACK.md`](docs/MECHANICS_VISUAL_FEEDBACK.md)：**机制优先、焦点明确、结算可见**。
+- 该规范统一操作选择、执行对象、公开结算、终局等反馈的清晰程度、时序、隐私和无障碍要求，**不统一各游戏的画风与素材**。
+- 游戏插件可自由选择符合自身风格的底色、描边、缩放、音效或弹窗，但动画不得影响服务端规则或泄漏未公开信息；新插件开发前应核对公开/私人事件与同时结算行为。
+- 《忍者之夜》当前仅在规则核验阶段，执行当前两款游戏视觉优化时不得顺带修改其规则或美术。
 
 ## 精读：少读但读准
 1. 新会话先读本文件、`work/STATE.md`、`work/TASKS.md`、`git status --short`；再根据当前任务读取相关游戏模块/公共模块文件。

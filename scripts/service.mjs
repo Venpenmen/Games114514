@@ -5,9 +5,11 @@ import { createConnection, createServer } from 'node:net'
 import { resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
-const logs = 'work/logs'
+const scope = process.env.GAMES_SERVICE_SCOPE ?? ''
+if (scope && !/^[a-z0-9-]+$/.test(scope)) throw new Error('无效的项目服务实例名')
+const logs = scope ? 'work/logs/'+scope : 'work/logs'
 const keyFile = logs + '/server-control'
-const fingerprint = createHash('sha256').update(resolve('.').toLowerCase()).digest('hex')
+const fingerprint = createHash('sha256').update(resolve('.').toLowerCase()+(scope ? ':'+scope : '')).digest('hex')
 const pipe = '\\\\.\\pipe\\games114514-' + fingerprint
 
 function request(message) {
@@ -45,6 +47,8 @@ if (process.argv[2] === 'worker') {
     })
     void import('../apps/server/index.ts')
   })
+} else if (process.argv[2] === 'status') {
+  process.exitCode = await request('ping') === 'running' ? 0 : 1
 } else if (process.argv[2] === 'start') {
   if (await request('ping')) throw new Error('项目服务已运行。')
   mkdirSync(logs,{recursive:true})
@@ -63,7 +67,7 @@ if (process.argv[2] === 'worker') {
     if (line.startsWith('Games114514 ')) { console.log(line); process.exit(0) }
     if (child.exitCode !== null) break
   }
-  throw new Error('项目启动失败。请查看 work/logs/server-error.log。')
+  throw new Error('项目启动失败。请查看 '+logs+'/server-error.log。')
 } else {
   if (!await request('ping')) {
     console.log('项目服务当前未通过启动脚本运行。')

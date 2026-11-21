@@ -1,20 +1,41 @@
 <script setup lang="ts">
+import { avatars } from "../../packages/protocol/index.ts"
+import PlayerAvatar from "../../apps/web/components/PlayerAvatar.vue"
+import GameResultDialog from '../../apps/web/components/GameResultDialog.vue'
+import GameHistory from '../../apps/web/components/GameHistory.vue'
+import RoomChat from '../../apps/web/components/RoomChat.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Snapshot } from '../../packages/protocol/index.ts'
 import Rules from './Rules.vue'
 import './theme.css'
+import {effects} from '../../apps/web/components/effects.ts'
 type Public = {
-  stage:string;night:number;candles:string[];submitted:string[];winner?:string;roles?:Record<string,string>;
+  stage:string;night:number;candles:string[];submitted:string[];winner?:string;roles?:Record<string,string>;presentation?:{id:number;duration:number};presentationSpeed?:number;
   last?:{candle:number;status:string};ballots:{day:number;round:number;votes:[string,string|null][]}[];
 }
 const props = defineProps<{room:Snapshot;player:string;send:(type:string,data:unknown)=>Promise<boolean>}>()
 const state = computed(() => props.room.match!.public as Public)
+const recentBallot = computed(() => state.value.ballots.at(-1))
+const ballotTarget = computed(() => {
+  const ballot = recentBallot.value
+  if (!ballot) return undefined
+  const totals = new Map<string, number>()
+  for (const [, target] of ballot.votes) if (target) totals.set(target, (totals.get(target) ?? 0) + 1)
+  return [...totals].find(([, count]) => count >= 2)?.[0]
+})
+const pulseCandle = ref<number>()
+let candlePulseTimer: number | undefined
+watch(() => state.value.candles.join(','),(key,previous)=>{
+  if(!previous || key===previous)return
+  if(candlePulseTimer)clearTimeout(candlePulseTimer)
+  pulseCandle.value=state.value.candles.findIndex((value,i)=>value!==previous.split(',')[i])+1
+  candlePulseTimer=window.setTimeout(()=>{pulseCandle.value=undefined},Math.min(1600*(state.value.presentationSpeed??1),state.value.presentation?.duration??Infinity))
+})
 const secret = computed(() => props.room.match!.private as {role:string})
 const submitted = computed(() => state.value.submitted.includes(props.player))
 const canChat = computed(() => ['DAY_DISCUSSION','DAY_DECISION','ACCUSATION','REVOTE'].includes(state.value.stage))
 const selected = ref<number>()
 const action = ref('LIGHT')
-const message = ref('')
 const muted = ref(localStorage.getItem('ghost-muted') !== 'false')
 watch(muted,value=>localStorage.setItem('ghost-muted',String(value)))
 let audio: AudioContext | undefined
@@ -39,42 +60,56 @@ function cue(frequency:number) {
 const now = ref(Date.now())
 let clock: number
 onMounted(() => { clock = window.setInterval(() => { now.value=Date.now() },200) })
-onUnmounted(() => { clearInterval(clock); void audio?.close() })
+onUnmounted(() => { clearInterval(clock); if (candlePulseTimer) clearTimeout(candlePulseTimer); void audio?.close() })
 watch(() => props.room.match!.phase, () => { selected.value=undefined; action.value='LIGHT' })
 watch(() => state.value.last?.candle, () => cue(state.value.last?.status === 'LIT' ? 560 : 170))
 watch(() => state.value.winner, winner => { if (winner) cue(740) })
 const seconds = computed(() => Math.max(0,Math.ceil(((props.room.match!.deadline ?? now.value)-now.value)/1000)))
 watch(seconds, value => { if (value > 0 && value <= 3) cue(360) })
-const labels:Record<string,string> = {NIGHT:'夜晚',DAY_DISCUSSION:'白天讨论',DAY_DECISION:'是否寻找诡异',ACCUSATION:'指认诡异',REVOTE:'重新指认',RESULT:'公开投票结果',FINISHED:'对局结束'}
+const labels:Record<string,string> = {PRESENTATION:'公开演出 · 等待结算展示完成',NIGHT:'夜晚',DAY_DISCUSSION:'白天讨论',DAY_DECISION:'是否寻找诡异',ACCUSATION:'指认诡异',REVOTE:'重新指认',RESULT:'公开投票结果',FINISHED:'对局结束'}
 const names = (id:string) => props.room.members.find(member=>member.id===id)?.name ?? '已离开'
 const role = (id:string) => id==='GHOST' ? '诡异' : '人类'
+const resultKey = computed(() => state.value.stage==='FINISHED' && state.value.winner
+  ? [props.room.code,props.room.match!.id,'FINISHED'].join(':') : undefined)
+const victory = computed(() => state.value.winner===secret.value.role)
 const candleLabel:Record<string,string> = {INTACT:'完好',LIT:'点亮',DESTROYED:'摧毁'}
 const command = (data:unknown) => props.send('game',data)
-async function chat() {
-  const text = message.value
-  if (await props.send('chat',text) && message.value === text) message.value=''
-}
 </script>
 
 <template>
-  <article class="ghost" :data-stage="state.stage">
+  <article class="ghost" :data-stage="state.stage" :data-effects="effects" :style="{'--ux-speed':state.presentationSpeed??1,'--ux-event-duration':(state.presentation?.duration??100000)+'ms'}">
+    <GameResultDialog :result-key="resultKey" :title="(victory?'胜利':'失败') + ' · ' + role(state.winner ?? '') + (victory?'阵营':'阵营获胜')"
+      :victory="victory" theme="ghost">
+      <p>{{ role(state.winner ?? '') }}阵营赢得本局。关闭后仍可查看身份、投票及聊天记录。</p>
+    </GameResultDialog>
     <header class="ghost-header">
       <div><h2>{{ labels[state.stage] }}</h2>
-      <p v-if="state.stage!=='FINISHED'">
+      <p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p>
+      <p v-else-if="state.stage!=='FINISHED'">
       {{ state.stage==='NIGHT' ? '第 '+state.night+' 夜' : '第 '+(state.night+1)+' 天' }} · 剩余 {{ seconds }} 秒
       </p></div>
       <div class="ghost-tools"><p class="role-label">你的身份是 <strong>{{ role(secret.role) }}</strong></p><Rules/><button @click="toggleAudio">{{ muted?'开启音效':'静音' }}</button></div>
+    <ul class="ghost-seats" aria-label="玩家状态">
+      <li v-for="member in room.members" :key="member.id">
+        <PlayerAvatar :name="member.name" :glyph="avatars[member.avatar]" :online="member.online"/>
+        <div><strong :title="member.name">{{ member.name }}</strong>
+          <small>{{ member.online?'在线':'离线' }}<template v-if="['NIGHT','DAY_DECISION','ACCUSATION','REVOTE'].includes(state.stage)"> · {{ state.submitted.includes(member.id)?'已提交':'未提交' }}</template></small>
+        </div>
+      </li>
+    </ul>
     </header>
     <div class="ghost-layout">
     <section class="ghost-board">
     <div class="candles">
-      <button v-for="(candle,i) in state.candles" :key="i" :class="[candle.toLowerCase(),{selected:selected===i+1}]"
+      <button v-for="(candle,i) in state.candles" :key="i" :class="[candle.toLowerCase(),{selected:selected===i+1,'ghost-resolving':pulseCandle===i+1}]"
         :disabled="state.stage!=='NIGHT' || candle!=='INTACT' || submitted" @click="selected=i+1">
         <span class="candle-model" aria-hidden="true"><i class="flame"></i><i class="wax"></i><i class="dish"></i></span>
         <span>{{ i+1 }} · {{ candleLabel[candle] }}</span>
+        <span v-if="pulseCandle===i+1" class="ghost-impact" aria-hidden="true">{{ candle==='LIT'?'点亮！':'摧毁！' }}</span>
       </button>
     </div>
-    <p v-if="state.last">最近一夜 · {{ state.last.candle }} 号蜡烛已{{ candleLabel[state.last.status] }}</p>
+    <p v-if="state.last" class="ghost-outcome" role="status">最近一夜 · {{ state.last.candle }} 号蜡烛已{{ candleLabel[state.last.status] }}</p>
+    <p v-if="recentBallot && (state.stage==='RESULT'||state.stage==='FINISHED')" class="ghost-vote-outcome" role="status">{{ ballotTarget ? '公开指认结果：'+names(ballotTarget)+' 获得至少两票' : '公开指认结果：无人获得多数票' }}</p>
     <p v-if="submitted">已提交，等待其他玩家</p>
     <div v-else class="actions">
       <template v-if="state.stage==='NIGHT'">
@@ -90,22 +125,43 @@ async function chat() {
     <p v-if="state.stage!=='FINISHED' && state.stage!=='RESULT'">已确认 {{ state.submitted.length }} / {{ room.members.length }}</p>
     </section>
     <aside class="ghost-journal">
+    <section class="journal-entry">
+      <RoomChat :messages="room.chat" :members="room.members" :scope="room.code + ':' + room.match!.id"
+        :player="player" :can-chat="canChat" :highlight="canChat" disabled-text="当前阶段禁止发言。" :send="text => send('chat',text)">
+        <template #tools><GameHistory>
+          <p v-if="!state.ballots.length">暂无投票记录。</p>
     <section v-for="ballot in state.ballots" :key="ballot.day+'-'+ballot.round" class="journal-entry">
       <h3>第 {{ ballot.day }} 天 · 第 {{ ballot.round }} 轮票型</h3>
       <ul><li v-for="[voter,target] in ballot.votes" :key="voter">{{ names(voter) }} → {{ target ? names(target) : '弃票' }}</li></ul>
+    </section>
+        </GameHistory></template>
+      </RoomChat>
+    </section>
+    <section v-if="recentBallot" class="journal-entry">
+      <h3>第 {{ recentBallot.day }} 天 · 第 {{ recentBallot.round }} 轮票型</h3>
+      <p>{{ recentBallot.votes.map(([voter,target]) => names(voter)+' → '+(target ? names(target) : '弃票')).join(' · ') }}</p>
     </section>
     <section v-if="state.winner" class="journal-entry winner">
       <h3>{{ role(state.winner) }}胜利</h3>
       <ul><li v-for="(value,id) in state.roles" :key="id">{{ names(id) }} · {{ role(value) }}</li></ul>
       <p>三人重新准备后，房主可开启新一局。</p>
     </section>
-    <section class="journal-entry">
-      <h3>房间公聊</h3>
-      <ol class="chat" aria-label="公聊记录"><li v-for="item in room.chat" :key="item.author+'-'+item.at"><strong>{{ names(item.author) }}</strong> {{ item.text }}</li></ol>
-      <form v-if="canChat" class="actions" @submit.prevent="chat"><input v-model="message" maxlength="280" aria-label="聊天消息" required><button>发送</button></form>
-      <p v-else>当前阶段禁止发言。</p>
-    </section>
     </aside>
     </div>
   </article>
 </template>
+
+<style scoped>
+.ghost-seats {flex:1 0 100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.35rem;padding:0;margin:.45rem 0;list-style:none}
+.ghost-seats li {display:flex;align-items:center;gap:.4rem;padding:.35rem;border:1px solid #58604a;border-radius:.35rem;min-width:0}
+.ghost-seats li > div {min-width:0}
+.ghost-seats strong,.ghost-seats small {display:block;overflow-wrap:anywhere}
+.ghost-seats small {font-size:.72rem}
+@media(min-width:1000px){
+  .ghost-header {display:grid;grid-template-columns:auto minmax(0,1fr) auto}
+  .ghost-seats {grid-column:2;grid-row:1;margin:0}
+  .ghost-tools {grid-column:3;grid-row:1}
+}
+@media(min-width:1000px) and (max-height:780px){.ghost-header {padding-block:.4rem}}
+@media(max-width:420px){.ghost-seats li {flex-direction:column;text-align:center}}
+</style>

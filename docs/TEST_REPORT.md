@@ -33,3 +33,128 @@
 ## 美术升级复验
 
 2026-11-15，使用同一 Windows、Node.js 与 Edge 环境。 `npm.cmd test`（13/13）、`npm.cmd run check`、`npm.cmd run build`、`npx.cmd playwright test` 均退出 0。浏览器验证封面解码并再次完成真实三人联机。检查了大厅和对局的桌面截图、390 px 对局截图。设置 `GAMES_SCREENSHOTS=1` 后重跑浏览器验收可在 `work/logs` 重建截图。
+
+## GC-RULES-1.3
+
+2026-11-15，Windows、Node.js 24、Edge。定向 `node --test games/ghost-candle/engine.test.ts` 19/19，`npm.cmd test` 21/21，`npm.cmd run check`、`npm.cmd run build` 与 `playwright.cmd test` 均退出 0。三会话通过独立回环实例完成一局及重赛。服务集成验证并发提交和同请求重试只结算一次；规则单测覆盖十种行动、完整随机候选、超时补选及双方五根胜利。
+
+平衡模拟直接运行旧版与新版规则引擎。每种策略每版 10,000 局，使用相同 xorshift32 种子序列，诡异均匀随机选完整蜡烛摧毁，白天不发起指认。人类协同同选的胜率从 92.31% 到 100%，独立随机选烛从 0.36% 到 7.98%。这是限定策略下的纯蜡烛模拟。
+
+
+## GAME 02《骰子狼人杀》
+
+2026-11-16，Windows、Node.js 24、Edge。定向规则测试 11/11，npm.cmd test 32/32，npm.cmd run check、npm.cmd run build、playwright.cmd test 均退出 0。同轮多人处决、秘密选择、自动代投、两轮票型、庄家清场、特殊结束、计分和加赛有定向断言。集成使用真实 Socket.IO 和 SQLite，关闭并重开服务后核对跨局推进、绝对截止时间、票型和积分回执。
+
+浏览器 2/2 通过，两个用例各用三名独立游客。GAME 02 经临时回环服务 http://127.0.0.1:3198 以受控随机源复现五局含两局加赛，比分 5/4/1，验证实际操作保密、聊天、重投、待处决、刷新重连、自动续局后保留上局结算和刷新后的冠军。GAME 01 经 http://127.0.0.1:3197 完整联机和重赛通过。第一次浏览器运行的固定加赛目标未考虑身份重抽，后续用当局当事人显示的点数投票，复验通过。
+
+已查看桌面、390 px 移动和待处决截图，检查骰子六面、点数、动画和减少动态 CSS。截图保存在 work/logs/dice-desktop.png、dice-mobile.png、dice-condemned.png、dice-champion.png。生产随机源仍为服务器 randomInt。
+
+常驻本地入口 3199 的启动动作被执行策略拒绝，临时浏览器验收服务结束后停止。按 README 的独立工作树方式可手动启动。实体手机、公网和原生端均未执行。
+
+
+## P11 公共房间聊天
+
+Windows、Node.js 24、Edge。定向 node --test apps/web/components/chat-history.test.ts 通过 1/1。npm.cmd test 通过 36/36，npm.cmd run check 与 npm.cmd run build -- --outDir work/logs/chat-dist 均退出 0。全量计入工作树中已有的网络测试，其源码未混入聊天提交。
+
+npx.cmd playwright test -c work/logs/chat-playwright.config.ts 以独立 3197/3198 端口、独立数据库和独立构建目录运行，两款游戏各三会话，2/2 通过。浏览器验证桌面与 390 px、无编号、昵称字重、长文本与 HTML 文本安全、历史位置、未读计数、手动或按钮跳转、只读快照、自己发送成功、回执先于快照、限流失败保留草稿、刷新恢复、阶段禁言、重赛清空和冠军禁言。配置与日志保存在 work/logs。正式进程未重启，未执行公网和实体手机复验。
+
+
+## P12 游戏内导航与结果提醒
+
+Windows、Node.js 24、Edge。npm.cmd test 通过 36/36（包含工作树中已有的网络测试）；npm.cmd run check、npm.cmd run build -- --outDir work/logs/result-dist、npx.cmd playwright test -c work/logs/result-playwright.config.ts 均退出 0。行为定向断言随真实三会话浏览器用例运行。
+
+独立端口 3197/3198 与临时 SQLite 验收 4/4。覆盖大厅与房间入口可见性、刷新、离房、人类和诡异各胜一局、同标签页去重、狼人杀多人获胜和无人获胜、旧详情打开时延迟提示、续局自动关闭与焦点脱离、加赛、冠军和历史聊天位置。截图见 work/logs/ghost-result-true-0.png、ghost-result-false-1.png、dice-mobile-result.png 和 dice-champion-result.png。测试实例已停止；正式 3199 目录 HTTP 200，原进程未重启。公网、实体手机及 SUMMARY 最后数秒专门刷新未独立复验。
+
+## P13 《诡吹灯》三人同选摧毁优先（2026-11-16）
+
+规则变更：两名人类同选同根、诡异选同根并执行 DESTROY 时，该根变为 DESTROYED；其他两人同选仍点亮。服务端规则、前端游戏规则弹窗及规则文档已同步。定向 `node --test games/ghost-candle/engine.test.ts` 原 19/19 通过；新增连续五夜三人同选摧毁、超时三人重合的验证。全量 `npm.cmd test` 37/37，`npm.cmd run check` 及 `npm.cmd run build` 成功。保留未提交的网络、Cookie 与启停配置改动。本轮不包含前端布局与语言简化改版。
+
+P13 补充验收：`npx.cmd playwright test -c work/logs/result-playwright.config.ts` 两款游戏三会话浏览器联机 4/4 通过（1.7 分钟）。项目服务管理脚本受控停止并启动原 3199 服务，启动前后 `/api/catalog` 返回 HTTP 200；部署后首页及游戏目录 HTTP 200，两个插件均存在，构建 Rules JS 资源已确认包含新的三人同选摧毁判定文字。运行配置仍为 PORT=3199、PUBLIC_ORIGIN=auto、DATABASE_PATH=work/logs/dice-preview.db、NODE_ENV=production；未更换或清空数据库，未修改 FRP，公网/实体手机未独立复验。
+
+## P14 《诡吹灯》玩家规则弹窗重写（2026-11-16）
+
+仅修改前端 `games/ghost-candle/Rules.vue` 的玩家可读说明和原生 CSS 图形化示例：两阵营胜利条件、夜晚操作 3 步、5 组具体人类/诡异选择与结果卡片、白天讨论/寻找/指认流程、超时与隐私提示。重点明确 GC-RULES-1.4 的三人同选且诡异摧毁时判为摧毁。保留服务端引擎、协议、数据库、规则技术文档与其他游戏界面。`npm.cmd run check` 退出 0，`npm.cmd test` 37/37，`npm.cmd run build` 退出 0。使用独立测试端口、数据库的 `npx.cmd playwright test -c work/logs/result-playwright.config.ts` 测试 4/4 通过，含《诡吹灯》三会话两阵营终局、规则弹窗移动端宽度和关闭，以及《骰子狼人杀》回归。公网与实体手机未执行。
+
+## P15 《骰子狼人杀》图解规则弹窗（2026-11-16）
+
+仅重写 `games/dice-werewolf/Rules.vue` 的玩家可读文案和弹窗内 CSS 图示，按三名玩家与六个点数、秘密身份、行动阶段、生命值、投票处决、三种得分结局（含两点数特殊终局）、连续三轮无处决、目标积分与加赛组织。所有规则依据 `docs/games/dice-werewolf/RULES.md` 和现有 `engine.ts`，未修改裁决、协议、其他游戏、数据库与 FRP。`npm.cmd run check` 通过；`npm.cmd test` 37/37；`npm.cmd run build` 退出 0。浏览器隔离回归首次因 `work/logs/result-dist` 是旧构建而使新文案断言失败，确认并使用 `robocopy dist work/logs/result-dist /MIR` 同步后重新运行 `npx.cmd playwright test -c work/logs/result-playwright.config.ts` 结果 4/4 通过（1.6 分钟），含 390px 移动视口的新规则标题、投票案例、积分加赛和弹窗关闭断言。公网/实体手机未单独验证。
+
+
+## P16 双游戏响应式布局
+
+Windows、Node.js 24、Edge。npm.cmd run check、npm.cmd test（37/37）、npm.cmd run build -- --outDir work/logs/p16-dist、npx.cmd playwright test -c work/logs/p16-playwright.config.ts（4/4）均退出 0。独立 3197/3198 首页均引用 index-CkYFAhrm.js，测试数据库与正式数据库隔离；测试后两端口停止监听。
+
+测试由各游戏三个独立浏览器会话驱动。检查 320×700、360×780、375×812、390×844、430×932、740×390、768×1024、1280×720、1366×768、1920×1080。以 CSS 模拟 125%/150% 缩放，并以 390×420 模拟键盘压缩视口。验证固定入口、关闭后新增未读、历史、跨阶段草稿、聊天回执顺序、两种阵营结算、狼人杀普通、加赛、冠军、无人获胜。图片见 work/logs/p16-*.png 和现有结算截图。实际手机键盘、浏览器原生缩放及抽屉打开时主动断网未独立实测。
+
+预检正式 SQLite 无活跃对局。备份、停服、复制与重启的正式切换命令被提交前的自动执行策略拒绝，未执行。3199 保持原 PID 30808，首页 HTTP 200，仍引用 index-CIkJN1EV.js。P16 正式部署和公网复验未执行。
+
+
+## P20.6 公共房间生命周期与离线状态
+
+- `npm.cmd run check` 退出 0，`npm.cmd test` 107/107，退出 0。覆盖 30/60 分钟边界、第 59 分钟恢复、重启续算、旧房间安全初始化、旁观者在线时清理、过期房间不可访问和恢复入口失效。真实 Socket.IO 验证《诡吹灯》部分提交、《骰子狼人杀》续局结算及《忍者之夜》权威演出的暂停与恢复。
+- `npm.cmd run build -- --outDir work/logs/p20-6-dist` 退出 0。Playwright 指向该构建，使用独立本地端口与数据库。最终 `playwright.cmd test online.spec.ts --workers=2` 8/8，退出 0，包含三款游戏与《忍者之夜》4/6/8/11 人布局。另一次运行中 `ninja-events.spec.ts` 通过，验证交换和镜僧裁决时序。初次《诡吹灯》桌面按钮受新增状态栏挤压，调整到页头后，两种阵营完整对局均通过复验。桌面和手机视口均使用 Edge。
+- 3216 通过 `ninja-p20.cmd` 停止和启动，使用原 `work/logs/ninja-p20/preview.db`，数据库创建时间一致。健康检查 HTTP 200，Edge 实际加载新版 `index-BjNWNDTZ.js`，验证三游戏目录、游客创建和解散房间及等待区头像标签。未操作 3199、3213 或 FRP。未做实体手机与公网验收。
+
+
+## P20.6.1 经典游戏暂离与继续对局
+
+- `npm.cmd run check`、`npm.cmd test`（107/107）、`npm.cmd run build -- --outDir work/logs/p20-6-1-dist` 均退出 0。真实 Socket.IO 覆盖全员主动暂离、剩余倒计时、身份与已提交操作、非零积分、陌生会话拒绝、多房间、到期与解散。
+- 独立端口及数据库的 Edge 定向联机 4/4，退出 0。覆盖《诡吹灯》两种终局、《骰子狼人杀》与《忍者之夜》回归。新增暂离按钮一度使《诡吹灯》1280×720 的主要操作按钮低于首屏约 4 像素，收紧短桌面视口页头间距后通过原布局断言。
+- 仅更新 3216，原 SQLite 文件创建时间一致，HTTP 200。Edge 实际加载 `index-Bi5sDczm.js` 并验证大厅和认证后的恢复列表。隔离测试服务已停止。
+
+## P20.7 账户与战绩
+
+- `npm.cmd run check`、`npm.cmd test`（109/109）、生产构建均退出 0。Edge 首轮 9/10，11 人 1280×720 名片重叠，缩小紧凑头像及席位后，6／8／11 人定向复验 3/3。多设备切换、三款游戏注册联机和终局战绩测试通过。
+- 3216 原库原地升级至 v1，完整性检查通过，原进行中的骰子局保留，另一个已结束且空闲超过 30 分钟的《忍者之夜》房间按房间寿命清理。备份仍保存两条旧房间。候选 HTTP 200，真实 Edge 完成注册、个人中心、退出、重新登录。首次上线冒烟发现注册后退出仍停在注册表单，重置表单模式并复验通过。
+
+
+## P20.7.1 个人中心重设计
+
+- `npm.cmd run check`、`npm.cmd test`（109/109）、`npm.cmd run build -- --outDir work/logs/p20-7-1-dist`、`playwright.cmd test accounts.spec.ts --workers=1`（2/2）均退出 0。
+- Edge 验证真实账户资料、头像确认和取消、密码、设备撤销及跨设备接管。历史用 23 条独立测试夹具验证跨接口分页、筛选、时间排序、关闭回焦、保留页码和手机全屏详情。覆盖 1920×1080、1366×768、1280×720、390×844、375×667、320×640 与 320×400 键盘压缩模拟。实体手机未测试。
+- 截图位于 `work/logs/p20-7-1-desktop-drawer.png` 和 `work/logs/p20-7-1-mobile-detail.png`。3216 仅复制前端构建，实测加载、登录页面与三游戏目录，HTTP 200。未执行服务重启、数据库迁移或机器人操作。
+
+
+## P20.7.2 忍者卡牌与身份牌可见性
+
+- 定向引擎 73/73，全量 114/114，类型检查及生产构建退出 0。实测 4／6／8／11 人 33 张牌唯一归属、隐藏交换与隐藏不交换的公开和非行动方私人快照等价、公开优先级、后续查看和轮末复盘。
+- 五个 Edge 场景均有通过记录。首轮 4/5，修复 1366×768 下 11 人手牌计数挤压后，6／8／11 人复验 3/3。专项浏览器验证身份牌、出牌区、公开交换及镜僧反应。截图位于 `work/logs/p20-7-2-card-area.png`。
+- 旧状态允许继续读取，缺少出牌追踪的轮次沿用公开交换流程，下一轮开始启用区账和新选择。没有改数据库结构。3216 原库 quick_check 通过，Edge 加载新版且目录包含默认关闭的强制公开设置，HTTP 200。
+
+
+## P20.8 单席位、标签页与手机布局
+
+- `npm.cmd run check`、`npm.cmd test`（120/120）和独立生产构建通过。真实 Socket.IO 覆盖席位竞争、移出后重新占席、只读连接、控制接管及旧请求拒绝。
+- 12 个 Edge 用例分批通过。三款游戏完整联机、继续对局、账户双设备、浏览器历史和对话框返回正常。忍者 4／6／8／11 席、320／375／390／430 宽、740×390 横屏、768×1024 与 1024×768、1366×768 与 1920×1080 均有浏览器证据。演出专项发现固定手牌遮挡私人情报按钮，修正滚动空间后，最终候选的 5 个忍者用例全部通过。实体手机验收待执行。
+- P0 备份含一间活跃房间，隔离启动保留该房间。切换前再次生成 WAL 一致性备份；当时原服已经没有房间。3216 保留原数据库，quick_check 通过。真实 Edge 验收注册、三游戏目录、等待席位、同会话新标签只读、接管与正常解散测试房。仅 3216 更新，HTTP 200。未覆盖机器人并行改动。
+
+
+## P20.8.1 名片与公开牌桌
+
+- 类型检查、定向 80/80（含动态来源）、全量 122/122 与生产构建通过。首脑增加公开演出帧，定向验证牌面仅在该帧公开，结算结果不变。
+- 五个 Edge 用例分批通过，覆盖秘密出牌隐藏、单张公开牌悬停及详情、真实交换和反应、恢复、4／6／8／11 人桌面及浏览器缩放。11 人短桌面压缩次要信息后复验通过。未单独验证同一席位连打多张牌的浏览器实战。
+- 3216 切换前一间等待房，无活跃比赛。旧构建与 SQLite 一致性备份位于 `work/logs/p20-8-1-rollback`。原库 quick_check 通过。Edge 实测最新构建、账号和 Socket.IO 建房／解散，HTTP 200。FRP 配置未变，实际公网 HTTPS 未重测。
+
+
+## P20.8.1.1 桌面身份牌外置
+
+- 类型检查、`npm.cmd test` 122/122 和生产构建通过。Edge 六项分批通过，包含 4 人完整联机、6／8／9／11 人桌面、公开牌与身份牌避让、悬停与详情。9／11 人在最终构建复验，九人截图为 `work/logs/p20-8-1-1-nine-seats.png`。同席多张牌同时展开未单独实战。
+- 切换前无活跃比赛。SQLite 一致性备份与旧构建位于 `work/logs/p20-8-1-1-rollback`。3216 保留原库，HTTP 200，实际 Edge 验证新版、账户及 Socket.IO 建房和解散。
+## P20.8-UX · 2026-11-18
+
+- `node --test apps/server/presentation.test.ts`：15/15，退出码 0。四档时长、独立操作时限、结算后续局、秘密投影、JSON 恢复及真实 Socket.IO 全员暂离／服务重启／剩余演出恢复／大厅完成通知。
+- `npm.cmd run check`、`npm.cmd test`、`npm.cmd run build -- --outDir work/logs/ux-candidate/dist`：退出码均 0；全量 138/138。日志 `work/logs/ux-check.txt`、`ux-full-tests.txt`、`ux-build.txt`。
+- Edge 分批累计 11 个不同用例通过：UX 三游戏入口／速度锁定／图文指南／偏好／返回恢复（忍者增加只读标签页）；忍者四人完整赛及 6/8/11 人布局；诡吹灯双方胜负各一；骰子完整赛加赛冠军及无人获胜。日志 `ux-browser.txt`、`ux-layout.txt`、`ux-final-browser.txt`、`ux-acceptance.txt`、`ux-ghost-final.txt`、`ux-readonly.txt`。含失败历史的批次保留原输出；最后两项诡吹灯复验 2/2、只读补验 1/1，退出码 0。不是一次整套浏览器运行的统计。
+- 发现并修复：创建房间后测试过早读取 URL；演出恢复缺少 phase 递增；公共栏新增高度挤出经典操作按钮；返回大厅 detach 后比赛结束未通知刷新。随完整演出延长，旧浏览器等待上限同步调整，未缩短演出。骰子额外实测「处决演出 → 单局结算 → 第 2 局」，期间无下一步输入、积分提前展示。
+- 指南截图来自隔离真实界面：`apps/web/components/guides/ghost-board.png`、`dice-table.png`；忍者复用实际 CardFace。关键截图 `work/logs/ux-{ghost,dice,ninja}-guide.png`、`ux-3216.png`，另保留原布局与冠军截图。
+- 3216 部署前管理列表为空；SQLite 在线 backup（含 WAL 一致性）与旧静态构建保存在 `work/logs/ux-backup-2026-11-18T06-30-32-048Z`。只通过 ninja-p20.cmd 停启。部署后 HTTP 200、三游戏目录、未登录会话、Socket.IO transport 200 与 Edge 登录页通过；19 账户、19 资料、9 战绩、0 房间保持，integrity_check=ok。未向 3216 写入测试账户。认证的真实交互使用隔离数据库完成。
+- 回退：停止 3216，使用 e5a03da 独立代码工作树和上述旧构建；数据库需先保护部署后新数据，再人工决定是否使用部署前一致性副本，禁止直接覆盖。3199、3213、FRP、EMS 未操作。实体手机、公网链路未测；P20.8.2 未实施。
+
+## P20.8-UX.1
+
+- 定向 `node --test apps/server/presentation.test.ts`：19/19，退出码0；覆盖四档倍率、分步票型→处决→分数、蜡烛→结果文本、拒绝输入、暂停/重启恢复及旧字段兼容路径。
+- 最终集中 `npm.cmd run check`、`npm.cmd test`、候选生产构建：均退出码0，全量142/142。仅在补齐揭示动画高优先级覆盖后重建静态包，未重复全量测试。日志：work/logs/ux1-{check,full,build,targeted}.txt。
+- Edge：`tests/ninja-events.spec.ts tests/ux.spec.ts --workers=1`，4/4，退出码0；真实隐士/变形者/镜僧反应、裁决后死亡、刷新恢复、三档偏好与离线灰白、下一轮复活、青蓝悬停/金色选中（再次悬停不变）、指南七图加载及390px内部滚动、经典游戏结果与续局。日志 ux1-browser.txt。原有事件测试的全局 draft-pass 查询改为动画容器查询，等待上限适配权威演出；中间失败未隐藏。
+- 截图复用种子83的真实4人协议流程，经隔离开发预览采集，均为真实UI加3–4个编号框；7张JPEG合计846960字节，未包含聊天窗口或调试面板。最终包已验证全部图片可加载。开发预览3226及Playwright实例均已停止。未做实体手机或公网验收。
+- 关键时间审计：首脑飞牌1.28×不超过服务端1.3×，揭示主体2.3×和11席分批延迟不超过2.6×；死亡/交换/荣誉/冠军使用房间倍率，减少动态保持静态。有限机制动画已缩放，装饰循环未机械改动。
+- 3216更新前无房间；一致性SQLite与旧构建备份：work/logs/ux1-backup-2026-11-18T07-16-11-863Z。HTTP/登录页/三游戏目录/Socket.IO握手正常；19账户、19资料、9战绩、0房间保持，integrity_check=ok。证据 ux1-deployment.json、ux1-health.json。回退使用6cb2a1c代码和上述旧包；先保护更新后数据，不自动覆盖数据库。3199/3213/FRP/EMS及并行模拟文件未操作。

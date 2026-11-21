@@ -49,14 +49,77 @@ p.role-label { border: 1px solid #8d704c; border-radius: .5rem; background: #221
 .journal-entry { padding: .8rem; border: 1px solid #624b32; border-radius: .48rem; background: #1e1b14; min-width: 0; }
 .journal-entry h3 { font-size: 1.05rem; color: #f0cea1; }
 .journal-entry p, .journal-entry li { color: #dfcdb3; }
-.journal-entry ul, .chat { padding-left: 1.25rem; }
+.journal-entry ul:not(.room-chat-list) { padding-left: 1.25rem; }
 .journal-entry.winner { border-color: #ba915d; }
-.chat { max-height: 12rem; overflow: auto; overflow-wrap: anywhere; }
-.chat:empty { display: none; }
-.chat + form input { flex: 1 1 7rem; min-width: 0; }
 @keyframes flicker { to { transform: translateX(-50%) rotate(10deg) scale(.9); box-shadow: 0 0 19px 7px #e7893a95; } }
 @media (prefers-reduced-motion: reduce) { .lit .flame { animation: none; } }
 @media (max-width: 650px) {
   .ghost-layout { grid-template-columns: minmax(0,1fr); }
   .ghost-board { border-right: 0; border-bottom: 1px solid #59432c; }
+}
+
+.ghost { --room-chat-surface:#282116; }
+.ghost-header { min-height:0; padding:.7rem 1rem; gap:.6rem; }
+.ghost-board,.ghost-journal { padding:clamp(.5rem,1.8vw,1rem); }
+.ghost-journal { gap:.45rem; min-width:0; }
+.ghost-journal p { overflow-wrap:anywhere; }
+@media (max-width:800px), (max-height:520px) and (pointer:coarse) {
+  .ghost-layout { grid-template-columns:minmax(0,1fr); }
+  .ghost-header { padding:.5rem .65rem; }
+  .ghost-header h2 { font-size:clamp(1.3rem,5vw,1.9rem); }
+  .ghost-tools { gap:.36rem; }
+  .ghost-tools button,.ghost-tools .role-label { padding:.25rem .4rem; }
+  .ghost-board { border-right:0; }
+  .candles button { min-height:70px; padding:.15rem; }
+  .candle-model { height:44px; }
+  .ghost-board .actions button { min-width:44px; }
+  .ghost-journal .journal-entry:has(.room-chat) { padding:0; border:0; }
+  .ghost-board p { margin-top:.35rem; }
+}
+@media (max-height:520px) and (pointer:coarse) {
+  .candles button { min-height:56px; }
+  .candle-model { height:32px; }
+}
+
+/* Mechanic-first public settlement feedback — Ghost Candle. */
+.candles button { position:relative; }
+.candles .ghost-resolving {
+  z-index:1;
+  border-color:#fff1ad;
+  outline:2px solid #ffd28c;
+  background:radial-gradient(ellipse at center,#865e3466,#292016 78%);
+  animation:ghost-settlement-focus calc(1.5s * var(--ux-speed,1)) ease-out both;
+}
+.candles .ghost-resolving.destroyed {
+  outline-color:#f3a3a3;
+  border-color:#d97869;
+  background:radial-gradient(ellipse at center,#8c383c88,#29221d 78%);
+}
+.ghost-impact {
+  position:absolute;top:.15rem;right:.25rem;pointer-events:none;
+  padding:.12rem .34rem;border-radius:.3rem;
+  background:#54261fe8;color:#fff0d1;font-size:.78rem;font-weight:750;
+  box-shadow:0 0 13px #d77b4455;
+  animation:ghost-settlement-label calc(1.5s * var(--ux-speed,1)) ease-out both;
+}
+.ghost-resolving.lit .ghost-impact { background:#775027e8; }
+.ghost-outcome,.ghost-vote-outcome {
+  border-left:3px solid #cfa76d;background:#342a1e;border-radius:.3rem;
+  padding:.35rem .6rem;font-weight:650;
+}
+.ghost-vote-outcome {border-left-color:#9c8dcc;}
+@keyframes ghost-settlement-focus {
+  0% {transform:scale(1);filter:brightness(1)}
+  23% {transform:scale(1.055);filter:brightness(1.32)}
+  75% {transform:scale(1.025)}
+  100% {transform:scale(1);filter:brightness(1)}
+}
+@keyframes ghost-settlement-label {
+  0% {opacity:0;transform:translateY(6px)}
+  18%,70% {opacity:1;transform:translateY(0)}
+  100% {opacity:0;transform:translateY(-5px)}
+}
+@media (prefers-reduced-motion:reduce) {
+  .candles .ghost-resolving,.ghost-impact {animation:none;transform:none;}
+  .ghost-impact {opacity:1;}
 }

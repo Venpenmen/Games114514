@@ -1,10 +1,33 @@
-# 开发断点
-CURRENT_STAGE: P8 Web 0.1 交付
-WORKTREE: main 自原远端历史快进，源码验收基线为 18bea83e43bb3ab6253100e1e776fa02fa447d98。
-VERIFIED: 2026-11-15 Windows 上业务测试 13/13，类型检查、生产构建、三个独立 Edge 会话、默认端口 Windows 启停均退出 0。开发分支源码基线已推送并用 git ls-remote 核对。
-BLOCKERS: 本地 Web 无。公网、实体手机和 APK/EXE 未执行。
-NEXT_ACTION: npm.cmd ci；npm.cmd run build；npm.cmd start。公网后续按 docs/DEPLOYMENT.md 执行。
+# GAME 02 断点
+CURRENT_STAGE: P8 开发交付
+CURRENT_TASK: 《骰子狼人杀》独立分支交付
+WORKTREE: feature/dice-werewolf，基于 9958bfda21ee3ec5e64e3de7b635d4621f5d05a0。原工作树及公网实例独立。
+VERIFIED: 规则定向 11/11、全量 32/32、类型检查、生产构建、两款游戏三个独立 Edge 会话通过。骰子完整五局积分赛含两局加赛，检查了桌面、390px 移动视口和待处决截图。
+BLOCKERS: 3199 独立常驻试玩启动被工具执行策略阻止。浏览器验收使用实际临时回环服务，结束后停止。未执行实体手机或公网测试。
+NEXT_ACTION: 按 README 在独立工作树启动 3199 试玩；需要复验时运行 playwright.cmd test，最终两款游戏复验 2/2。
 
-ART_UPDATE: feature/web-art-direction 完成。规则及集成 13/13、类型检查、构建及三浏览器会话均退出 0。视觉截图在 work/logs。NEXT_ACTION: 双击 start.cmd 查看本地界面。
+CHAT_UI DONE · 两款游戏共享聊天组件。定向 1/1、全量 36/36、类型检查、隔离构建及三会话浏览器 2/2 通过。NEXT_ACTION: 在独立回环环境按 docs/TEST_REPORT.md 复验。
 
-RULES_UI: 完成。测试 13/13、类型检查、构建和三会话回归退出 0。本地服务已读取新版入口。NEXT_ACTION: 打开 http://127.0.0.1:3100，在等候房间或对局内点「游戏规则」。
+RESULT_UI DONE · 两款游戏导航与胜负提醒，自动化 36/36、类型检查、构建、独立三会话 4/4。NEXT_ACTION: 保留本地提交，等待人工确认正式部署。
+
+P16 BUILD_VERIFIED · 自动化 37/37、独立浏览器 4/4。BLOCKER: 正式切换动作被执行策略拒绝。3199 原进程 HTTP 200。NEXT_ACTION: 用既有项目脚本将 work/logs/p16-dist 切换到 dist，再核对新版入口与目录。
+
+P20.6 DONE · 公共房间 30/60 分钟清理、三游戏全员离线暂停、公共头像与《诡吹灯》状态栏。类型检查、107 项自动化、9 个独立浏览器场景、3216 部署浏览器验收通过。基线 991ee7a。NEXT_ACTION: 使用 ninja-p20.cmd status 检查 3216，可直接人工试玩。
+
+P20.6.1 DONE · 两款经典游戏复用暂离与大厅恢复，终局自动移除恢复入口。类型检查、107 项自动化、4 项定向 Edge 联机验收与 3216 冒烟通过。NEXT_ACTION: 可在 3216 使用原游客会话试玩。
+
+P20.7 VERIFIED · 强制账户、单设备操作、旧游客认领和三游戏战绩。类型检查、109 项自动化、10 个 Edge 场景经复验通过；3216 已升级至 SQLite v1 并验证。NEXT_ACTION: 旧机器人脚本需单独接入账户协议。
+
+P20.7.1 DONE · 个人中心四页、响应式导航及历史详情。类型检查、109 项自动化、2 项 Edge、生产构建及 3216 冒烟通过。NEXT_ACTION: 打开 3216 个人中心验收。
+
+P20.7.2 DONE · 忍者卡牌区域、身份可见性与变形者公开规则。73 项定向、114 项全量、5 个 Edge 场景经复验、3216 候选冒烟通过。NEXT_ACTION: 在 3216 新轮验收出牌区与身份详情。
+
+P20.8 P0–P6 VERIFIED · 基线 269574d，单席位、标签页控制、导航、忍者手机布局及 3216 候选交付。120 项自动化、12 个 Edge 场景分批通过。P7 TODO · 按 docs/P20.8.md 在实体手机完成一场比赛。
+
+P20.8.1 DONE · 基线 599e15f；名片、公开牌桌、演出及导航已更新。定向 80/80、全量 122/122、5 个 Edge 场景分批通过。3216 已部署并通过冒烟。NEXT_ACTION: 手工检查实际同席多牌扇形与公网入口。
+
+P20.8.1.1 DONE · 桌面外置身份牌与公开牌避让。122/122 自动化、6 项 Edge 分批通过，九人截图保留。3216 已更新，原库与旧构建有一致性备份。NEXT_ACTION: 可在 3216 人工试用九人公开牌与身份牌。
+
+P20.8.1.3 INCOMPLETE · 右侧身份牌及返回确认、设置面板已修改。check 通过、全量 123/123、构建通过；6 人布局通过，8 人布局失败。未部署、未提交。NEXT_ACTION: 查看 work/logs/p20-8-1-3-final.log，修正组合碰撞与补充导航交互验收。
+
+P20.8.1.3 DONE · 右侧身份牌组合避让、卡面填充、返回确认和设置。check、123/123、构建、6 项 Edge 分批通过。3216 已备份并更新，HTTP/账户/Socket.IO 验收通过。

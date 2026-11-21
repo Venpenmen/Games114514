@@ -1,0 +1,17 @@
+import {test,expect} from '@playwright/test'
+import {registerPlayer} from './account-fixtures.ts'
+import {writeFileSync} from 'node:fs'
+for(const count of (process.env.RELEASE_COUNTS??'4,6,8').split(',').map(Number))test(count+' release desktop and landscape real draft',async({browser})=>{
+ const contexts=await Promise.all(Array.from({length:count},()=>browser.newContext({baseURL:'http://127.0.0.1:3215',viewport:{width:740,height:320},hasTouch:true})))
+ try{const pages=await Promise.all(contexts.map(c=>c.newPage())),a=pages[0]
+ await a.goto('/');await registerPlayer(a,'发布验证01');await a.locator('.game-card').filter({has:a.getByRole('heading',{name:'忍者之夜',exact:true})}).getByRole('button',{name:'创建房间',exact:true}).click();await expect(a.locator('.members li')).toHaveCount(1);await a.getByLabel('正式玩家数').selectOption(String(count));await a.waitForTimeout(150);await a.getByLabel('轮抽秒数').selectOption('90');await a.waitForTimeout(100)
+ for(let i=1;i<count;i++){await pages[i].goto(a.url());await registerPlayer(pages[i],'发布验证'+(i+1))}
+ for(let i=0;i<count;i++){await pages[i].getByRole('button',{name:'肖像 '+(i+1),exact:true}).click();await pages[i].getByRole('button',{name:'准备',exact:true}).click()}
+ await a.getByRole('button',{name:'开始游戏',exact:true}).click();const ok=a.getByRole('button',{name:'确定',exact:true});if(await ok.isVisible())await ok.click()
+ const metrics=[];for(const [width,height] of [[740,320],[844,390],[915,412],[1366,768],[1280,720]]){await a.setViewportSize({width,height});await expect(a.locator('.nn-seat-shell')).toHaveCount(count);await expect(a.getByRole('button',{name:'确认提交',exact:true})).toBeInViewport({ratio:1});expect(await a.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBeLessThanOrEqual(1);const r=await a.locator('.nn-seat-shell').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().toJSON()));for(let i=0;i<r.length;i++){expect(r[i].left).toBeGreaterThanOrEqual(0);expect(r[i].right).toBeLessThanOrEqual(width);for(const b of r.slice(i+1))expect(r[i].left<b.right&&r[i].right>b.left&&r[i].top<b.bottom&&r[i].bottom>b.top).toBe(false)}metrics.push({width,height,seats:r})}
+ await a.setViewportSize({width:390,height:844});await a.getByRole('button',{name:'出牌区',exact:true}).click();await expect(a.locator('.nn-play-grid')).toHaveCSS('grid-template-columns',/^\d+(\.\d+)?px$/);await a.keyboard.press('Escape');await a.setViewportSize({width:844,height:390})
+ await a.getByRole('button',{name:'UI 操作指南',exact:true}).click();const guide=a.locator('dialog[open]');await guide.getByRole('button',{name:'手机横屏指南',exact:true}).click();await expect(guide.locator('figure')).toHaveCount(7);await guide.getByRole('button',{name:'关闭',exact:true}).click()
+ for(const phase of ['draft1','draft2']){await expect(a.locator('.nn-operation')).toHaveAttribute('data-action',phase);await Promise.all(pages.map(async p=>{const close=p.getByRole('button',{name:'确定',exact:true});if(await close.isVisible())await close.click();await p.locator('.nn-action-deck button[aria-pressed]').first().click();await p.getByRole('button',{name:'确认提交',exact:true}).click()}))}
+ await expect(a.locator('.nn-operation')).toHaveAttribute('data-action','commit');await a.reload();await expect(a.locator('.nn-operation')).toHaveAttribute('data-action','commit');await a.screenshot({path:'work/logs/release-ninja-'+count+'.png'});writeFileSync('work/logs/release-ninja-'+count+'.json',JSON.stringify(metrics));
+ }finally{await Promise.all(contexts.map(c=>c.close()))}
+})

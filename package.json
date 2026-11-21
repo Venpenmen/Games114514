@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --disable-warning=ExperimentalWarning --test games/ghost-candle/*.test.ts packages/game-sdk/*.test.ts apps/server/*.test.ts",
+    "test": "node --disable-warning=ExperimentalWarning --test games/*/*.test.ts packages/game-sdk/*.test.ts apps/server/*.test.ts apps/web/components/*.test.ts",
     "start": "node --env-file-if-exists=.env apps/server/index.ts",
     "build": "vite build",
     "check": "vue-tsc --noEmit"

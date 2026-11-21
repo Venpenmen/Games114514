@@ -2,23 +2,30 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ghostCandle as game } from './engine.ts'
 const players = ['a','b','c']
-const ctx = {now:0,random:() => 0}
+const ctx = {now:0,random:(_limit: number) => 0}
 const start = () => game.start(players,{night:30,day:60},ctx)
-function actions(s: ReturnType<typeof start>, a:number,b:number,c:number,action:string) {
-  game.command(s,'b',{kind:'night',candle:a,action:'LIGHT'},ctx)
-  game.command(s,'c',{kind:'night',candle:b,action:'LIGHT'},ctx)
-  game.command(s,'a',{kind:'night',candle:c,action},ctx)
+function actions(s: ReturnType<typeof start>, a:number,b:number,c:number,action:string, context = ctx) {
+  game.command(s,'b',{kind:'night',candle:a,action:'LIGHT'},context)
+  game.command(s,'c',{kind:'night',candle:b,action:'LIGHT'},context)
+  game.command(s,'a',{kind:'night',candle:c,action},context)
 }
 for (const [a,b,c,action,target,status] of [
-  [2,2,2,'DESTROY',2,'DESTROYED'],
-  [2,2,3,'DESTROY',2,'LIT'],
-  [2,3,3,'LIGHT',3,'LIT'],
-  [2,3,4,'LIGHT',1,'DESTROYED'],
-  [2,3,4,'DESTROY',1,'DESTROYED'],
+  [1,1,1,'DESTROY',1,'DESTROYED'],
+  [1,1,2,'DESTROY',1,'LIT'],
+  [1,1,1,'LIGHT',1,'LIT'],
+  [1,1,2,'LIGHT',1,'LIT'],
+  [1,2,1,'DESTROY',1,'DESTROYED'],
+  [1,2,2,'DESTROY',2,'DESTROYED'],
+  [1,2,1,'LIGHT',1,'LIT'],
+  [1,2,2,'LIGHT',2,'LIT'],
+  [1,2,3,'DESTROY',9,'DESTROYED'],
+  [1,2,3,'LIGHT',9,'DESTROYED'],
 ] as const) {
   test(`night ${[a,b,c,action].join('/')}`, () => {
     const s = start()
-    actions(s,a,b,c,action)
+    const draws: number[] = []
+    actions(s,a,b,c,action,{...ctx,random:limit => { draws.push(limit); return limit-1 }})
+    assert.deepEqual(draws,target === 9 ? [9] : [])
     assert.deepEqual(s.last,{candle:target,status})
     assert.equal(s.candles.filter(item=>item!=='INTACT').length,1)
     assert.equal(s.stage,'DAY_DISCUSSION')
@@ -76,7 +83,7 @@ test('a 4–4 match necessarily ends on night nine', () => {
   const s = start()
   for (let i=1;i<=9;i++) {
     if (i%2) actions(s,i,i,i,'LIGHT')
-    else actions(s,i,i,i,'DESTROY')
+    else actions(s,i,i+1,i,'DESTROY')
     if (s.deadline !== null) progress(s)
     if (s.stage === 'DAY_DECISION') progress(s)
   }
@@ -90,4 +97,56 @@ test('each player can be randomly assigned GHOST', () => {
     assert.equal(s.roles[id],'GHOST')
     assert.equal(Object.values(s.roles).filter(role=>role==='HUMAN').length,2)
   })
+})
+
+test('random destruction can choose any intact candle, including the ghost target', () => {
+  const candidates = [2,4,5,6,7,8,9]
+  for (const [index,target] of candidates.entries()) {
+    const s = start()
+    actions(s,1,1,1,'DESTROY')
+    progress(s)
+    actions(s,3,2,3,'DESTROY')
+    progress(s)
+    for (const candle of [1,3]) {
+      assert.throws(() => game.command(s,'b',{kind:'night',candle,action:'LIGHT'},ctx))
+    }
+    actions(s,2,4,5,'DESTROY',{...ctx,random:limit => {
+      assert.equal(limit,candidates.length)
+      return index
+    }})
+    assert.deepEqual(s.last,{candle:target,status:'DESTROYED'})
+    assert.equal(s.candles.filter(candle=>candle!=='INTACT').length,3)
+  }
+})
+test('timeout triple overlap destroys once', () => {
+  const s = start()
+  const time = {...ctx,now:s.deadline!}
+  game.advance(s,time)
+  assert.deepEqual(s.last,{candle:1,status:'DESTROYED'})
+  const settled = structuredClone(s)
+  game.advance(s,time)
+  assert.deepEqual(s,settled)
+})
+test('five triple-overlap destructions give the ghost victory', () => {
+  const s = start()
+  for (let i=1;i<=5;i++) {
+    actions(s,i,i,i,'DESTROY')
+    if (s.deadline !== null) progress(s)
+    if (s.stage === 'DAY_DECISION') progress(s)
+  }
+  assert.equal(s.winner,'GHOST')
+  assert.equal(s.night,5)
+  assert.equal(s.candles.filter(candle=>candle==='DESTROYED').length,5)
+})
+
+test('five directed destructions give the ghost victory', () => {
+  const s = start()
+  for (let i=1;i<=5;i++) {
+    actions(s,i,9,i,'DESTROY')
+    if (s.deadline !== null) progress(s)
+    if (s.stage === 'DAY_DECISION') progress(s)
+  }
+  assert.equal(s.winner,'GHOST')
+  assert.equal(s.night,5)
+  assert.equal(s.deadline,null)
 })
