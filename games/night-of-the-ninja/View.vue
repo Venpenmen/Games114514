@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import ViewportMode from './ViewportMode.vue'
 import PlayerAvatar from "../../apps/web/components/PlayerAvatar.vue"
 import {effects} from '../../apps/web/components/effects.ts'
+import {commitChoice} from './commit-choice.ts'
 import {computed,onMounted,onUnmounted,ref,watch} from 'vue'
 import type {Snapshot} from '../../packages/protocol/index.ts'
 import RoomChat from '../../apps/web/components/RoomChat.vue'
@@ -55,9 +55,10 @@ function inspectIdentity(id:string) {
 }
 const name=(id:string)=>props.room.members.find(p=>p.id===id)?.name??'玩家'
 const selected=ref('')
+const commitPicked=ref<string[]>([])
 const shiftPicked=ref<string[]>([]),merchantGive=ref<number|null>(null),merchantTake=ref<number|null>(null)
 const pending=ref(false)
-watch([()=>match.value.id,()=>state.value.round,()=>state.value.night,()=>privateState.value?.action?.step,()=>Boolean(privateState.value?.merchant),()=>props.connectionEpoch],()=>{selected.value='';shiftPicked.value=[];merchantGive.value=null;merchantTake.value=null})
+watch([()=>match.value.id,()=>state.value.round,()=>state.value.night,()=>privateState.value?.action?.step,()=>Boolean(privateState.value?.merchant),()=>props.connectionEpoch],()=>{selected.value='';commitPicked.value=[];shiftPicked.value=[];merchantGive.value=null;merchantTake.value=null})
 const ownOptions=computed(()=>privateState.value?.options??[])
 const locked=computed(()=>pending.value || props.room.pausedMs!==undefined)
 const shiftPairMode=computed(()=>step.value==='target' && ownOptions.value.some(option=>option.value.startsWith('pair:')))
@@ -69,6 +70,11 @@ const targetOptions=computed(()=>{
 })
 const select=(value:string)=>{
   if(locked.value) return
+  if(step.value==='commit') {
+    if(value==='pass'){commitPicked.value=[];selected.value=selected.value==='pass'?'':'pass';return}
+    const single=ownOptions.value.find(option=>option.value===value && option.card)
+    if(single){const next=commitPicked.value.includes(value)?commitPicked.value.filter(id=>id!==value):[...commitPicked.value,value];const valid=commitChoice(ownOptions.value,next);if(next.length===0||valid){commitPicked.value=next;selected.value=valid}return}
+  }
   if(shiftPairMode.value) {
     shiftPicked.value=shiftPicked.value.includes(value)?shiftPicked.value.filter(id=>id!==value):
       shiftPicked.value.length<2?[...shiftPicked.value,value]:[shiftPicked.value[0],value]
@@ -95,10 +101,13 @@ const polar=(index:number)=>{
   let self=topCount
   for(let i=topCount;i<count;i++)if(Math.abs(perimeter[i].x-50)<Math.abs(perimeter[self].x-50))self=i
   const point=perimeter[(self+relative)%count]
+  const side=relative<topCount?0:1,sideIndex=side?relative-topCount:relative
+  const sideCount=side?bottomCount:topCount
+  const sideY=(side?sideIndex+.5:sideCount-sideIndex-.5)*100/sideCount
 
   const rows=Math.ceil((count-1)/2)+1
   const row=relative===0?rows-1:Math.floor((relative-1)/2)
-  return {'--nn-landscape-columns':topCount,'--nn-landscape-x':(count<=4?50-40*Math.sin(angle):point.x)+'%','--nn-landscape-y':(count<=4?50+32*Math.cos(angle):point.y)+'%',left:(50-42*Math.sin(angle))+'%',top:(50+40*Math.cos(angle))+'%',
+  return {'--nn-landscape-columns':topCount,'--nn-landscape-x':(side?91:9)+'%','--nn-landscape-y':sideY+'%',left:(50-42*Math.sin(angle))+'%',top:(50+40*Math.cos(angle))+'%',
     '--nn-mobile-x':relative===0?'12%':relative%2?'12%':'88%',
     '--nn-mobile-y':(row+.5)*100/rows+'%'}
 
@@ -149,13 +158,14 @@ const isActiveTarget=(id:string)=>activeTargets.value.includes(id)
 const roundEvents=computed(()=>timelineRows(state.value.events,privateState.value?.tableTargets??[],state.value.round))
 const batchTitle=(event:PublicEvent)=>event.card && cards[event.card].phase!=='special'
   ? phaseNames[cards[event.card].phase as keyof typeof phaseNames]+'阶段 · 同时亮牌' : '同时亮牌'
+const awardIdentity=(id:string,event:PublicEvent)=>{const identity=event.identities?.[id]??state.value.seats.find(seat=>seat.id===id)?.identity;return identity?labels[identity.house]+(identity.rank?' '+identity.rank:''):'身份未公开'}
 const major=(event:PublicEvent)=>['identity','houses','mirror','martyr','death','swap','honor','reveal','champion'].includes(event.kind)
 const ring=ref<HTMLElement>()
 const seatLayout=ref(0)
 let seatObserver:ResizeObserver|undefined
 function placeIdentityCards() {
   const board=ring.value
-  if(!board || !matchMedia('(min-width:801px)').matches) return
+  if(!board || !matchMedia('(min-width:801px)').matches || matchMedia('(orientation:landscape) and (max-width:1000px) and (max-height:500px)').matches) return
   const frame=board.getBoundingClientRect()
   const seats=Array.from(board.querySelectorAll<HTMLElement>('.nn-seat-shell'))
   const stage=board.querySelector('.nn-stage')?.getBoundingClientRect()
@@ -173,16 +183,16 @@ function placeIdentityCards() {
     seat.style.setProperty('--seat-shift-y',chosen.top-base.top+'px')
     used.push(chosen)
   }
-  seatLayout.value++
-}
+ }
+function updateSeatLayout(){placeIdentityCards();seatLayout.value++}
 onMounted(()=>{
-  seatObserver=new ResizeObserver(placeIdentityCards)
+  seatObserver=new ResizeObserver(updateSeatLayout)
   watch(()=>[ring.value,state.value.seats.length] as const,([board])=>{
     seatObserver?.disconnect()
     if(board) {
       seatObserver?.observe(board)
       board.querySelectorAll('.nn-seat-shell,.nn-stage,.nn-identity-trigger').forEach(element=>seatObserver?.observe(element))
-      placeIdentityCards()
+      updateSeatLayout()
     }
   },{immediate:true,flush:'post'})
 })
@@ -230,7 +240,7 @@ let letterTimer:number|undefined
 function nextPrivate() {
   clearTimeout(letterTimer)
   freshIntel.value=privateQueue.shift()
-  if(freshIntel.value) letterTimer=window.setTimeout(nextPrivate,8000)
+  if(freshIntel.value && !matchMedia('(orientation:landscape) and (max-width:1000px) and (max-height:500px)').matches) letterTimer=window.setTimeout(nextPrivate,8000)
 }
 function announceRoundIdentity() {
   const identity=privateState.value?.known
@@ -286,7 +296,6 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
 
 <template>
   <article class="nn-game nn-p20" :data-presentation="state.presentation?.id" :data-static-presentation="staticPresentation" :data-match="match.id" :data-phase-token="match.phase" :data-mode="state.mode" :data-effects="effects" :data-confirm="ownOptions.length>0" :style="{'--ux-speed':state.presentationSpeed,'--ux-event-duration':(state.presentation?.duration??100000)+'ms','--nn-scene':'url('+asset('castle')+')','--nn-mobile-scene':'url('+asset('castle-mobile')+')'}">
-    <ViewportMode/>
     <header class="nn-header">
       <div><p>第 {{ state.round }} 轮<span v-if="state.night" :data-phase="state.night"> · {{ ({spy:'◈',mystic:'✦',trickster:'◇',blind:'◒',shinobi:'❖'})[state.night] }} {{ phaseNames[state.night] }}</span></p>
       <h2>{{ modes[step] ?? '技能结算' }}</h2><p v-if="state.mode==='ready' || state.mode==='champion'" class="nn-intermission-public" role="status">本轮身份已全部公开，可对照牌桌与复盘。</p><p v-if="room.pausedMs!==undefined">全员离线，比赛已暂停</p><p v-else-if="match.deadline" class="nn-clock" :class="{'nn-clock-urgent':seconds<=5}">剩余 {{ seconds }} 秒 · {{ state.submitted }} 人已提交</p></div>
@@ -316,7 +325,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
         @click="targetOptions.has(p.id)?select(targetOptions.get(p.id)!):inspectIdentity(p.id)"
         :class="{'nn-dead':!p.alive,'nn-target':selection?.target===p.id || shiftPicked.includes(p.id),'nn-focus':state.current?.player===p.id || shown?.actors.includes(p.id),'nn-execution-actor':activeActor===p.id,'nn-execution-target':isActiveTarget(p.id)}">
         <PlayerAvatar :src="asset('portrait-'+p.portrait)" :name="name(p.id)" :online="room.members.some(member=>member.id===p.id && member.online)" compact :image-class="{'nn-death-flash':shown?.kind==='death' && shown.actors.includes(p.id),'nn-attack-target':shown?.kind==='attack' && shown.actors[1]===p.id}"/>
-        <span class="nn-seat-info"><strong :title="name(p.id)"><span class="nn-seat-name-text">{{ name(p.id) }}{{ p.id===player?'（你）':'' }}</span></strong>
+        <span class="nn-seat-info"><strong :title="name(p.id)"><span class="nn-seat-name-text">{{ name(p.id) }}<span class="nn-self-suffix">{{ p.id===player?'（你）':'' }}</span></span></strong>
         <small class="nn-seat-status" :title="(p.alive?'存活':'已死亡')+' · '+(room.members.find(member=>member.id===p.id)?.online?'在线':'离线')">
           <span :aria-label="p.alive?'存活':'已死亡'">{{ p.alive?'♥':'×' }}</span>
           <span class="nn-status-label">{{ room.members.find(member=>member.id===p.id)?.online?'在线':'离线' }}</span>
@@ -352,7 +361,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
             <p>{{ item.text }}</p>
             <p v-if="item.actors.length" class="nn-featured-actors">
               <span v-for="id in item.actors" :key="id">
-                <img v-if="state.seats.some(seat=>seat.id===id)" :src="asset('portrait-'+state.seats.find(seat=>seat.id===id)!.portrait)" alt=""> {{ name(id) }}
+                <img v-if="state.seats.some(seat=>seat.id===id)" :src="asset('portrait-'+state.seats.find(seat=>seat.id===id)!.portrait)" alt=""> {{ name(id) }}<small v-if="item.kind==='honor'" class="nn-award-identity">{{ awardIdentity(id,item) }}</small>
               </span>
             </p>
             <p v-if="item.kind==='reveal' && item.identities">鹤派 {{ ranks(item.identities,'crane') }} · 莲派 {{ ranks(item.identities,'lotus') }}</p>
@@ -401,6 +410,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           @merchant-give="chooseMerchant('give',$event)" @merchant-take="chooseMerchant('take',$event)"
           @select="select" @confirm="confirm"/>
     <aside class="nn-journal">
+      <div class="nn-mobile-rules"><Rules :step="step"/></div>
       <button @click="playDrawer?.showModal()">出牌区</button>
       <dialog ref="playDrawer" class="nn-board-dialog nn-play-drawer" aria-label="出牌区">
         <header><h2>第 {{ state.round }} 轮 · 出牌区</h2><form method="dialog"><button autofocus>关闭</button></form></header>
@@ -409,11 +419,13 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
           <span><img :src="asset('card-back')" alt=""> 轮抽弃牌堆 {{ state.cardArea.discard }} 张</span>
         </div>
         <p v-if="!state.cardArea.played.length">暂无已公开牌</p>
-        <article v-for="item in state.cardArea.played" :key="item.card">
+        <div class="nn-play-grid">
+        <article v-for="item in state.cardArea.played" :key="item.card" :data-card="item.card">
           <CardFace :id="item.card"/>
           <p>{{ name(item.player) }} · {{ sources[item.source] }} · {{ statuses[item.status] }}</p>
           <p v-if="item.targets.length">目标：{{ item.targets.map(name).join('、') }}</p>
         </article>
+        </div>
       </dialog>
       <dialog ref="identityDialog" class="nn-board-dialog" aria-label="身份牌详情">
         <header><h2>{{ subject ? name(subject.id) : '' }} · 身份牌</h2><form method="dialog"><button autofocus>关闭</button></form></header>
@@ -472,7 +484,7 @@ const ranks=(identities:NonNullable<PublicEvent['identities']>,house:'crane'|'lo
       </GameHistory>
       <template v-if="privateState">
         <IntelPanel :key="match.id" :own="privateState" :seats="state.seats" :name="name"/>
-        <RoomChat :messages="room.chat" :members="room.members" :scope="room.code+':'+match.id" :player="player" :can-chat="!match.finished" :send="text=>send('chat',text)"/>
+        <RoomChat landscape-inline :messages="room.chat" :members="room.members" :scope="room.code+':'+match.id" :player="player" :can-chat="!match.finished" :send="text=>send('chat',text)"/>
       </template>
     </aside>
   </article>

@@ -363,6 +363,18 @@
 .nn-board-dialog::backdrop {background:#100b08bb}
 .nn-play-drawer {position:fixed;inset:0 0 0 auto;margin:0;height:100dvh}
 .nn-play-drawer article {border-top:1px solid #796448;margin-top:.5rem;padding-top:.5rem}
+.nn-play-drawer {width:min(52rem,calc(100vw - 1rem))}
+.nn-play-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+.nn-play-grid article {min-width:0;overflow-wrap:anywhere}
+.nn-play-grid .nn-card-face {width:100%;box-sizing:border-box;min-width:0}
+.nn-play-grid .nn-card-copy {min-width:0;overflow-wrap:anywhere}
+/* Desktop only: size the drawer to two actual card widths, not two stretched tracks. */
+@media (min-width:1001px) {
+  .nn-play-drawer {width:min(26rem,calc(100vw - 1rem))}
+  .nn-play-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem}
+  .nn-play-grid article {overflow-wrap:anywhere}
+}
+@media(orientation:portrait),(max-width:560px){.nn-play-grid{grid-template-columns:minmax(0,1fr)}}
 .nn-piles {display:flex;gap:1rem;flex-wrap:wrap}
 .nn-piles img {width:1.45rem;vertical-align:middle}
 @media (max-width:800px) {.nn-identity-trigger {transform:translate(.95rem,-1.35rem)}}

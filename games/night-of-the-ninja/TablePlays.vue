@@ -48,6 +48,7 @@ function layout(plays:Play[]) {
       cost+=obstacles.filter(other=>intersects(box,other)).length*10
       cost+=placed.filter(other=>intersects(box,other)).length*10
     }
+    if(landscape)for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++)if(intersects(boxFor(items[i].point),boxFor(items[j].point)))cost+=10
     return cost
   }
   for(const shell of Array.from(shells)) {
@@ -69,6 +70,19 @@ function layout(plays:Play[]) {
     })
     const candidates=[0,12,-12,24,-24,40,-40,56,-56,80,-80].flatMap(side=>
       [0,10,20,32,48,64,80,-8,-16].map(delta=>fan(distance+delta,side)))
+    // Landscape keeps the owner relationship horizontal, independent of table center angle.
+    if(landscape){
+      const stage=props.ring!.querySelector('.nn-stage')!.getBoundingClientRect()
+      const left=sx<center.x,cardWidth=size.value+2,cardHeight=Math.max(44,size.value/.72+2)
+      const inner=left?box.right-frame.left+cardWidth/2+padding:box.left-frame.left-cardWidth/2-padding
+      const limit=left?stage.left-frame.left-cardWidth/2-padding:stage.right-frame.left+cardWidth/2+padding
+      const xs=[inner,(inner+limit)/2,limit]
+      const preferred=[]
+      for(const delta of [0,-12,12,-24,24,-48,48,-72,72])for(const x of xs){
+        preferred.push(group.map((play,index)=>({card:play.card,point:{x,y:sy+delta+(index-(group.length-1)/2)*(cardHeight+padding*2),angle:0}})))
+      }
+      candidates.unshift(...preferred)
+    }
     // Dense landscape: sample the free band at the stage's vertical center first.
     // A grid anchored at the top misses this narrow band between both seat rows.
     if(landscape && !candidates.some(items=>collisions(items)===0)) {
@@ -93,6 +107,24 @@ function layout(plays:Play[]) {
     const chosen=candidates.find(items=>collisions(items)===0) ??
       candidates.reduce((best,items)=>collisions(items)<collisions(best)?items:best,candidates[0])
     for(const {card,point} of chosen) {points.set(card,point);placed.push(boxFor(point))}
+  }
+  if(landscape && [...points.values()].some((p,i,a)=>{const b=boxFor(p);return b.left<frame.left+padding||b.right>frame.right-padding||b.top<frame.top+padding||b.bottom>frame.bottom-padding||obstacles.some(o=>intersects(b,o))||a.slice(i+1).some(q=>intersects(b,boxFor(q)))})){
+    const hw=(size.value+2)/2,hh=Math.max(44,size.value/.72+2)/2
+    const xs=[hw+padding,width-hw-padding,...obstacles.flatMap(b=>[b.left-frame.left-1-hw-padding,b.right-frame.left-1+hw+padding])]
+    const slots:Point[]=[]
+    for(const x of xs)for(let y=hh+padding;y<=height-hh-padding;y+=hh*2+padding*2){const b=boxFor({x,y,angle:0});if(b.left>=frame.left+padding&&b.right<=frame.right-padding&&!obstacles.some(o=>intersects(b,o)))slots.push({x,y})}
+    const unique=slots.filter((p,i)=>slots.findIndex(q=>Math.abs(p.x-q.x)<1&&Math.abs(p.y-q.y)<1)===i)
+    let attempts=0
+    const used:DOMRect[]=[],packed=new Map<string,Point & {angle:number}>()
+    function pack(index:number):boolean{
+      if(index===plays.length)return true
+      if(++attempts>10000)return false
+      const play=plays[index],owner=Array.from(shells!).find(s=>s.dataset.player===play.player)!.getBoundingClientRect()
+      const ordered=[...unique].sort((a,b)=>Math.hypot(frame.left+a.x-owner.x-owner.width/2,frame.top+a.y-owner.y-owner.height/2)-Math.hypot(frame.left+b.x-owner.x-owner.width/2,frame.top+b.y-owner.y-owner.height/2))
+      for(const p of ordered){const point={...p,angle:0},b=boxFor(point);if(used.some(o=>intersects(b,o)))continue;used.push(b);packed.set(play.card,point);if(pack(index+1))return true;packed.delete(play.card);used.pop()}
+      return false
+    }
+    if(pack(0))return packed
   }
   return points
 }
@@ -161,7 +193,7 @@ const specialOrigin=computed(()=>{
       :style="position(positions.get(play.card),positions.get(play.card)?.angle)"
       :aria-label="name(play.player)+' · '+cardName(play.card)+' '+cards[play.card].number" @click="inspect(play)">
       <CardFace :id="play.card" compact/>
-      <span class="nn-table-caption">{{ cardName(play.card) }}</span>
+      <span class="nn-table-caption">{{ cardName(play.card) }}</span><span class="nn-table-owner">{{ name(play.player) }}</span>
     </button>
     <span v-for="{play,point} in fading" :key="'exit-'+play.card" class="nn-table-flight" :data-status="play.status"
       :style="position(point,0,play.status==='resolved')" aria-hidden="true"><CardFace :id="play.card" compact/></span>
@@ -182,6 +214,8 @@ const specialOrigin=computed(()=>{
 .nn-table-plays {position:absolute;inset:0;pointer-events:none;z-index:2}
 .nn-table-play,.nn-table-flight {position:absolute;transform:translate(-50%,-50%) rotate(var(--play-angle,0deg));width:var(--play-size);aspect-ratio:.72;padding:0;border-radius:.2rem;overflow:hidden}
 .nn-table-play {pointer-events:auto;transition:left .24s,top .24s,transform .24s;background:#191d2c;border:1px solid #97805b}
+.nn-table-owner{display:none}
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){.nn-table-caption{display:none}.nn-table-owner{display:block;position:absolute;inset:auto 0 0;background:#151924ed;color:#fff2da;font-size:8px;line-height:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 .nn-table-caption {position:absolute;inset:auto 0 0;background:#151924ed;color:#fff2da;font-size:clamp(.52rem,1vw,.68rem);line-height:1.1;text-align:center;padding:2px;overflow-wrap:anywhere}
 .nn-table-play[data-status=resolving] {border-color:#ffe3a0;outline:2px solid #ffe3a0;z-index:2}
 .nn-table-play[data-fresh=true] {animation:nn-table-reveal calc(.4s * var(--ux-speed,1)) ease-out}

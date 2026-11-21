@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import {enterImmersive} from '../../games/night-of-the-ninja/immersive.ts'
 import GameToolbar from './components/GameToolbar.vue'
 import AccountCenter from './components/AccountCenter.vue'
 import PlayerAvatar from './components/PlayerAvatar.vue'
@@ -20,6 +21,7 @@ async function refreshResumable() {
   if(request===resumableRequest) {resumable.value=matches;occupied.value=seat}
 }
 async function resumeMatch(item:Resumable) {
+  if(item.gameId==='night-of-the-ninja' && innerWidth<=1000 && innerHeight<=1000 && navigator.userActivation?.isActive) void enterImmersive().catch(()=>{})
   if(resuming.value || room.value || activeCode.value) return
   resuming.value=true
   try {
@@ -27,6 +29,7 @@ async function resumeMatch(item:Resumable) {
   } finally {resuming.value=false}
 }
 const catalog = ref<Game[]>([])
+const mobileRoomOpen=ref(false)
 const speedNames:Record<string,string>={'0.8':'快速','1':'标准','1.35':'舒缓','1.7':'慢速'}
 const profile = ref<Profile>()
 const room = ref<Snapshot>()
@@ -189,6 +192,7 @@ async function authenticate() {
 }
 async function send(type: string, data?: unknown, target = room.value?.code, matchId?:string) {
   const epoch=routeEpoch
+  if(['start','join'].includes(type) && room.value?.gameId==='night-of-the-ninja' && innerWidth<=1000 && innerHeight<=1000 && navigator.userActivation?.isActive) void enterImmersive().catch(()=>{})
   error.value = ''
   if (!socket.connected) { error.value = '连接中，请稍后重试'; return false }
   try {
@@ -253,7 +257,7 @@ async function share() {
     <button v-if="profile?.name" class="profile" @click="goLobby(true)"><PlayerAvatar :name="profile.name" :glyph="avatars[profile.avatar]" online/> {{ profile.name }}</button>
   </div></header>
   <main :class="{'game-page':room?.match}">
-    <p v-if="error" role="alert" class="error">{{ error }}</p>
+    <p v-if="error" role="alert" class="error">{{ error }}<button v-if="room?.gameId==='night-of-the-ninja'" class="nn-mobile-error-close" aria-label="关闭错误提示" @click="error=''"></button></p>
     <p v-if="profile && !connected" role="status">正在连接服务器…</p>
     <form v-if="!profile && !loading" class="panel stack auth-form" @submit.prevent="authenticate">
       <h1>{{ registering?'注册账户':'登录' }}</h1>
@@ -307,7 +311,8 @@ async function share() {
         <p v-if="room.match">{{ room.match.finished?'比赛已结束':'比赛进行中' }}</p>
         <div class="actions"><button @click="send('takeover',undefined)">接管操作</button><button v-if="!room.match" @click="goLobby()">返回大厅</button></div>
       </section>
-      <section v-else-if="!playing && !room.spectator" class="panel room-panel" :class="{'room-panel-finished':room.match}">
+      <section v-else-if="!playing && !room.spectator" class="panel room-panel" :class="{'room-panel-finished':room.match}" :data-mobile-open="mobileRoomOpen">
+        <button v-if="room.match && room.gameId==='night-of-the-ninja'" class="nn-mobile-room-toggle" type="button" :aria-expanded="mobileRoomOpen" @click="mobileRoomOpen=!mobileRoomOpen">{{ mobileRoomOpen?'收起房间管理':'房间管理' }}</button>
         <div v-if="!room.match" class="actions room-heading">
           <h1>{{ game?.name }} · {{ room.code }}</h1>
           <div class="actions">
@@ -342,6 +347,8 @@ async function share() {
 </template>
 
 <style scoped>
+.nn-mobile-room-toggle,.nn-mobile-error-close{display:none}
+.nn-mobile-error-close::before{content:"关闭"}
 .auth-form {max-width:28rem;margin-inline:auto}
 .auth-form input,.auth-form select {width:100%}
 </style>

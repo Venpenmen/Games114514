@@ -5,18 +5,21 @@ import { chatAppend } from './chat-history.ts'
 
 const props = defineProps<{
   messages: Snapshot['chat']; members: Snapshot['members']; scope: string; player: string;
-  canChat: boolean; highlight?: boolean; disabledText?: string; send: (text: string) => Promise<boolean>;
+  landscapeInline?:boolean; canChat: boolean; highlight?: boolean; disabledText?: string; send: (text: string) => Promise<boolean>;
 }>()
 const drawerId = useId()
 const drawer = ref(false)
 const mobile = ref(false)
+const inline = ref(false)
 const keyboard = ref(0)
 const viewportHeight = ref<number>()
 const opener = ref<HTMLButtonElement>()
+const inlineOpener = ref<HTMLButtonElement>()
 const closeButton = ref<HTMLButtonElement>()
 let compact: MediaQueryList
 function resize() {
-  mobile.value = compact.matches
+  inline.value=Boolean(props.landscapeInline && window.matchMedia('(orientation:landscape) and (max-width:1000px) and (max-height:500px)').matches)
+  mobile.value = compact.matches && !inline.value
   const viewport = window.visualViewport
   viewportHeight.value = viewport?.height
   keyboard.value = viewport ? Math.max(0,window.innerHeight-viewport.height-viewport.offsetTop) : 0
@@ -25,7 +28,7 @@ async function toggle(open: boolean) {
   drawer.value = open
   await nextTick()
   if (open) closeButton.value?.focus({preventScroll:true})
-  else opener.value?.focus({preventScroll:true})
+  else (inline.value ? inlineOpener.value : opener.value)?.focus({preventScroll:true})
 }
 const list = ref<HTMLElement>()
 const unread = ref(0)
@@ -46,12 +49,14 @@ onMounted(()=>{
   compact=window.matchMedia('(max-width: 800px), (max-height: 520px) and (pointer: coarse)')
   resize()
   compact.addEventListener('change',resize)
+  window.addEventListener('resize',resize)
   window.visualViewport?.addEventListener('resize',resize)
   window.visualViewport?.addEventListener('scroll',resize)
   jump()
 })
 onUnmounted(()=>{
   compact?.removeEventListener('change',resize)
+  window.removeEventListener('resize',resize)
   window.visualViewport?.removeEventListener('resize',resize)
   window.visualViewport?.removeEventListener('scroll',resize)
 })
@@ -110,7 +115,7 @@ const name = (id: string) => props.members.find(member => member.id === id)?.nam
 </script>
 
 <template>
-  <div class="room-chat" :class="{'is-open':drawer}" :style="{'--chat-keyboard':keyboard+'px','--chat-viewport':viewportHeight ? viewportHeight+'px' : '100dvh'}">
+  <div class="room-chat" :class="{'is-open':drawer,'is-inline':landscapeInline && !mobile,'is-expanded':inline && drawer}" :style="{'--chat-keyboard':keyboard+'px','--chat-viewport':viewportHeight ? viewportHeight+'px' : '100dvh'}">
     <div class="room-chat-tools">
       <button ref="opener" class="room-chat-toggle" type="button" :class="{highlight}" :aria-expanded="drawer" :aria-controls="drawerId" @click="toggle(!drawer)">
         聊天<span v-if="unread"> · {{ unread }} 条未读</span>
@@ -118,8 +123,8 @@ const name = (id: string) => props.members.find(member => member.id === id)?.nam
       <slot name="tools"/>
     </div>
     <section :id="drawerId" class="room-chat-drawer" aria-label="房间公聊"
-      :inert="mobile && !drawer" @keydown.esc.stop="mobile && toggle(false)">
-      <div class="room-chat-heading"><h3>房间公聊</h3><button ref="closeButton" type="button" @click="toggle(false)">关闭聊天</button></div>
+      :inert="mobile && !drawer" @keydown.esc.stop="(mobile || inline) && toggle(false)">
+      <div class="room-chat-heading"><h3>房间公聊</h3><button v-if="inline && !drawer" ref="inlineOpener" type="button" :aria-controls="drawerId" :aria-expanded="false" @click="toggle(true)">展开聊天</button><button v-show="!inline || drawer" ref="closeButton" type="button" @click="toggle(false)">关闭聊天</button></div>
     <ul v-show="messages.length" ref="list" class="room-chat-list" role="list" aria-label="公聊记录" tabindex="0" @scroll="onScroll">
       <li v-for="(message,index) in messages" :key="index">【<strong>{{ name(message.author) }}</strong>】<span>{{ message.text }}</span></li>
     </ul>

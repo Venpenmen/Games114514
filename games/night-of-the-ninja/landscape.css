@@ -1,33 +1,34 @@
+.nn-mobile-rules{display:none}
 /* P2: window-based landscape only; desktop and portrait retain their styles. */
 @media (orientation:landscape) and (max-width:1000px) and (max-height:500px) {
  main.game-page:has(>.nn-p20){height:var(--ninja-viewport-height,100dvh);min-height:0;max-width:none;padding:2px max(4px,env(safe-area-inset-right)) 2px max(4px,env(safe-area-inset-left));display:grid;grid-template-rows:34px minmax(0,1fr);gap:2px}
  main.game-page:has(>.nn-p20)>.game-toolbar{margin:0;padding:0 4px;min-height:0;font-size:11px}
  main.game-page:has(>.nn-p20)>.game-toolbar button{min-height:30px;padding:2px 8px}
- main.game-page>.nn-game.nn-p20{grid-row:2;height:100%;align-self:stretch;display:grid;grid-template-columns:minmax(0,1fr) 112px;grid-template-rows:38px minmax(0,1fr) 112px;gap:2px;min-height:0;padding:3px;position:relative}
+ main.game-page>.nn-game.nn-p20{grid-row:2;height:100%;align-self:stretch;display:grid;grid-template-columns:minmax(0,1fr) 72px;grid-template-rows:32px minmax(0,1fr) 84px;gap:2px;min-height:0;padding:3px;position:relative}
  .nn-p20 .nn-viewport-controls{position:absolute;right:118px;top:3px;z-index:5;padding:0}
  .nn-p20 .nn-viewport-controls button{font-size:10px;min-height:28px}
  .nn-p20 .nn-viewport-controls [role=status]:not(:empty){position:absolute;right:0;top:28px;width:240px;background:#161b2b;padding:4px}
  .nn-p20 .nn-header{grid-area:1/1/2/3;display:flex;flex-wrap:nowrap;gap:6px;padding:1px 5px;min-height:0}
  .nn-p20 .nn-header>div:first-child{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
  .nn-p20 .nn-header p,.nn-p20 .nn-header h2{margin:0;font-size:11px;line-height:1.2}
- .nn-p20 .nn-header .nn-identity{font-size:10px;margin-right:75px}
+ .nn-p20 .nn-header .nn-identity{font-size:11px;margin-right:0}
  .nn-p20 .nn-header .actions{display:none}
  .nn-p20 .nn-ring,.nn-p20 .nn-ring[data-dense=true]{grid-area:2/1;height:auto;min-height:0;margin:0;position:relative}
- .nn-p20 .nn-ring .nn-seat-shell{left:var(--nn-landscape-x)!important;top:var(--nn-landscape-y)!important;width:114px!important;grid-template-columns:minmax(0,1fr) 24px;gap:2px;transform:translate(-50%,-50%)!important;padding:1px}
+ .nn-p20 .nn-ring .nn-seat-shell{left:var(--nn-landscape-x)!important;top:var(--nn-landscape-y)!important;width:114px!important;grid-template-columns:minmax(0,1fr) 28px;gap:2px;transform:translate(-50%,-50%)!important;padding:1px}
  .nn-p20 .nn-ring .nn-seat-shell .nn-seat{grid-column:1;grid-row:1;min-height:32px;height:auto;padding:2px;display:flex;gap:3px;font-size:10px}
  .nn-p20 .nn-ring .nn-seat-shell .nn-seat>.player-avatar{width:23px}
  .nn-p20 .nn-ring .nn-seat-shell .nn-seat small{font-size:9px}
- .nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger{position:static!important;grid-column:2;grid-row:1;align-self:center;width:24px;min-height:32px;transform:none!important}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger{position:static!important;grid-column:2;grid-row:1;align-self:center;width:28px;min-height:40px;transform:none!important}
  .nn-p20 .nn-ring .nn-stage,.nn-p20 .nn-ring:has(.nn-table-play) .nn-stage{inset:27% 23%;padding:2px;overflow:auto;font-size:10px}
  .nn-p20 .nn-active-card{padding:1px;gap:3px}.nn-p20 .nn-active-effect{font-size:10px;line-height:1.2}
  .nn-p20 .nn-journal{grid-area:2/2/4/3;display:flex;flex-direction:column;gap:3px;min-height:0;padding:2px;overflow:auto}
  .nn-p20 .nn-journal>button{font-size:10px;min-height:32px;padding:3px}
  main.game-page>.nn-game.nn-p20:has(.nn-operation[data-has-hand=true]){padding:3px}
- .nn-p20 .nn-operation{grid-area:3/1;display:grid;grid-template-columns:135px minmax(0,1fr);align-content:center;gap:2px;padding:3px;min-height:0}
+ .nn-p20 .nn-operation{grid-area:3/1;display:grid;grid-template-columns:116px minmax(0,1fr);align-content:center;gap:2px;padding:3px;min-height:0}
  .nn-p20 .nn-operation h3{font-size:12px;line-height:1.2;margin:0}
  .nn-p20 .nn-operation-kicker,.nn-p20 .nn-step-help,.nn-p20 .nn-hand-toggle{display:none}
  .nn-p20 .nn-operation>.nn-options{grid-column:2;grid-row:1/span 5;display:grid;grid-template-columns:minmax(0,1fr) 88px;align-items:center;min-height:0}
- .nn-p20 .nn-action-deck{position:static!important;inset:auto!important;z-index:auto;display:flex!important;align-items:center;padding:7px 2px 2px;overflow-x:auto;min-width:0;max-height:104px;gap:3px}
+ .nn-p20 .nn-action-deck{position:static!important;inset:auto!important;z-index:auto;display:flex!important;align-items:center;padding:7px 2px 2px;overflow-x:auto;min-width:0;max-height:78px;gap:3px}
  .nn-p20 .nn-choice-card{width:66px;min-width:60px;margin:0!important;transform:none}
  .nn-p20 .nn-choice-card[aria-pressed=true]{transform:translateY(-5px)}
  .nn-p20 .nn-choice-card .nn-card-art img{height:38px!important;aspect-ratio:auto;object-fit:cover}
@@ -38,18 +39,285 @@
  .nn-p20 .nn-confirm button{width:82px;min-height:38px;padding:4px;font-size:12px}.nn-p20 .nn-confirm small{font-size:9px}
  .nn-p20 .nn-operation>.nn-hand{display:none}
  .nn-p20 .nn-private-toast{max-height:55%;max-width:45%;overflow:auto;left:25%;top:15%;font-size:11px}
- @media(max-height:340px){main.game-page>.nn-game.nn-p20{grid-template-rows:30px minmax(0,1fr) 100px}.nn-p20 .nn-header p{font-size:10px}.nn-p20 .nn-ring .nn-seat-shell{width:100px!important}.nn-p20 .nn-ring .nn-stage{inset:30% 25% 36%}.nn-p20 .nn-choice-card .nn-card-art img{height:30px!important}}
+ @media(max-height:340px){main.game-page>.nn-game.nn-p20{grid-template-rows:28px minmax(0,1fr) 78px}.nn-p20 .nn-header p{font-size:10px}.nn-p20 .nn-ring .nn-seat-shell{width:100px!important}.nn-p20 .nn-ring .nn-stage{inset:30% 25% 36%}.nn-p20 .nn-choice-card .nn-card-art img{height:30px!important}}
 
- .nn-p20 .nn-ring:not([data-seat-count="4"]) .nn-seat-shell{width:min(96px,calc(84% / var(--nn-landscape-columns) - 6px))!important}
+ .nn-p20 .nn-ring:not([data-seat-count="4"]) .nn-seat-shell{width:min(116px,calc(84% / var(--nn-landscape-columns) - 5px))!important}
  .nn-p20 .nn-ring:not([data-seat-count="4"]) .nn-stage{inset:33% 21% 33%}
  .nn-p20 .nn-ring:not([data-seat-count="4"]) .nn-seat-shell .nn-seat-info strong{font-size:10px;white-space:normal;line-height:1.1}
 
  /* Override the portrait-only <=800px rule: landscape public cards remain visible. */
  .nn-p20 .nn-ring .nn-table-plays{display:block}
- .nn-p20 .nn-ring .nn-seat-shell .nn-seat{height:36px;min-height:36px;max-height:36px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat{height:40px;min-height:40px;max-height:40px}
  .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info{min-width:0;flex:1;width:auto;line-height:1.1}
- .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info strong{font-size:9px;line-height:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
- .nn-p20 .nn-ring .nn-seat-shell .nn-seat small{font-size:8px;line-height:10px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info strong{font-size:11px;line-height:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat small{font-size:9px;line-height:11px}
  .nn-p20 .nn-ring .nn-seat-shell .nn-actor-tag,.nn-p20 .nn-ring .nn-seat-shell .nn-execution-tag{font-size:7px;line-height:10px;white-space:nowrap}
- .nn-p20 .nn-ring[data-dense=true] .nn-seat-shell .nn-seat>.player-avatar{width:16px}
+ .nn-p20 .nn-ring[data-dense=true] .nn-seat-shell .nn-seat>.player-avatar{width:18px}
+ .nn-p20 .nn-journal .room-chat-tools{position:static;inset:auto;display:flex;justify-content:stretch;pointer-events:auto}
+ .nn-p20 .nn-journal .room-chat-toggle{width:100%;min-height:40px;font-size:11px;padding:3px}
+ .nn-p20 .nn-journal .room-chat-drawer{inset:auto 8px max(6px,var(--chat-keyboard));max-height:calc(var(--chat-viewport,100dvh) - 12px)}
+ .nn-p20 .nn-status-label{position:static;width:auto;height:auto;clip-path:none;overflow:visible;font-size:8px}
+ .nn-p20 .nn-ring .nn-seat-status{display:grid;grid-template-columns:auto auto;justify-content:start;gap:0 1px;white-space:nowrap}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info{display:block}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info strong{height:13px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info>small:not(.nn-seat-status){position:absolute;bottom:-3px;right:31px;background:#171c2b;border-radius:2px;padding:0 2px;max-width:calc(100% - 32px)}
+ .nn-p20 .nn-ring .nn-seat-info:has(.nn-actor-tag,.nn-execution-tag)>small:not(.nn-seat-status,.nn-actor-tag,.nn-execution-tag){display:none}
+ main.game-page:has(>.nn-p20)>.room-panel-finished{position:fixed;bottom:6px;left:8px;z-index:8;width:min(480px,calc(100vw - 16px));max-height:calc(var(--ninja-viewport-height,100dvh) - 52px);overflow:auto;margin:0;padding:6px}
+ main.game-page:has(>.nn-p20)>.room-panel-finished[data-mobile-open=false]{width:auto}
+ main.game-page:has(>.nn-p20)>.room-panel-finished[data-mobile-open=false]>:not(.nn-mobile-room-toggle){display:none}
+ main.game-page:has(>.nn-p20) .nn-mobile-room-toggle{display:block;position:sticky;top:0;min-height:36px;font-size:12px}
+ /* P3.1: compact, bounded content; selectors intentionally landscape-only. */
+ .nn-p20 .nn-operation :is(.nn-hand-card,.nn-choice-card){flex:none;max-width:76px}
+ .nn-p20 .nn-hand-card .nn-card-compact{display:flex;flex-direction:column;width:100%;min-width:0;box-sizing:border-box}
+ .nn-p20 .nn-hand-card .nn-card-art{width:100%}
+ .nn-p20 .nn-hand-card .nn-card-art img{height:30px;object-fit:cover}
+ .nn-p20 .nn-hand-card .nn-card-copy{width:100%;min-width:0;padding:1px;box-sizing:border-box}
+ .nn-p20 .nn-hand-card .nn-card-copy strong{font-size:10px;line-height:12px;overflow-wrap:anywhere}
+ .nn-p20 .nn-hand-card .nn-card-copy small,.nn-p20 .nn-hand-card>small{font-size:9px;line-height:11px}
+ .nn-p20 .nn-choice-card .nn-card-copy strong{line-height:12px;overflow-wrap:anywhere}
+ .nn-p20 .nn-choice-card>strong{display:none}
+ .nn-p20 .nn-action-deck{touch-action:pan-x;overscroll-behavior:contain;scroll-padding:4px}
+ .nn-p20 .nn-operation button{box-sizing:border-box}
+ .nn-p20 .nn-confirm{font-size:10px;line-height:12px}.nn-p20 .nn-confirm button{min-height:40px;max-width:100%;min-width:0}
+ .nn-p20 .nn-confirm .primary{min-width:0}
+ .nn-p20 .nn-operation h3{font-size:11px;overflow-wrap:anywhere}
+ .nn-p20 .nn-operation :is(.nn-target-trail,.nn-pair-progress){font-size:10px;line-height:12px;margin:0}
+ .nn-p20 .nn-stage{line-height:1.3;overscroll-behavior:contain}
+ .nn-p20 .nn-stage p{margin:2px 0;font-size:11px;line-height:1.3}
+ .nn-p20 .nn-stage :is(h2,h3){font-size:14px;line-height:1.2;margin:3px 0}
+ .nn-p20 .nn-active-card>.nn-card-face{max-width:110px;flex:none}
+ .nn-p20 .nn-active-card .nn-card-art{width:28px}.nn-p20 .nn-active-card .nn-card-art img{height:40px}
+ .nn-p20 .nn-active-card .nn-card-copy strong{font-size:10px}
+ .nn-p20 .nn-stage .nn-event{gap:4px;padding:3px;min-height:0}
+ .nn-p20 .nn-stage .nn-event>img{width:32px;height:44px;object-fit:cover}
+ .nn-p20 .nn-featured-actors img{width:20px;height:20px}
+ .nn-p20 .nn-reveal{gap:3px;display:flex;flex-wrap:wrap}.nn-p20 .nn-reveal img{width:18px;height:24px;object-fit:cover}
+ .nn-p20 .nn-reveal>span{font-size:10px;display:inline-flex;align-items:center;gap:2px}
+ .nn-p20[data-mode=champion] .nn-stage{display:flex;flex-direction:column;justify-content:flex-start}
+ .nn-p20[data-mode=champion] .nn-champion{order:-1;flex:none;padding:3px}
+ .nn-p20 .nn-champion-cards{display:flex;justify-content:center;gap:4px;flex-wrap:wrap}
+ .nn-p20 .nn-champion-cards figure{display:flex;align-items:center;gap:3px;margin:0;font-size:11px}
+ .nn-p20 .nn-champion-cards img{max-width:24px;max-height:28px;object-fit:cover}
+ .nn-p20 .nn-private-toast{max-width:65%;left:17.5%;max-height:75%;top:5%;padding:6px;line-height:1.3}
+ .nn-p20 .nn-private-toast p{font-size:11px;margin:3px}.nn-p20 .nn-private-toast button{min-height:36px}
+ .nn-p20 .nn-private-toast .nn-identity-card-art{width:30px}.nn-p20 .nn-private-toast .nn-identity-card-art img{max-height:44px}
+ .nn-p20 .nn-mobile-rules .nn-rule-entry{display:flex;flex-direction:column;gap:3px}
+ .nn-p20 .nn-mobile-rules{display:flex;flex-direction:column;gap:3px}.nn-p20 .nn-mobile-rules button{min-height:32px;padding:2px;font-size:11px}
+ .nn-p20 .nn-journal>button{min-height:40px;font-size:11px;line-height:1.2;white-space:normal}
+ body:has(.nn-p20) dialog{box-sizing:border-box;max-width:calc(100vw - 16px);max-height:calc(var(--ninja-viewport-height,100dvh) - 12px);font-size:13px;line-height:1.4;overscroll-behavior:contain}
+ body:has(.nn-p20) dialog h2{font-size:17px}body:has(.nn-p20) dialog>header{position:sticky;top:0;z-index:2;background:#171c2b}
+ body:has(.nn-p20) dialog button{min-height:36px}
+ .nn-p20 :is(.nn-decision-intel,.nn-merchant-panel){max-height:72px;overflow:auto;font-size:11px}
 }
+
+@media (orientation:landscape) and (max-width:1000px) and (max-height:500px){
+ .nn-p20 .nn-ring .nn-seat-shell,.nn-p20 .nn-ring:not([data-seat-count="4"]) .nn-seat-shell{width:17%!important;max-width:130px;grid-template-columns:minmax(0,1fr) 26px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat{height:calc((100dvh - 180px) / var(--nn-landscape-columns) - 4px);min-height:22px;max-height:40px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger{width:24px;min-height:0;height:100%;max-height:40px}
+ .nn-p20 .nn-ring .nn-seat-status{display:flex;flex-wrap:wrap;font-size:9px}
+ .nn-p20 .nn-ring .nn-stage,.nn-p20 .nn-ring:has(.nn-table-play) .nn-stage,.nn-p20 .nn-ring:not([data-seat-count="4"]) .nn-stage{inset:5px 26%;}
+ .nn-p20 .nn-action-deck .nn-choice-pass{min-width:76px;width:76px;min-height:40px;font-size:11px;padding:3px}
+ .nn-p20 .nn-choice-pass strong{font-size:11px}.nn-p20 .nn-choice-pass .nn-choice-symbol{width:18px;height:18px;font-size:12px}
+ .nn-p20 .nn-action-deck .nn-choice-card,.nn-p20 .nn-action-deck .nn-hand-card{width:74px;min-width:74px;max-width:74px}
+ .nn-p20 .nn-action-deck .nn-card-face{display:flex;flex-direction:column;width:100%}
+ .nn-p20 .nn-action-deck .nn-card-art{width:100%}.nn-p20 .nn-action-deck .nn-card-art img{height:38px!important}
+}
+
+@media (orientation:landscape) and (max-width:1000px) and (max-height:500px){
+ .nn-p20 .nn-ring{container-type:size}
+ .nn-p20 .nn-ring .nn-seat-shell{height:min(42px,calc(100cqh / var(--nn-landscape-columns) - 1px));box-sizing:border-box}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat{height:100%;min-height:0;max-height:none;box-sizing:border-box;padding:0 2px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info{line-height:10px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info strong{height:12px;line-height:12px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-status{display:flex;flex-wrap:nowrap;white-space:nowrap;gap:1px;margin:0;line-height:10px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-identity-trigger{box-sizing:border-box;align-self:stretch;max-height:none}
+}
+
+@media (orientation:landscape) and (max-width:1000px) and (max-height:500px){.nn-p20 .nn-ring:not(:has(.nn-table-play)) .nn-stage{inset:5px 26%}}
+
+@media (orientation:landscape) and (max-width:1000px) and (max-height:500px){
+ .nn-p20 .nn-operation>.nn-hand{display:flex;position:static;grid-column:2;grid-row:1/span 5;min-width:0;max-height:76px;overflow-x:auto;flex-wrap:nowrap;padding:2px;justify-content:flex-start;margin-right:96px}
+ .nn-p20 .nn-operation>.nn-hand>.nn-card-face{width:74px;min-width:74px;display:flex;flex-direction:column;box-sizing:border-box}
+ .nn-p20 .nn-operation>.nn-hand .nn-card-art{width:100%}.nn-p20 .nn-operation>.nn-hand .nn-card-art img{height:38px}
+ .nn-p20 .nn-operation>.nn-hand .nn-card-copy{padding:1px}.nn-p20 .nn-operation>.nn-hand .nn-card-copy strong{font-size:10px;line-height:12px}.nn-p20 .nn-operation>.nn-hand .nn-card-copy small{font-size:9px}
+ .nn-p20 .nn-private-toast{pointer-events:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;left:18%;top:8%;max-width:64%;max-height:84%;box-sizing:border-box}
+ .nn-p20 .nn-private-toast>p{grid-column:1;margin:0}.nn-p20 .nn-private-toast>.nn-letter-cards{grid-column:1;flex-wrap:nowrap;overflow-x:auto;min-width:0}.nn-p20 .nn-private-toast>button{grid-column:2;grid-row:1/span 2;align-self:stretch;position:sticky;right:0}
+}
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){.nn-p20 .nn-operation>.nn-hand{height:64px;max-height:64px;box-sizing:border-box;align-self:center;grid-row:1/span 4}.nn-p20 .nn-operation>.nn-hand .nn-card-copy{line-height:10px}.nn-p20 .nn-operation>.nn-hand .nn-card-copy small{line-height:9px}}
+
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){main.game-page:has(>.nn-p20)>.error{position:fixed;top:0;left:20%;right:20%;z-index:40;margin:0;padding:3px 8px;font-size:12px;background:#411f21;display:flex;align-items:center;gap:8px}main.game-page:has(>.nn-p20) .nn-mobile-error-close{display:block;min-height:30px;margin-left:auto}.nn-p20 .nn-operation>.nn-hand{grid-row:1;align-self:start;min-height:0}.nn-p20 .nn-operation{grid-template-rows:repeat(4,minmax(0,1fr))}.nn-p20 .nn-operation>.nn-hand{grid-row:1/span 4}}
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){.nn-p20 .nn-operation{position:relative;grid-template-rows:repeat(5,minmax(0,1fr))}.nn-p20 .nn-operation>.nn-hand{position:absolute;left:120px;right:100px;top:5px;bottom:5px;height:auto;max-height:none;margin:0}}
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){.nn-p20 .nn-operation:has(>.nn-hand):has(.nn-options .nn-action-deck) .nn-action-deck{max-width:calc(50% - 4px)}.nn-p20 .nn-operation:has(.nn-options .nn-action-deck)>.nn-hand{left:calc(116px + (100% - 216px) * .5)}}
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){.nn-p20 .nn-action-deck .nn-card-copy>small,.nn-p20 .nn-operation>.nn-hand .nn-card-copy>small{display:none}.nn-p20 .nn-operation>.nn-hand .nn-card-art img{margin:0}}
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){.nn-p20 .nn-operation>.nn-decision-intel{grid-row:4/span 2;height:100%;max-height:100%;min-height:0;box-sizing:border-box;overflow:auto}}
+
+/* P3.3.1: the private art frame owns both image dimensions; no desktop changes. */
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){
+ .nn-p20 .nn-private-toast .nn-letter-cards{align-items:center;gap:8px;max-width:100%}
+ .nn-p20 .nn-private-toast .nn-letter-cards>*{flex:0 0 auto;box-sizing:border-box}
+ .nn-p20 .nn-private-toast .nn-identity-card{min-width:0;max-width:190px;padding:3px;gap:6px}
+ .nn-p20 .nn-private-toast .nn-identity-card>div{min-width:0;overflow-wrap:anywhere}
+ .nn-p20 .nn-private-toast .nn-identity-card-art{width:32px;height:44px;min-width:32px;flex:none;overflow:hidden}
+ .nn-p20 .nn-private-toast .nn-identity-card-art img{width:100%;height:100%;max-height:none;object-fit:cover;box-sizing:border-box}
+ .nn-p20 .nn-private-toast .nn-identity-rank-badge{top:1px;right:1px;min-width:14px;width:14px;height:14px;font-size:10px;line-height:14px;box-sizing:border-box}
+ .nn-p20 .nn-private-toast .nn-card-compact{width:130px;min-width:0;max-width:130px;box-sizing:border-box}
+ .nn-p20 .nn-private-toast .nn-card-compact .nn-card-art{width:32px;height:44px;flex:none}
+ .nn-p20 .nn-private-toast .nn-card-compact .nn-card-art img{width:100%;height:100%;object-fit:cover;margin:0}
+ .nn-p20 .nn-private-toast .nn-card-compact .nn-card-copy{min-width:0;flex:1;padding:3px}
+ .nn-p20 .nn-private-toast .nn-card-compact .nn-card-copy strong{font-size:11px;overflow-wrap:anywhere}
+ .nn-p20 .nn-private-toast .nn-honor{width:36px;height:36px;flex:none}
+ .nn-p20 .nn-private-toast .nn-honor img{width:100%;height:100%;object-fit:contain}
+}
+
+/* P3.3.2 ownership: summary, action deck, confirmation, and persistent chat. */
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){
+ .nn-p20{--nn-chat-width:clamp(190px,27vw,250px)}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat{position:relative;left:auto!important;top:auto!important;display:block}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat>.player-avatar{position:absolute;width:12px;left:1px;bottom:1px}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:12px 10px;gap:0;align-content:start}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info strong{font-size:11px;grid-column:1/-1;grid-row:1}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info>.nn-seat-status{grid-column:1;grid-row:2}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info>small:not(.nn-seat-status){grid-column:2;grid-row:2;font-size:7px;line-height:10px;white-space:nowrap}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-info:has(.nn-execution-tag)>small:not(.nn-seat-status):not(.nn-execution-tag),.nn-p20 .nn-ring .nn-seat-shell .nn-seat-info:has(.nn-actor-tag)>small:not(.nn-seat-status):not(.nn-actor-tag){display:none}
+ .nn-p20 .nn-ring .nn-seat-shell .nn-seat-status{padding-left:12px;font-size:8px;gap:0}
+ .nn-p20 .nn-self-suffix{display:none}
+ .nn-p20 .nn-seat-name-text{display:block;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .nn-p20 .nn-journal{grid-area:2/2/3/3}
+ .nn-p20 .nn-operation{grid-area:3/1/4/3;margin-right:calc(var(--nn-chat-width) + 3px)}
+ /* Explicit columns prevent private skill previews from creating an implicit track. */
+ .nn-p20 .nn-operation>.nn-decision-intel{grid-column:1;min-width:0}
+ .nn-p20 .nn-operation:not([data-merchant=true]):not([data-complex=true]):has(>.nn-decision-intel){grid-template-columns:116px minmax(0,1fr) 52px}
+ .nn-p20 .nn-operation:not([data-merchant=true]):not([data-complex=true]):has(>.nn-decision-intel)>.nn-mobile-card-info{grid-column:3;grid-row:1/span 5;width:52px;align-self:center;min-height:36px}
+ .nn-p20 .nn-operation:not([data-merchant=true]):not([data-complex=true]):has(>.nn-decision-intel)>.nn-hand{right:154px;left:calc(116px + (100% - 270px) * .5)}
+ .nn-p20 .nn-operation>.nn-target-trail{grid-column:1;grid-row:3;font-size:9px;line-height:11px;min-height:0;overflow-x:auto;white-space:nowrap}
+ .nn-p20 .nn-operation:has(>.nn-target-trail)>h3{grid-row:1/span 2}
+ .nn-p20 .nn-operation[data-merchant=true] .nn-prompt-full{display:none}
+ .nn-p20 .nn-operation[data-merchant=true] .nn-prompt-merchant{display:inline}
+ /* The exchange panel already shows the inspected token and its exact value. */
+ .nn-p20 .nn-operation[data-merchant=true]>.nn-decision-intel{display:none}
+ .nn-p20 .nn-action-deck .nn-choice:not(.nn-choice-card){flex:none;box-sizing:border-box;width:64px;min-width:64px;max-height:60px;min-height:40px;padding:2px;gap:2px;font-size:11px;line-height:12px}
+ .nn-p20 .nn-action-deck .nn-choice:not(.nn-choice-card)>strong{font-size:11px;line-height:12px}
+ .nn-p20 .nn-action-deck .nn-choice-symbol{width:18px;height:18px;font-size:12px}
+ .nn-p20 .nn-action-deck .nn-choice:not(.nn-choice-card) .nn-honor{width:24px;height:24px}
+ .nn-p20 .nn-action-deck .nn-choice:not(.nn-choice-card) .nn-choice-selected{position:absolute;top:0;bottom:auto;right:1px;font-size:9px;line-height:10px}
+ .nn-p20 .nn-confirm{gap:1px;padding:1px;font-size:9px;line-height:11px}
+ .nn-p20 .nn-confirm button{min-height:36px}
+ .nn-p20 .nn-operation>h3{grid-row:1/span 3;align-self:start;margin:0;font-size:11px;line-height:13px}
+ .nn-p20 .nn-operation>.nn-mobile-card-info{grid-row:4/span 2;align-self:end;min-height:28px;margin:0}
+ .nn-p20 .room-chat.is-inline{position:absolute;right:3px;bottom:3px;width:var(--nn-chat-width);height:78px;box-sizing:border-box;padding:0;margin:0;z-index:5}
+ .nn-p20 .room-chat.is-inline .room-chat-tools{display:none}
+ .nn-p20 .room-chat.is-inline .room-chat-heading{display:flex;height:12px;flex:none}.nn-p20 .room-chat.is-inline .room-chat-heading h3{font-size:10px;line-height:12px;margin:0}.nn-p20 .room-chat.is-inline .room-chat-heading button{display:none}
+ .nn-p20 .room-chat.is-inline .room-chat-drawer{position:static;visibility:visible;inset:auto;display:flex;flex-direction:column;height:100%;max-height:none;box-sizing:border-box;padding:3px;overflow:hidden}
+ .nn-p20 .room-chat.is-inline .room-chat-list{flex:1;min-height:0;max-height:none;margin:0;overflow:auto;font-size:11px;line-height:13px}
+ .nn-p20 .room-chat.is-inline [aria-live=polite]{position:absolute;right:4px;bottom:31px;z-index:1}
+ .nn-p20 .room-chat.is-inline [aria-live=polite] button{min-height:16px;font-size:9px;padding:1px}
+ .nn-p20 .room-chat.is-inline form{flex-wrap:nowrap;gap:2px;margin:0;flex:none}
+ .nn-p20 .room-chat.is-inline input{min-width:0;width:0;min-height:26px;height:26px;box-sizing:border-box;padding:2px;font-size:12px}
+ .nn-p20 .room-chat.is-inline button{min-height:26px;padding:2px;font-size:11px}
+ .nn-p20 .nn-operation[data-merchant=true] .nn-merchant-panel{width:auto;box-sizing:border-box;height:100%;max-height:none;display:grid;grid-template-columns:minmax(0,1fr) 48px;grid-template-rows:12px minmax(0,1fr);gap:2px;margin-right:80px;min-height:0;overflow:hidden}
+ .nn-p20 .nn-merchant-panel>p{grid-column:1/-1;font-size:10px;line-height:12px;margin:0;white-space:nowrap;overflow:auto}
+ .nn-p20 .nn-merchant-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;min-height:0;min-width:0}
+ .nn-p20 .nn-merchant-columns>div{padding:1px;min-width:0}
+ .nn-p20 .nn-merchant-columns h4{font-size:10px;line-height:11px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .nn-p20 .nn-merchant-tokens{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:2px}
+ .nn-p20 .nn-merchant-tokens button{display:flex;flex-direction:column;align-items:center;gap:0;flex:none;min-width:40px;min-height:36px;padding:1px;font-size:9px}
+ .nn-p20 .nn-merchant-tokens button small{font-size:8px;line-height:10px;white-space:nowrap}
+ .nn-p20 .nn-merchant-tokens .nn-honor{width:24px;height:24px}
+ .nn-p20 .nn-merchant-pass{grid-column:2;grid-row:2;font-size:10px;min-height:36px;padding:2px}
+ .nn-p20 .nn-operation[data-merchant=true]>.nn-hand{left:auto;right:100px;width:76px}
+
+ .nn-p20 .nn-pair-full{display:none}.nn-p20 .nn-operation:has(.nn-pair-mobile)>h3{grid-row:1;white-space:nowrap}
+ .nn-p20 .nn-operation:has(.nn-pair-mobile) .nn-prompt-full{display:none}.nn-p20 .nn-prompt-pair{display:inline}
+ .nn-p20 .nn-pair-mobile{display:grid;grid-row:2/span 2;grid-column:1;font-size:10px;line-height:13px;min-width:0;align-content:center}
+ .nn-p20 .nn-pair-mobile>span{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+ @media(max-height:340px){.nn-p20 .room-chat.is-inline{height:72px}}
+}
+.nn-award-identity{display:none}
+/* P3.3.3: private skill workspace stays within the existing central stage. */
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){
+ .nn-p20 .nn-stage:has(>.nn-mobile-skill){padding:0;overflow:hidden}
+ .nn-p20 .nn-stage:has(>.nn-mobile-skill)>:not(.nn-mobile-skill){display:none}
+ .nn-p20 .nn-mobile-skill{position:absolute;inset:0;display:flex;flex-direction:column;gap:4px;padding:4px;box-sizing:border-box;background:#1b2233;min-height:0;z-index:2;font-size:11px;line-height:1.2}
+ .nn-mobile-skill>header{display:flex;gap:6px;align-items:center;flex:none;min-width:0;font-size:11px;line-height:14px}
+ .nn-mobile-skill>header>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .nn-mobile-skill :is(button,h4,p){margin:0;box-sizing:border-box}
+ .nn-mobile-skill button{min-height:36px;min-width:0;padding:2px;font-size:11px;line-height:12px;border:1px solid #9c835a;border-radius:5px;touch-action:manipulation}
+ .nn-mobile-skill button[aria-pressed=true]{outline:2px solid #f1c570;outline-offset:-2px;background:#65522b}
+ .nn-mobile-effect-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(60px,1fr));gap:4px;overflow:auto;min-height:0;align-content:start;padding:2px}
+ .nn-mobile-effect-grid>button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:46px}
+ .nn-mobile-effect-grid strong{font-size:10px;line-height:12px;overflow-wrap:anywhere}
+ .nn-mobile-skill .nn-honor{width:28px;height:28px;flex:none;display:inline-block;position:relative}
+ .nn-mobile-skill .nn-honor img{width:100%;height:100%;object-fit:contain}
+ .nn-mobile-skill .nn-honor b{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;color:#2b1d13}
+ .nn-mobile-read-hint{font-size:10px;line-height:12px;flex:none;color:#dfcba9}
+ .nn-mobile-house-back{width:26px;height:36px;object-fit:contain}
+ .nn-mobile-exchange{display:flex;flex-direction:column;gap:4px;min-height:0;flex:1}
+ .nn-mobile-token-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;min-height:0;overflow:auto;flex:1;padding:2px}
+ .nn-mobile-token-columns>section{min-width:0}
+ .nn-mobile-token-columns h4{font-size:10px;line-height:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+ .nn-mobile-token-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(36px,1fr));gap:3px}
+ .nn-mobile-token-grid>button{display:flex;flex-direction:column;align-items:center;gap:1px;min-height:45px}
+ .nn-mobile-token-grid small{font-size:9px;line-height:10px;white-space:nowrap}
+ .nn-mobile-pass{flex:none;align-self:center;min-width:86px!important}
+ .nn-mobile-identities{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;min-height:0;overflow:auto;flex:1}
+ .nn-mobile-identities .nn-identity-card{display:grid;grid-template-columns:clamp(36px,4.8vw,48px) minmax(0,1fr);min-width:0;width:100%;box-sizing:border-box;align-items:center;gap:4px;padding:2px}
+ .nn-mobile-identities .nn-identity-card-art{width:clamp(36px,4.8vw,48px);height:clamp(50px,6.7vw,66px);min-width:0;overflow:hidden}
+ .nn-mobile-identities .nn-identity-card-art>img{width:100%;height:100%;object-fit:contain}
+ .nn-mobile-identities .nn-identity-rank-badge{width:14px;min-width:14px;height:14px;top:1px;right:1px;font-size:10px;line-height:14px}
+ .nn-mobile-identities .nn-identity-card>div{min-width:0;overflow-wrap:anywhere;font-size:10px;line-height:12px}
+ .nn-mobile-identities .nn-identity-card strong{font-size:12px}
+ .nn-mobile-pair{display:grid;gap:6px;padding:6px;min-height:0;overflow:auto}
+ .nn-mobile-pair>div{display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px;padding:5px;border:1px solid #8b7756;border-radius:5px}
+ .nn-mobile-pair span{min-width:0;overflow-wrap:anywhere}
+ .nn-p20 .nn-operation[data-complex=true]{grid-template-columns:116px minmax(0,1fr)}
+ .nn-p20 .nn-operation[data-complex=true]>:is(h3,.nn-target-trail,.nn-decision-intel,.nn-pair-mobile){display:none}
+ .nn-p20 .nn-operation[data-complex=true] .nn-options>:not(.nn-confirm){display:none!important}
+ .nn-p20 .nn-operation[data-complex=true]>.nn-mobile-card-info{grid-column:1;grid-row:1/span 5;align-self:center;min-height:36px;width:90px}
+ .nn-p20 .nn-operation[data-complex=true]>.nn-hand{left:120px;right:100px}
+ .nn-p20 .nn-stage:has(.nn-round-result){grid-auto-rows:max-content;align-content:start}
+ .nn-p20 .nn-stage:has(.nn-round-result)>*{flex-shrink:0}
+ .nn-p20 .nn-event[data-event=honor]{display:grid;grid-template-columns:minmax(0,1fr) 22px;align-items:start}
+ .nn-p20 .nn-event[data-event=honor]>img{width:22px;height:22px;object-fit:contain}
+ .nn-p20 .nn-event:is([data-event=honor],[data-event=reveal]) .nn-featured-actors{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:4px;min-width:0;padding:2px;box-sizing:border-box}
+ .nn-p20 .nn-event:is([data-event=honor],[data-event=reveal]) .nn-featured-actors>span{display:flex;align-items:center;gap:3px;min-width:0;overflow-wrap:anywhere;font-size:10px;line-height:12px;scroll-margin:4px}
+ .nn-p20 .nn-event[data-event=honor] .nn-featured-actors>span{display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center}
+ .nn-p20 .nn-event[data-event=honor] .nn-featured-actors img{grid-column:1;grid-row:1/span 2}
+ .nn-p20 .nn-award-identity{display:block;grid-column:2;grid-row:2;font-size:9px;line-height:11px;overflow-wrap:anywhere;color:#d9c396}
+ .nn-p20 .nn-event:is([data-event=honor],[data-event=reveal]) .nn-featured-actors img{width:24px;height:24px;object-fit:cover;flex:none}
+ .nn-p20 .nn-event[data-event=reveal] .nn-reveal{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:4px}
+ .nn-p20 .nn-event[data-event=reveal] .nn-reveal>span{min-width:0;overflow-wrap:anywhere;white-space:normal;font-size:10px}
+ .nn-p20 .nn-event[data-event=reveal] .nn-reveal img{width:22px;height:30px;object-fit:contain;flex:none}
+ .nn-p20 .nn-round-result img{width:20px;height:20px;object-fit:contain}
+ .nn-p20 .nn-champion-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:4px}
+ .nn-p20 .nn-champion-cards figure{min-width:0;overflow-wrap:anywhere}
+ .nn-p20 .nn-champion-cards img{width:28px;height:28px;object-fit:cover;flex:none}
+}
+/* P4 auxiliary surfaces: ninja landscape only; keep the existing table and desktop. */
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){
+ body:has(.nn-p20) dialog{overflow:auto;scroll-padding-top:54px}
+ body:has(.nn-p20) dialog>header{top:0;margin:0;z-index:3;gap:8px}
+ body:has(.nn-p20) dialog>header h2{min-width:0;overflow-wrap:anywhere}
+ body:has(.nn-p20) dialog>header button{flex:none}
+ .nn-play-drawer{height:var(--ninja-viewport-height,100dvh);padding:6px}
+ .nn-play-grid{gap:6px}.nn-play-grid article{margin-top:0;font-size:12px}
+ .nn-play-grid .nn-card-face{gap:5px;padding:4px;align-items:start}
+ .nn-play-grid .nn-card-art{flex:none;width:48px}
+ .nn-play-grid .nn-card-art img{width:48px;height:66px;object-fit:contain}
+ .nn-play-grid .nn-card-copy{font-size:11px;line-height:1.4}
+ .nn-play-grid .nn-card-copy strong{font-size:14px}
+ .nn-play-grid p{margin:5px 0}
+ .nn-p20 .nn-intel,.nn-p20 .nn-replay{min-width:0}
+ .nn-p20 :is(.nn-intel-evidence,.nn-replay-person,.nn-replay-cards){min-width:0;max-width:100%;flex-wrap:wrap;overflow-wrap:anywhere}
+ .nn-p20 :is(.nn-intel-evidence,.nn-replay-row) .nn-identity-card{min-width:0;max-width:100%;box-sizing:border-box}
+ .nn-p20 .nn-replay-row .nn-card-face{max-width:100%;box-sizing:border-box}
+ .nn-p20 .room-chat.is-inline .room-chat-heading{height:18px;align-items:center;justify-content:space-between}
+ .nn-p20 .room-chat.is-inline .room-chat-heading button{display:inline-block;min-height:18px;padding:0 4px;font-size:10px}
+ .nn-p20 .room-chat.is-expanded .room-chat-drawer{position:fixed;inset:auto max(8px,env(safe-area-inset-right)) calc(var(--chat-keyboard) + 4px) auto;width:min(420px,calc(100vw - 16px));height:min(240px,calc(var(--chat-viewport,100dvh) - 16px));max-height:calc(var(--chat-viewport,100dvh) - 16px);z-index:20;padding:6px}
+ .nn-p20 .room-chat.is-expanded .room-chat-heading{height:32px}
+ .nn-p20 .room-chat.is-expanded .room-chat-heading button{min-height:32px;font-size:12px}
+ .nn-p20 .room-chat.is-expanded .room-chat-list{font-size:13px;line-height:1.5}
+ .nn-p20 .room-chat.is-expanded input{height:32px;min-height:32px;font-size:16px}
+ .nn-p20 .room-chat.is-expanded form>button{min-height:32px}
+ @media(max-height:260px){.nn-p20 .room-chat.is-inline:has(form:focus-within) .room-chat-drawer{position:fixed;right:8px;bottom:calc(var(--chat-keyboard) + 4px);width:min(420px,calc(100vw - 16px));height:min(220px,calc(var(--chat-viewport,100dvh) - 12px));max-height:calc(var(--chat-viewport,100dvh) - 12px);z-index:20}}
+}
+@media(orientation:landscape) and (max-width:1000px) and (max-height:500px){.nn-play-grid .nn-card-face{grid-template-columns:48px minmax(0,1fr);max-width:none}}

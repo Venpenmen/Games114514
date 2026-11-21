@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed,ref} from 'vue'
+import {computed,ref,onMounted} from 'vue'
 import Die from '../../../games/dice-werewolf/Die.vue'
 import ninja0 from './guides/ninja-draft1.jpg'
 import ninja1 from './guides/ninja-draft2.jpg'
@@ -16,6 +16,27 @@ const ninja=computed(()=>props.gameId==='night-of-the-ninja')
 const dice=computed(()=>props.gameId==='dice-werewolf')
 const names:Record<string,string>={'night-of-the-ninja':'忍者之夜','ghost-candle':'诡吹灯','dice-werewolf':'骰子狼人杀'}
 const selected=ref(0)
+const mobileGuide=ref(false)
+onMounted(()=>{mobileGuide.value=matchMedia('(max-width:1000px) and (max-height:500px) and (orientation:landscape)').matches})
+import mobile0 from './guides/ninja-mobile-draft1.jpg'
+import mobile1 from './guides/ninja-mobile-draft2.jpg'
+import mobile2 from './guides/ninja-mobile-commit.jpg'
+import mobile3 from './guides/ninja-mobile-target.jpg'
+import mobile4 from './guides/ninja-mobile-choice.jpg'
+import mobile5 from './guides/ninja-mobile-reaction.jpg'
+import mobile6 from './guides/ninja-mobile-review.jpg'
+const mobileImages:Record<string,string>={'./guides/ninja-mobile-draft1.jpg':mobile0,'./guides/ninja-mobile-draft2.jpg':mobile1,'./guides/ninja-mobile-commit.jpg':mobile2,'./guides/ninja-mobile-target.jpg':mobile3,'./guides/ninja-mobile-choice.jpg':mobile4,'./guides/ninja-mobile-reaction.jpg':mobile5,'./guides/ninja-mobile-review.jpg':mobile6}
+const mobileKeys=['draft1','draft2','commit','target','choice','reaction','review']
+const mobileText=[
+ '① 点击底部手牌，已选牌上浮；② 确认保留；③ 顶栏返回/房间/指南/设置；④ 右侧规则、出牌区与情报入口。',
+ '① 从收到的两张中保留一张；② 第一张保持锁定；③ 确认第二步；④ 传牌按真实相邻座次进行。',
+ '① 选择合法牌，或「本阶段不出牌」；② 统一确认；③ 两侧名片旁点击身份牌详情；④ 中央显示公开演出。',
+ '① 金框为已选目标，再点取消；② 中央显示正在执行的技能；③ 确认目标；④ 右侧查看出牌区、时间线、私人情报。',
+ '① 两名目标的身份仅本人可见；② 选择交换或不交换，随后按提示揭示/隐藏；③ 底部确认；④ 核对目标顺序。商人同样在中央查阅和选择双方荣誉。',
+ '① 受攻击者选择合法反应或不使用反应；② 留意反应时间；③ 确认；④ 死亡以服务端最终裁决为准。',
+ '① 右侧时间线、私人情报、出牌区及轮末复盘；② 中央轮末结果；③ 轮次与阶段；④ 返回大厅保留席位。右下角可直接输入聊天，展开阅读记录，关闭后回到手牌操作。'
+]
+const shownNinjaSteps=computed(()=>mobileGuide.value?ninjaSteps.map((s,i)=>({...s,src:mobileImages['./guides/ninja-mobile-'+mobileKeys[i]+'.jpg'],text:mobileText[i]})):ninjaSteps)
 const ninjaSteps=[
  {src:ninja0,title:'两步轮抽 · 第一步保留',text:'点选一张手牌上浮，再点确认。其余两张向左传；中央只展示传牌提示。顶部可返回大厅、查看房间号、打开指南或设置。'},
  {src:ninja1,title:'两步轮抽 · 第二步保留',text:'第一步保留牌已锁定；从新收到的两张中再保留一张，然后确认。传牌演出结束后操作计时才开始。'},
@@ -32,8 +53,9 @@ const ninjaSteps=[
     <header><div><small>界面操作教学 · 非实际对局</small><h2>{{ names[gameId] }} · UI 操作指南</h2></div><button autofocus @click="dialog?.close()">关闭</button></header>
     <p>下面使用真实卡牌组件与界面结构示意。点击示意不会提交游戏操作；具体效果与优先级请查阅「游戏规则」。</p>
     <section v-if="ninja" class="ninja-screenshots">
+      <nav aria-label="指南版本"><button :aria-pressed="!mobileGuide" @click="mobileGuide=false">桌面指南</button><button :aria-pressed="mobileGuide" @click="mobileGuide=true">手机横屏指南</button></nav>
       <p>以下为隔离真实四人对局截图，青色编号框是教学标注。点击图片可查看清晰原图；截图中的身份、手牌和房间号仅为该次测试示例。</p>
-      <figure v-for="(step,i) in ninjaSteps" :key="step.src"><h3>{{ i+1 }} · {{ step.title }}</h3>
+      <figure v-for="(step,i) in shownNinjaSteps" :key="i"><h3>{{ i+1 }} · {{ step.title }}</h3>
         <a :href="step.src" target="_blank" rel="noopener" :aria-label="step.title+'：查看原图'"><img :src="step.src" :alt="step.title+'，实际界面和操作区域编号标注'" loading="lazy"></a>
         <figcaption>{{ step.text }}</figcaption>
       </figure>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {ref} from 'vue'
+import ViewportMode from '../../../games/night-of-the-ninja/ViewportMode.vue'
 import GameUIGuide from './GameUIGuide.vue'
 import {effects} from './effects.ts'
 defineProps<{code:string;gameId:string;speed?:number}>()
@@ -10,6 +11,7 @@ const confirm=ref<HTMLDialogElement>(),settings=ref<HTMLDialogElement>()
   <nav class="game-toolbar" :data-theme="gameId" aria-label="对局导航">
     <button @click="confirm?.showModal()">返回大厅</button><span>房间号：{{ code }}</span>
     <span class="toolbar-spacer"></span><GameUIGuide :game-id="gameId"/>
+    <ViewportMode v-if="gameId==='night-of-the-ninja'"/>
     <button @click="settings?.showModal()">设置</button>
   </nav>
   <dialog ref="confirm" aria-label="返回游戏大厅？"><h2>返回游戏大厅？</h2>
