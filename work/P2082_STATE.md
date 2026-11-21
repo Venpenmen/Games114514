@@ -355,3 +355,9 @@ NEXT_ACTION：交ChatGPT+RDC独立核验候选/矩形/截图及P4差异。P5执�
 - Git发布范围须隔离P20移动前端与并行Gen7/Qwen/ML/TDM实验；禁止无差别提交。
 RELEASE P20.8.2 START：独立codex/release-p2082基于origin/main 3aea31b合并8bff510，README冲突按三游戏正式发布文案整合，排除新引入实验树/所有未提交TDM机器人差异。原工作树保持。生产3199初始未运行，原库备份integrity ok，23sessions/39rooms/506receipts；452690唯一未完结，用户已授权备份后安全终止。NEXT check/test/build及生产副本迁移/权限预演；不得在验证前操作原库/启动生产。
 RELEASE PREDEPLOY VERIFIED：156/156单测、check/build通过；clean release布局4/6/8/9/11全部通过，账户旧确认流程测试已修复重跑，经典/共享/冠军通过；生产副本schema+legacyCookie/认领/TDM拒绝通过，副本三款完整协议对局通过。user已授权备份后终止452690。原DB未动，3199尚未启动。NEXT严格CAS终止该房间，启动隔离release工作树3199，再真实三款生产smoke；公网14938实际指向3216，用户待确认正式入口，不改FRP。备份和旧dist已保留。
+
+## P20.8.2 发布至3199（2026-11-21）
+CODE READY / ISOLATED VERIFIED / DEPLOYED3199 / LOCAL SMOKE VERIFIED。已验收前端8bff510与main3aea31b隔离合并，排除未提交TDM和机器人/ML实验；核心156/156、check/build通过。五人数真实桌面/横屏、账户/经典游戏/共享UI/忍者冠军通过；部署后真实三款Socket.IO完整比赛、聊天、结算与清理通过，生产浏览器1/1和80资源哈希通过。
+原23sessions/39rooms保留，2个旧终局归档；用户授权备份后终止452690，仅清其match并保留席位。backup=项目root/work/logs/production-p2082-backup-20261121-225908，integrity ok，回滚旧runtime在3234副本实测通过。生产使用work/logs/release-p2082、原DB和Cookie命名空间；根启停分派到该隔离版本，不无条件构建混合工作区。
+用户选择公网共用入口本轮保持3216；未改FRP，3199公网/Android真机不标记通过。main最终SHA查询3199/release.json及release工作树work/logs/release-summary.json。未覆盖其他开发工作树；root main旧HEAD/未提交差异保留，正式发布源码在origin/main及独立release树。
+NEXT：P5真机/键盘/触控/方向与工具栏、公网切换后联机重连；正式稳定性回归；P20.8.3只按实际问题修复，音效/规则/ML独立。

@@ -34,3 +34,5 @@ P20.8.1.1 DONE · 桌面外置身份牌与公开牌避让。122/122 自动化、
 P20.8.1.3 INCOMPLETE · 右侧身份牌及返回确认、设置面板已修改。check 通过、全量 123/123、构建通过；6 人布局通过，8 人布局失败。未部署、未提交。NEXT_ACTION: 查看 work/logs/p20-8-1-3-final.log，修正组合碰撞与补充导航交互验收。
 
 P20.8.1.3 DONE · 右侧身份牌组合避让、卡面填充、返回确认和设置。check、123/123、构建、6 项 Edge 分批通过。3216 已备份并更新，HTTP/账户/Socket.IO 验收通过。
+
+P20.8.2 PRODUCTION3199 DEPLOYED（2026-11-21）：隔离release树发布，156/156/check/build、五人数布局/经典/账户、部署后三款完整协议对局/浏览器/80资源通过。原23sessions/39rooms保留，遗留452690按用户授权备份后终止，旧2终局归档。原库/旧dist回滚保留；无TDM。用户选择公网仍3216，本轮不切，Android/P5和3199公网另验。GitHub发布SHA以release.json/release-summary为准。

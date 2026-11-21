@@ -42,3 +42,7 @@ npm.cmd start
 - [后续路线图](work/NINJA_UPDATE_ROADMAP.md)
 
 开发和研究继续在独立工作树进行；main包含已发布产品，不要求将实验数据、模型或测试数据库入库。
+
+## Production release P20.8.2
+3199 runs the isolated verified release. The root machine launchers dispatch to `work/logs/release-p2082`; `start.cmd start` and `start.cmd status` are noninteractive/idempotent, while double-click/no arguments keeps a status console open. No automatic mixed-worktree rebuild occurs.
+Deployment, preserved data, backup/rollback, tests and deferred Android/public checks: [release record](docs/RELEASE_P2082.md). Final commit metadata is served at `/release.json`. The shared public tunnel intentionally remains on3216 by user choice this round; it is not evidence of3199 public acceptance.
